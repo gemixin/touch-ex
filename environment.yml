@@ -1,0 +1,18 @@
+name: touch-fl
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pytorch-gpu
+  - torchvision
+  - scikit-learn
+  - transformers
+  - numpy
+  - pandas
+  - datasets>=2.19
+  - pyarrow>=15
+  - huggingface_hub
+  - pillow
+  - ipykernel
+  - ipywidgets
