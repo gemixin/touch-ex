@@ -14,16 +14,19 @@ class TouchFLDataset(Dataset):
     Date: April 2026
     """
 
-    def __init__(self, dataframe, label_info, norm_stats=None, bg_path=None):
+    def __init__(self, dataframe, label_info, transform_name,
+                 norm_stats=None, bg_path=None):
         """
         Initialise the TouchFLDataset.
 
         Args:
             dataframe (pd.DataFrame): The input DataFrame containing the dataset.
             label_info (dict): A dictionary containing label mappings and materials list.
+            transform_name (str): The name of the transform to apply to the images.
             norm_stats (dict, optional): A dictionary containing mean and std for
-            normalisation.
+                normalisation. Defaults to None, meaning no normalisation will be applied.
             bg_path (str, optional): Path to the background image for subtraction.
+                Defaults to None, meaning no background subtraction will be applied.
         """
 
         # Initialise with the provided dataset dataframe
@@ -32,6 +35,9 @@ class TouchFLDataset(Dataset):
         # Extract label info
         self.label2idx = label_info['label2idx']
         self.material_classes = label_info['materials_list']
+
+        # Store the name of the transform to apply to the images
+        self.transform_name = transform_name
 
         # Store the normalisation stats (mean and std)
         self.norm_stats = norm_stats
@@ -77,8 +83,8 @@ class TouchFLDataset(Dataset):
         row = self.df.iloc[idx]
         img_data = row['image']
 
-        # Process the image (including background subtraction if bg_tensor is provided)
-        img_tensor = process_tactile_image(img_data, self.bg_tensor)
+        # Process the image (including transform and optional background subtraction)
+        img_tensor = process_tactile_image(img_data, self.transform_name, self.bg_tensor)
 
         # Normalise if stats are provided
         if self.norm_stats is not None:
@@ -89,20 +95,20 @@ class TouchFLDataset(Dataset):
         # --- Labels --- #
 
         # Numeric values - convert to tensors
-        force_level_val = torch.tensor(row["force_level"], dtype=torch.long)
-        force_n_val = torch.tensor(row["force_n"], dtype=torch.float32)
-        fsr_voltage_val = torch.tensor(row["fsr_voltage"], dtype=torch.float32)
+        force_level_val = torch.tensor(row['force_level'], dtype=torch.long)
+        force_n_val = torch.tensor(row['force_n'], dtype=torch.float32)
+        fsr_voltage_val = torch.tensor(row['fsr_voltage'], dtype=torch.float32)
 
         # Text values - keep as strings
-        description_value = row["description"]
-        interaction_num_value = row["interaction_num"]
-        frame_num_value = row["frame_num"]
-        interaction_id_value = row["interaction_id"]
+        description_value = row['description']
+        interaction_num_value = row['interaction_num']
+        frame_num_value = row['frame_num']
+        interaction_id_value = row['interaction_id']
 
         # Encode the materials as a multi-hot vector based on the materials list
         materials_vector = torch.zeros(len(self.material_classes), dtype=torch.float32)
         # Get current materials for this sample (may be multiple, separated by ", ")
-        current_materials = row["materials"].split(", ")
+        current_materials = row['materials'].split(', ')
         # Set the corresponding indices in the vector to 1.0 for each material present
         for mat in current_materials:
             if mat in self.material_classes:
@@ -111,15 +117,15 @@ class TouchFLDataset(Dataset):
 
         # Combine features into a single dictionary
         features = {
-            "image": img_tensor,
-            "force_level": force_level_val,
-            "force_n": force_n_val,
-            "fsr_voltage": fsr_voltage_val,
-            "description": description_value,
-            "interaction_num": interaction_num_value,
-            "frame_num": frame_num_value,
-            "interaction_id": interaction_id_value,
-            "materials_vector": materials_vector,
+            'image': img_tensor,
+            'force_level': force_level_val,
+            'force_n': force_n_val,
+            'fsr_voltage': fsr_voltage_val,
+            'description': description_value,
+            'interaction_num': interaction_num_value,
+            'frame_num': frame_num_value,
+            'interaction_id': interaction_id_value,
+            'materials': materials_vector,
         }
 
         # Categorical labels (encoded as class indices)

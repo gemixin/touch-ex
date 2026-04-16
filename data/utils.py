@@ -13,13 +13,10 @@ from sklearn.model_selection import train_test_split
 import torch
 from torchvision import transforms
 import json
-import matplotlib.pyplot as plt
-import numpy as np
 import data.transforms as my_transforms
 
 # Constants for label columns and cache path
 LABEL_COLS = ['object', 'region', 'object_region', 'motion', 'hardness']
-NORM_CACHE_PATH = 'configs/norm_cache.json'
 
 
 def load_touch_fl_dataset():
@@ -33,7 +30,7 @@ def load_touch_fl_dataset():
     return dataset.to_pandas()
 
 
-def split_by_interaction(df, split_size=0.30, stratify_label='object', random_state=52):
+def split_by_interaction(df, split_size, stratify_label, random_state):
     """
     Split a frame-level dataframe by interaction_id using the specified split size and
     stratification label. Splits into train, validation, and test sets.
@@ -138,15 +135,16 @@ def decode_materials(materials_vector, materials_list):
     return active_materials
 
 
-def process_tactile_image(img_data, bg_tensor=None):
+def process_tactile_image(img_data, transform_name, bg_tensor=None):
     """
     Process a tactile image by loading it, optionally subtracting the background,
     and resizing it, before converting it to a tensor.
 
     Args:
         img_data (dict): The image data (a dictionary containing 'bytes' or 'path').
+        transform_name (str): The name of the transform to apply.
         bg_tensor (torch.Tensor, optional): The background tensor to subtract from the
-        image.
+        image. Defaults to None, meaning no background subtraction will be applied.
 
     Returns:
         torch.Tensor: The processed image tensor.
@@ -166,15 +164,15 @@ def process_tactile_image(img_data, bg_tensor=None):
     if bg_tensor is not None:
         img_tensor = img_tensor - bg_tensor
 
-    # Resize the final image
-    resize = my_transforms.pad_224()
+    # Resize the final image using provided transform name
+    resize = my_transforms.get_transform(transform_name)
     img_tensor = resize(img_tensor)
 
     # Return the processed image tensor
     return img_tensor
 
 
-def get_norm_stats(df, dataset_config):
+def get_norm_stats(df, cache_path, dataset_config):
     """
     Get the mean and standard deviation for normalisation, either by loading from cache
     or by calculating from the provided DataFrame. We use a cache to avoid expensive
@@ -183,6 +181,7 @@ def get_norm_stats(df, dataset_config):
 
     Args:
         df (pd.DataFrame): The input DataFrame containing the dataset.
+        cache_path (str): The path to the normalisation cache file.
         dataset_config (dict): The dataset configuration to check against the cache.
 
     Returns:
@@ -190,19 +189,24 @@ def get_norm_stats(df, dataset_config):
     """
 
     # Create a Path object for the cache file
-    path = Path(NORM_CACHE_PATH)
+    path = Path(cache_path)
     # Check if the cache file exists and if the dataset config matches
     if not path.exists():
         cache = None
+        print('No norm cache found.')
     else:
         cache = json.loads(path.read_text())
         if cache.get('dataset_config') != dataset_config:
             cache = None
+            print('Norm cache found but dataset config does not match.')
 
     # If the cache is not found or the dataset config has changed, calculate the stats and
     # save to cache
     if cache is None:
-        print('No norm cache found. Calculating normalisation stats...')
+        print('Calculating normalisation stats...')
+
+        # Get transform name from the dataset config
+        transform_name = dataset_config.get('transform_name')
 
         # Get background path from dataset config
         bg_path = dataset_config.get('bg_path')
@@ -224,8 +228,8 @@ def get_norm_stats(df, dataset_config):
             # Access the image data from the DataFrame row
             row = df.iloc[idx]
             img_data = row['image']
-            # Process the image (including background subtraction if bg_tensor is provided)
-            img_tensor = process_tactile_image(img_data, bg_tensor)
+            # Process the image (including transform and optional background subtraction)
+            img_tensor = process_tactile_image(img_data, transform_name, bg_tensor)
             # Update the pixel count and sums for mean/std calculation
             c, h, w = img_tensor.shape
             pixel_count += h * w
@@ -242,6 +246,8 @@ def get_norm_stats(df, dataset_config):
             'mean': mean.tolist(),
             'std': std.tolist(),
         }
+        # Create the configs directory if it doesn't exist
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2))
         print('Normalisation stats calculated and saved to cache.')
 
@@ -255,32 +261,3 @@ def get_norm_stats(df, dataset_config):
             torch.tensor(cache['mean']),
             torch.tensor(cache['std']),
         )
-
-
-def display_image(img_tensor, title=None, norm_stats=None):
-    """
-    Display an image tensor using matplotlib.
-
-    Args:
-        img_tensor (torch.Tensor): The image tensor to display.
-        title (str, optional): The title to display.
-        norm_stats (tuple, optional): A tuple containing the mean and std for un-normalising
-        if the image tensor was normalised.
-    """
-
-    # Convert the tensor to a numpy array and transpose it to (H, W, C) format for plotting
-    input = img_tensor.numpy().transpose((1, 2, 0))
-
-    # If normalisation stats are provided, un-normalise the image for correct display
-    if norm_stats is not None:
-        mean = norm_stats[0]
-        std = norm_stats[1]
-        input = std * input + mean
-        input = np.clip(input, 0, 1)
-
-    # Display the image using matplotlib
-    plt.imshow(input)
-    if title is not None:
-        plt.title(title)
-    plt.axis('off')
-    plt.show()
