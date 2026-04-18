@@ -24,9 +24,9 @@ class TouchFLDataset(Dataset):
             label_info (dict): A dictionary containing label mappings and materials list.
             transform_name (str): The name of the transform to apply to the images.
             norm_stats (dict, optional): A dictionary containing mean and std for
-                normalisation. Defaults to None, meaning no normalisation will be applied.
+            normalisation. Defaults to None, meaning no normalisation will be applied.
             bg_path (str, optional): Path to the background image for subtraction.
-                Defaults to None, meaning no background subtraction will be applied.
+            Defaults to None, meaning no background subtraction will be applied.
         """
 
         # Initialise with the provided dataset dataframe

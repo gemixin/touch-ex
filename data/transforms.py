@@ -1,3 +1,11 @@
+"""
+A module containing functions for defining and applying image transforms to the tactile
+images in the Touch-FL dataset.
+
+Author: Gemma McLean
+Date: April 2026
+"""
+
 from torchvision import transforms
 
 
@@ -15,16 +23,16 @@ def get_transform(transform_name):
     """
 
     if transform_name == 'pad_224':
-        return pad_224()
+        return _pad_224()
     elif transform_name == 'center_crop_224':
-        return center_crop_224()
+        return _center_crop_224()
     elif transform_name == 'random_crop_224':
-        return random_crop_224()
+        return _random_crop_224()
     else:
         raise ValueError(f'Invalid transform name: {transform_name}.')
 
 
-def pad_224():
+def _pad_224():
     """
     Pad the image to 320x320 maintaining aspect ratio, and then resize to 224x224
 
@@ -38,7 +46,7 @@ def pad_224():
     ])
 
 
-def center_crop_224():
+def _center_crop_224():
     """.
     Resize the shorter side to 256 maintaining aspect ratio, and then take a center crop
     of 224x224.
@@ -53,7 +61,7 @@ def center_crop_224():
     ])
 
 
-def random_crop_224():
+def _random_crop_224():
     """
     Resize the shorter side to 256 maintaining aspect ratio, and then take a random crop
     of 224x224.

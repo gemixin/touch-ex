@@ -1,0 +1,15 @@
+{
+	"random_state": 52,
+	"split_size": 0.3,
+	"stratify_label": "object",	
+	"transform_name": "center_crop_224",
+    "bg_path": null, 
+    "norm_type": "dataset",
+	"norm_cache_path": "configs/norm_cache.json",
+    "batch_size": 32,
+	"shuffle_map": {
+		"train": true,
+		"val": false,
+		"test": false
+	}
+}
