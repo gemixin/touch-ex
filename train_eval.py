@@ -30,7 +30,8 @@ def get_optimizer(model, config):
                          lr=config['learning_rate'])
 
 
-def train_classifier(model, device, train_loader, val_loader, target_label, config):
+def train_classifier(model, device, train_loader, val_loader,
+                     target_label, config, checkpoints=True):
     """
     Train the given classifier model.
 
@@ -41,6 +42,7 @@ def train_classifier(model, device, train_loader, val_loader, target_label, conf
         val_loader (DataLoader): The validation data loader.
         target_label (str): The label key for the target variable.
         config (dict): Configuration dictionary containing training settings.
+        checkpoints (bool): Whether to save model checkpoints during training.
 
     Returns:
         nn.Module: The trained model.
@@ -52,7 +54,7 @@ def train_classifier(model, device, train_loader, val_loader, target_label, conf
     num_epochs = config['num_epochs']
     # Move model to the specified device
     model = model.to(device)
-    # Get the optimizer from the config
+    # Get the optimizer and criterion from the config
     optimizer = get_optimizer(model, config)
     # Criterion is cross-entropy loss for classification
     criterion = nn.CrossEntropyLoss()
@@ -139,18 +141,20 @@ def train_classifier(model, device, train_loader, val_loader, target_label, conf
 
         # -- Checkpointing -- #
 
-        # If this is the best validation accuracy so far, save the model checkpoint
-        if val_acc > best_val_acc:
-            # Update the best validation accuracy
-            best_val_acc = val_acc
-            # Save the model checkpoint to the specified directory with the model title
-            checkpoint_path = os.path.join(config['checkpoint_dir'], f'{model_title}.pth')
-            torch.save({
-                'epoch': epoch + 1,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'val_acc': best_val_acc
-            }, checkpoint_path)
+        if checkpoints:
+            # If this is the best validation accuracy so far, save the model checkpoint
+            if val_acc > best_val_acc:
+                # Update the best validation accuracy
+                best_val_acc = val_acc
+                # Save the model checkpoint to the specified directory with the model title
+                checkpoint_path = os.path.join(
+                    config['checkpoint_dir'], f'{model_title}.pth')
+                torch.save({
+                    'epoch': epoch + 1,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'val_acc': best_val_acc
+                }, checkpoint_path)
 
     # After training is complete, return the trained model and the history of metrics
     return model, history
