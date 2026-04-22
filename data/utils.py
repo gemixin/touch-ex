@@ -187,33 +187,20 @@ def get_imagenet_norm_stats():
     return torch.tensor(imagenet_mean), torch.tensor(imagenet_std)
 
 
-def get_norm_stats(df, data_config):
+def calculate_dataset_norm_stats(df, data_config):
     """
     Get the mean and standard deviation for normalisation based on the provided dataset,
     either by loading from cache or by calculating from the provided DataFrame.
     We use a cache to avoid expensive recalculation of these stats every time but need to
     ensure the cache is valid for the current dataset configuration.
-    If normalisation is not enabled in the config, this function will simply return None.
-    If the norm type is 'imagenet', it will return the standard ImageNet stats without
-    needing to calculate or use the cache.
 
     Args:
         df (pd.DataFrame): The input DataFrame containing the dataset.
         data_config (dict): The data configuration containing normalisation parameters.
 
     Returns:
-        tuple: A tuple containing the mean and standard deviation as torch tensors, or
-        None if normalisation is not enabled.
+        tuple: A tuple containing the mean and standard deviation as torch tensors.
     """
-
-    # If normalisation is not enabled, return None
-    if data_config['norm_type'] is None:
-        return None
-
-    # If the norm type is 'imagenet', we can skip the cache and calculation and just return
-    # the ImageNet stats
-    if data_config['norm_type'] == 'imagenet':
-        return get_imagenet_norm_stats()
 
     # Create a Path object for the cache file
     path = Path(data_config['norm_cache_path'])
@@ -265,7 +252,7 @@ def get_norm_stats(df, data_config):
             # Access the image data from the DataFrame row
             row = df.iloc[idx]
             img_data = row['image']
-            # Process the image (including transform and optional background subtraction)
+            # Process the image (including transform and optional bg subtraction)
             img_tensor = process_tactile_image(img_data, transform_name, bg_tensor)
             # Update the pixel count and sums for mean/std calculation
             c, h, w = img_tensor.shape
@@ -298,3 +285,34 @@ def get_norm_stats(df, data_config):
             torch.tensor(cache['mean']),
             torch.tensor(cache['std']),
         )
+
+
+def get_norm_stats(df, data_config):
+    """
+    Get the mean and standard deviation for normalisation based on normalisation type
+    specified in the data configuration.
+    If the norm type is None, simply return None.
+    If the norm type is 'imagenet', return the standard ImageNet stats.
+    If the norm type is 'dataset', calculate the stats based on the provided DataFrame.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing the dataset.
+        data_config (dict): The data configuration containing normalisation parameters.
+
+    Returns:
+        tuple: A tuple containing the mean and standard deviation as torch tensors, or
+        None if normalisation is not enabled.
+    """
+
+    # If normalisation is not enabled, return None
+    if data_config['norm_type'] is None:
+        return None
+    # If the norm type is 'imagenet', just return the ImageNet stats
+    if data_config['norm_type'] == 'imagenet':
+        return get_imagenet_norm_stats()
+    # If the norm type is 'dataset', calculate the stats
+    elif data_config['norm_type'] == 'dataset':
+        return calculate_dataset_norm_stats(df, data_config)
+    # If the norm type is not recognised, raise an error
+    else:
+        raise ValueError(f'Invalid norm type: {data_config["norm_type"]}.')

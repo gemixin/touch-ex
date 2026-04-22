@@ -1,5 +1,5 @@
 {
-	"random_state": 52,
+	"random_state": 129,
 	"split_size": 0.3,
 	"stratify_label": "object",	
 	"transform_name": "center_crop_224",
