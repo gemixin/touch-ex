@@ -26,8 +26,8 @@ def load_touch_ex_dataset():
     Returns:
         pd.DataFrame: A DataFrame containing the Touch-EX dataset.
     """
-    # TODO: Change url name once replaced on HF with Touch-EX dataset
-    dataset = load_dataset("gemixin/touch-fl", split="train")
+
+    dataset = load_dataset("gemixin/touch-ex", split="train")
     return dataset.to_pandas()
 
 

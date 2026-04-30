@@ -47,7 +47,7 @@ Create a new conda environment using the provided `environment.yml`:
 
 ```bash
 conda env create -f environment.yml
-conda activate touch-fl
+conda activate touch-ex
 ```
 
 ## Citation
