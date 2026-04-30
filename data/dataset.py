@@ -14,8 +14,9 @@ class TouchEXDataset(Dataset):
     Date: April 2026
     """
 
-    def __init__(self, dataframe, label_info, transform_name,
-                 norm_stats=None, bg_path=None):
+    def __init__(
+        self, dataframe, label_info, transform_name, norm_stats=None, bg_path=None
+    ):
         """
         Initialise the TouchEXDataset.
 
@@ -33,8 +34,8 @@ class TouchEXDataset(Dataset):
         self.df = dataframe.reset_index(drop=True)
 
         # Extract label info
-        self.label2idx = label_info['label2idx']
-        self.material_classes = label_info['materials_list']
+        self.label2idx = label_info["label2idx"]
+        self.material_classes = label_info["materials_list"]
 
         # Store the name of the transform to apply to the images
         self.transform_name = transform_name
@@ -46,11 +47,11 @@ class TouchEXDataset(Dataset):
         # Store the class mappings in the dataframe
         for label in self.label2idx.keys():
             mapping = self.label2idx[label]
-            self.df[f'{label}_class'] = self.df[label].map(mapping)
+            self.df[f"{label}_class"] = self.df[label].map(mapping)
 
         # If a background image path is provided, load and preprocess it
         if bg_path is not None:
-            bg_img = Image.open(bg_path).convert('RGB')
+            bg_img = Image.open(bg_path).convert("RGB")
             self.bg_tensor = transforms.ToTensor()(bg_img)
         else:
             self.bg_tensor = None
@@ -81,34 +82,35 @@ class TouchEXDataset(Dataset):
 
         # Access the image data from the DataFrame row
         row = self.df.iloc[idx]
-        img_data = row['image']
+        img_data = row["image"]
 
         # Process the image (including transform and optional background subtraction)
         img_tensor = process_tactile_image(img_data, self.transform_name, self.bg_tensor)
 
         # Normalise if stats are provided
         if self.norm_stats is not None:
-            normalise = transforms.Normalize(mean=self.norm_stats[0],
-                                             std=self.norm_stats[1])
+            normalise = transforms.Normalize(
+                mean=self.norm_stats[0], std=self.norm_stats[1]
+            )
             img_tensor = normalise(img_tensor)
 
         # --- Labels --- #
 
         # Numeric values - convert to tensors
-        force_level_val = torch.tensor(row['force_level'], dtype=torch.long)
-        force_n_val = torch.tensor(row['force_n'], dtype=torch.float32)
-        fsr_voltage_val = torch.tensor(row['fsr_voltage'], dtype=torch.float32)
+        force_level_val = torch.tensor(row["force_level"], dtype=torch.long)
+        force_n_val = torch.tensor(row["force_n"], dtype=torch.float32)
+        fsr_voltage_val = torch.tensor(row["fsr_voltage"], dtype=torch.float32)
 
         # Text values - keep as strings
-        description_value = row['description']
-        interaction_num_value = row['interaction_num']
-        frame_num_value = row['frame_num']
-        interaction_id_value = row['interaction_id']
+        description_value = row["description"]
+        interaction_num_value = row["interaction_num"]
+        frame_num_value = row["frame_num"]
+        interaction_id_value = row["interaction_id"]
 
         # Encode the materials as a multi-hot vector based on the materials list
         materials_vector = torch.zeros(len(self.material_classes), dtype=torch.float32)
         # Get current materials for this sample (may be multiple, separated by ", ")
-        current_materials = row['materials'].split(', ')
+        current_materials = row["materials"].split(", ")
         # Set the corresponding indices in the vector to 1.0 for each material present
         for mat in current_materials:
             if mat in self.material_classes:
@@ -117,21 +119,21 @@ class TouchEXDataset(Dataset):
 
         # Combine features into a single dictionary
         features = {
-            'image': img_tensor,
-            'force_level': force_level_val,
-            'force_n': force_n_val,
-            'fsr_voltage': fsr_voltage_val,
-            'description': description_value,
-            'interaction_num': interaction_num_value,
-            'frame_num': frame_num_value,
-            'interaction_id': interaction_id_value,
-            'materials': materials_vector,
+            "image": img_tensor,
+            "force_level": force_level_val,
+            "force_n": force_n_val,
+            "fsr_voltage": fsr_voltage_val,
+            "description": description_value,
+            "interaction_num": interaction_num_value,
+            "frame_num": frame_num_value,
+            "interaction_id": interaction_id_value,
+            "materials": materials_vector,
         }
 
         # Categorical labels (encoded as class indices)
         # Add each categorical label to the features dictionary
         for label in self.label2idx.keys():
-            features[label] = torch.tensor(row[f'{label}_class'], dtype=torch.long)
+            features[label] = torch.tensor(row[f"{label}_class"], dtype=torch.long)
 
         # Return a dictionary containing everything
         # This makes it easy to swap out task heads later

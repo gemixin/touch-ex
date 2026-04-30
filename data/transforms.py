@@ -22,14 +22,14 @@ def get_transform(transform_name):
         specified name.
     """
 
-    if transform_name == 'pad_224':
+    if transform_name == "pad_224":
         return _pad_224()
-    elif transform_name == 'center_crop_224':
+    elif transform_name == "center_crop_224":
         return _center_crop_224()
-    elif transform_name == 'random_crop_224':
+    elif transform_name == "random_crop_224":
         return _random_crop_224()
     else:
-        raise ValueError(f'Invalid transform name: {transform_name}.')
+        raise ValueError(f"Invalid transform name: {transform_name}.")
 
 
 def _pad_224():
@@ -40,10 +40,9 @@ def _pad_224():
         torchvision.transforms.Compose: The composed transform for resizing images.
     """
 
-    return transforms.Compose([
-        transforms.Pad([40, 0, 40, 0]),
-        transforms.Resize((224, 224))
-    ])
+    return transforms.Compose(
+        [transforms.Pad([40, 0, 40, 0]), transforms.Resize((224, 224))]
+    )
 
 
 def _center_crop_224():
@@ -55,10 +54,7 @@ def _center_crop_224():
         torchvision.transforms.Compose: The composed transform for resizing images.
     """
 
-    return transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop((224, 224))
-    ])
+    return transforms.Compose([transforms.Resize(256), transforms.CenterCrop((224, 224))])
 
 
 def _random_crop_224():
@@ -70,7 +66,4 @@ def _random_crop_224():
         torchvision.transforms.Compose: The composed transform for resizing images.
     """
 
-    return transforms.Compose([
-        transforms.Resize(256),
-        transforms.RandomCrop((224, 224))
-    ])
+    return transforms.Compose([transforms.Resize(256), transforms.RandomCrop((224, 224))])

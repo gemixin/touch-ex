@@ -16,7 +16,7 @@ import json
 from data.transforms import get_transform
 
 # Constants for label columns and cache path
-LABEL_COLS = ['object', 'region', 'object_region', 'motion', 'hardness']
+LABEL_COLS = ["object", "region", "object_region", "motion", "hardness"]
 
 
 def load_touch_ex_dataset():
@@ -27,7 +27,7 @@ def load_touch_ex_dataset():
         pd.DataFrame: A DataFrame containing the Touch-EX dataset.
     """
     # TODO: Change url name once replaced on HF with Touch-EX dataset
-    dataset = load_dataset('gemixin/touch-fl', split='train')
+    dataset = load_dataset("gemixin/touch-fl", split="train")
     return dataset.to_pandas()
 
 
@@ -48,7 +48,7 @@ def split_by_interaction(df, split_size, stratify_label, random_state):
 
     # Get the unique interactions by grouping on the interaction column
     # Take the first frame of each interaction
-    interaction_df = df.groupby('interaction_id').first().reset_index()
+    interaction_df = df.groupby("interaction_id").first().reset_index()
 
     # Split the interactions into train and temp (val+test) sets
     train_ids_df, temp_ids_df = train_test_split(
@@ -67,13 +67,13 @@ def split_by_interaction(df, split_size, stratify_label, random_state):
     )
 
     # Apply the splits back to the original dataframe by filtering on the interaction IDs
-    train_df = df[df['interaction_id'].isin(train_ids_df['interaction_id'])]
-    val_df = df[df['interaction_id'].isin(val_ids_df['interaction_id'])]
-    test_df = df[df['interaction_id'].isin(test_ids_df['interaction_id'])]
+    train_df = df[df["interaction_id"].isin(train_ids_df["interaction_id"])]
+    val_df = df[df["interaction_id"].isin(val_ids_df["interaction_id"])]
+    test_df = df[df["interaction_id"].isin(test_ids_df["interaction_id"])]
 
     # Print split set sizes
-    print('Dataframe split into following sizes:')
-    print(f'Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}')
+    print("Dataframe split into following sizes:")
+    print(f"Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
 
     return train_df, val_df, test_df
 
@@ -103,16 +103,18 @@ def get_label_info(df):
     # Extract unique materials from the 'materials' column, which may contain
     # comma-separated values
     materials = set()
-    for value in df['materials']:
+    for value in df["materials"]:
         if value is not None:
-            for mat in str(value).split(', '):
+            for mat in str(value).split(", "):
                 materials.add(mat.strip())
     materials_list = sorted(materials)
 
     # Return all the mappings and materials list in a single dictionary
-    return {'label2idx': label2idx,
-            'idx2label': idx2label,
-            'materials_list': materials_list}
+    return {
+        "label2idx": label2idx,
+        "idx2label": idx2label,
+        "materials_list": materials_list,
+    }
 
 
 def decode_materials(materials_vector, materials_list):
@@ -129,9 +131,7 @@ def decode_materials(materials_vector, materials_list):
 
     # Decode the multi-hot vector to get the active materials
     active_materials = [
-        materials_list[i]
-        for i, v in enumerate(materials_vector)
-        if v > 0.5
+        materials_list[i] for i, v in enumerate(materials_vector) if v > 0.5
     ]
     return active_materials
 
@@ -152,13 +152,13 @@ def process_tactile_image(img_data, transform_name, bg_tensor=None):
     """
 
     # Load the image from bytes or path (Hugging Face image format)
-    if img_data['bytes'] is not None:
-        img = Image.open(BytesIO(img_data['bytes']))
+    if img_data["bytes"] is not None:
+        img = Image.open(BytesIO(img_data["bytes"]))
     else:
-        img = Image.open(img_data['path'])
+        img = Image.open(img_data["path"])
 
     # Convert to RGB and then to tensor
-    img = img.convert('RGB')
+    img = img.convert("RGB")
     img_tensor = transforms.ToTensor()(img)
 
     # Optionally subtract the background image (if provided)
@@ -204,41 +204,41 @@ def calculate_dataset_norm_stats(df, data_config):
     """
 
     # Create a Path object for the cache file
-    path = Path(data_config['norm_cache_path'])
+    path = Path(data_config["norm_cache_path"])
 
     # Create a norm config dictionary that captures the relevant parameters
     norm_config = {
-        'random_state': data_config['random_state'],
-        'split_size': data_config['split_size'],
-        'stratify_label': data_config['stratify_label'],
-        'transform_name': data_config['transform_name'],
-        'bg_path': data_config['bg_path']
+        "random_state": data_config["random_state"],
+        "split_size": data_config["split_size"],
+        "stratify_label": data_config["stratify_label"],
+        "transform_name": data_config["transform_name"],
+        "bg_path": data_config["bg_path"],
     }
 
     # Check if the cache file exists and if the norm config matches
     if not path.exists():
         cache = None
-        print('No norm cache found.')
+        print("No norm cache found.")
     else:
         cache = json.loads(path.read_text())
-        if cache.get('norm_config') != norm_config:
+        if cache.get("norm_config") != norm_config:
             cache = None
-            print('Norm cache found but config does not match.')
+            print("Norm cache found but config does not match.")
 
     # If the cache is not found or the norm config has changed, calculate the stats and
     # save to cache
     if cache is None:
-        print('Calculating normalisation stats...')
+        print("Calculating normalisation stats...")
 
         # Get transform name from the norm config
-        transform_name = norm_config.get('transform_name')
+        transform_name = norm_config.get("transform_name")
 
         # Get background path from norm config
-        bg_path = norm_config.get('bg_path')
+        bg_path = norm_config.get("bg_path")
 
         # Load and preprocess the background image if a path is provided
         if bg_path is not None:
-            bg_img = Image.open(bg_path).convert('RGB')
+            bg_img = Image.open(bg_path).convert("RGB")
             bg_tensor = transforms.ToTensor()(bg_img)
         else:
             bg_tensor = None
@@ -252,39 +252,39 @@ def calculate_dataset_norm_stats(df, data_config):
         for idx in range(len(df)):
             # Access the image data from the DataFrame row
             row = df.iloc[idx]
-            img_data = row['image']
+            img_data = row["image"]
             # Process the image (including transform and optional bg subtraction)
             img_tensor = process_tactile_image(img_data, transform_name, bg_tensor)
             # Update the pixel count and sums for mean/std calculation
             c, h, w = img_tensor.shape
             pixel_count += h * w
             pixel_sum += img_tensor.sum(dim=(1, 2))
-            pixel_sum_sq += (img_tensor ** 2).sum(dim=(1, 2))
+            pixel_sum_sq += (img_tensor**2).sum(dim=(1, 2))
 
         # Calculate mean and std from the sums
         mean = pixel_sum / pixel_count
-        std = torch.sqrt((pixel_sum_sq / pixel_count) - (mean ** 2))
+        std = torch.sqrt((pixel_sum_sq / pixel_count) - (mean**2))
 
         # Save the calculated stats to cache
         data = {
-            'norm_config': norm_config,
-            'mean': mean.tolist(),
-            'std': std.tolist(),
+            "norm_config": norm_config,
+            "mean": mean.tolist(),
+            "std": std.tolist(),
         }
         # Create the configs directory if it doesn't exist
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2))
-        print('Normalisation stats calculated and saved to cache.')
+        print("Normalisation stats calculated and saved to cache.")
 
         # Return the stats as tensors
         return mean, std
 
     # If the cache is found and valid, load the stats from the cache
     else:
-        print('Norm cache found, loading normalisation stats.')
+        print("Norm cache found, loading normalisation stats.")
         return (
-            torch.tensor(cache['mean']),
-            torch.tensor(cache['std']),
+            torch.tensor(cache["mean"]),
+            torch.tensor(cache["std"]),
         )
 
 
@@ -306,14 +306,14 @@ def get_norm_stats(df, data_config):
     """
 
     # If normalisation is not enabled, return None
-    if data_config['norm_type'] is None:
+    if data_config["norm_type"] is None:
         return None
     # If the norm type is 'imagenet', just return the ImageNet stats
-    if data_config['norm_type'] == 'imagenet':
+    if data_config["norm_type"] == "imagenet":
         return get_imagenet_norm_stats()
     # If the norm type is 'dataset', calculate the stats
-    elif data_config['norm_type'] == 'dataset':
+    elif data_config["norm_type"] == "dataset":
         return calculate_dataset_norm_stats(df, data_config)
     # If the norm type is not recognised, raise an error
     else:
-        raise ValueError(f'Invalid norm type: {data_config["norm_type"]}.')
+        raise ValueError(f"Invalid norm type: {data_config['norm_type']}.")

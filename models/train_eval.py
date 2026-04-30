@@ -24,21 +24,21 @@ def get_optimizer(model, config):
     """
 
     # Get the optimizer class from the config
-    optimizer = config['optimizer']
+    optimizer = config["optimizer"]
 
     # Return the optimizer with the appropriate parameters based on the config
     # If using SGD, include momentum
     if optimizer == optim.SGD:
-        return optimizer(model.parameters(),
-                         lr=config['learning_rate'],
-                         momentum=config['momentum'])
+        return optimizer(
+            model.parameters(), lr=config["learning_rate"], momentum=config["momentum"]
+        )
     else:
-        return optimizer(model.parameters(),
-                         lr=config['learning_rate'])
+        return optimizer(model.parameters(), lr=config["learning_rate"])
 
 
-def train_classifier(model, device, train_loader, val_loader,
-                     target_label, config, checkpoints=True):
+def train_classifier(
+    model, device, train_loader, val_loader, target_label, config, checkpoints=True
+):
     """
     Train the given classifier model.
 
@@ -57,8 +57,8 @@ def train_classifier(model, device, train_loader, val_loader,
     """
 
     # Get the title of the model from the config for logging and checkpointing
-    model_title = config['model_title']
-    num_epochs = config['num_epochs']
+    model_title = config["model_title"]
+    num_epochs = config["num_epochs"]
     # Move model to the specified device
     model = model.to(device)
     # Get the optimizer and criterion from the config
@@ -71,10 +71,9 @@ def train_classifier(model, device, train_loader, val_loader,
     # List to store training history (loss and accuracy for each epoch)
     history = []
 
-    print(f'Starting training of {model_title} on device: {device}')
+    print(f"Starting training of {model_title} on device: {device}")
 
     for epoch in range(num_epochs):
-
         # -- Training Phase -- #
 
         model.train()
@@ -83,7 +82,7 @@ def train_classifier(model, device, train_loader, val_loader,
         # Iterate over training batches
         for features in train_loader:
             # Get images and labels from features and move to device
-            imgs = features['image'].to(device)
+            imgs = features["image"].to(device)
             labels = features[target_label].to(device)
 
             # Perform forward pass, compute loss, and backpropagate
@@ -109,7 +108,7 @@ def train_classifier(model, device, train_loader, val_loader,
         with torch.no_grad():
             for features in val_loader:
                 # Get images and labels from features and move to device
-                imgs = features['image'].to(device)
+                imgs = features["image"].to(device)
                 labels = features[target_label].to(device)
 
                 # Perform forward pass and compute loss
@@ -133,18 +132,18 @@ def train_classifier(model, device, train_loader, val_loader,
 
         # Store metrics in dictionary and append to history
         metrics = {
-            'epoch': epoch + 1,
-            'train_loss': train_loss,
-            'train_acc': train_acc,
-            'val_loss': val_loss,
-            'val_acc': val_acc
+            "epoch": epoch + 1,
+            "train_loss": train_loss,
+            "train_acc": train_acc,
+            "val_loss": val_loss,
+            "val_acc": val_acc,
         }
         history.append(metrics)
 
         # Print metrics for this epoch
-        print(f'Epoch {epoch + 1}/{num_epochs}')
-        print(f'Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%')
-        print(f'Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%')
+        print(f"Epoch {epoch + 1}/{num_epochs}")
+        print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%")
+        print(f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%")
 
         # -- Checkpointing -- #
 
@@ -155,13 +154,17 @@ def train_classifier(model, device, train_loader, val_loader,
                 best_val_acc = val_acc
                 # Save the model checkpoint to the specified directory with the model title
                 checkpoint_path = os.path.join(
-                    config['checkpoint_dir'], f'{model_title}.pth')
-                torch.save({
-                    'epoch': epoch + 1,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'val_acc': best_val_acc
-                }, checkpoint_path)
+                    config["checkpoint_dir"], f"{model_title}.pth"
+                )
+                torch.save(
+                    {
+                        "epoch": epoch + 1,
+                        "model_state_dict": model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "val_acc": best_val_acc,
+                    },
+                    checkpoint_path,
+                )
 
     # After training is complete, return the trained model and the history of metrics
     return model, history
@@ -197,7 +200,7 @@ def eval_classifier(model, device, test_loader, target_label):
     with torch.no_grad():
         for features in test_loader:
             # Get images and labels from features and move to device
-            imgs = features['image'].to(device)
+            imgs = features["image"].to(device)
             labels = features[target_label].to(device)
 
             # Perform forward pass and compute loss
@@ -219,12 +222,12 @@ def eval_classifier(model, device, test_loader, target_label):
     test_loss = test_loss / len(test_loader)
     test_acc = 100 * test_correct / test_total
 
-    print(f'Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%')
+    print(f"Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%")
 
     # Return a dictionary containing the results
     return {
-        'test_loss': test_loss,
-        'test_acc': test_acc,
-        'y_true': y_true,
-        'y_pred': y_pred
+        "test_loss": test_loss,
+        "test_acc": test_acc,
+        "y_true": y_true,
+        "y_pred": y_pred,
     }

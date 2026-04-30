@@ -18,10 +18,10 @@ def get_device():
 
     # Check for CUDA (NVIDIA GPU) availability
     if torch.cuda.is_available():
-        return torch.device('cuda')
+        return torch.device("cuda")
     # Check for MPS (Apple Silicon GPU) availability
     elif torch.backends.mps.is_available():
-        return torch.device('mps')
+        return torch.device("mps")
     # If neither CUDA nor MPS is available, return CPU
     else:
-        return torch.device('cpu')
+        return torch.device("cpu")
