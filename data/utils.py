@@ -1,5 +1,5 @@
 """
-A collection of utility functions for the Touch-EX dataset.
+A module containing utility functions for the Touch-EX dataset.
 
 Author: Gemma McLean
 Date: April 2026

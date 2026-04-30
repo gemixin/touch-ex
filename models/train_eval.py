@@ -1,5 +1,5 @@
 """
-Training and evaluation functions for models.
+A module containing functions for training and evaluating Pytorch models.
 
 Author: Gemma McLean
 Date: April 2026

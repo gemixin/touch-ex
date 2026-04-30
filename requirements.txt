@@ -5,6 +5,7 @@ scikit-learn
 transformers
 numpy
 pandas
+matplotlib
 datasets>=2.19
 pyarrow>=15
 huggingface_hub

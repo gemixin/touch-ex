@@ -1,5 +1,5 @@
 """
-A collection of useful functions for PyTorch.
+A module containing useful PyTorch functions.
 
 Author: Gemma McLean
 Date: April 2026
