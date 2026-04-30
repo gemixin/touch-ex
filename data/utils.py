@@ -1,5 +1,5 @@
 """
-A collection of utility functions for the Touch-FL dataset.
+A collection of utility functions for the Touch-EX dataset.
 
 Author: Gemma McLean
 Date: April 2026
@@ -19,13 +19,14 @@ from data.transforms import get_transform
 LABEL_COLS = ['object', 'region', 'object_region', 'motion', 'hardness']
 
 
-def load_touch_fl_dataset():
+def load_touch_ex_dataset():
     """
-    Load the Touch-FL Hugging Face dataset and return a pandas DataFrame.
+    Load the Touch-EX Hugging Face dataset and return a pandas DataFrame.
 
     Returns:
-        pd.DataFrame: A DataFrame containing the Touch-FL dataset.
+        pd.DataFrame: A DataFrame containing the Touch-EX dataset.
     """
+    # TODO: Change url name once replaced on HF with Touch-EX dataset
     dataset = load_dataset('gemixin/touch-fl', split='train')
     return dataset.to_pandas()
 

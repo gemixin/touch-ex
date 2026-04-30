@@ -1,3 +1,10 @@
+"""
+Training and evaluation functions for models.
+
+Author: Gemma McLean
+Date: April 2026
+"""
+
 import torch
 import torch.nn as nn
 import torch.optim as optim

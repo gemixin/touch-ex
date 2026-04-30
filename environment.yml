@@ -1,4 +1,4 @@
-name: touch-fl
+name: touch-ex
 channels:
   - defaults
   - conda-forge

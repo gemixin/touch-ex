@@ -1,18 +1,18 @@
 """
-A module containing the builder function for loading and preparing the Touch-FL dataset.
+A module containing the builder function for loading and preparing the Touch-EX dataset.
 
 Author: Gemma McLean
 Date: April 2026
 """
 
 from torch.utils.data import DataLoader
-from data.dataset import TouchFLDataset
+from data.dataset import TouchEXDataset
 import data.utils as utils
 
 
 def get_dataloaders(data_config):
     """
-    Load the Touch-FL dataset, split it into train/val/test sets, create a TouchFLDataset
+    Load the Touch-EX dataset, split it into train/val/test sets, create a TouchEXDataset
     for each split, and return DataLoaders for each split plus label info (mappings and
     materials list).
 
@@ -27,7 +27,7 @@ def get_dataloaders(data_config):
     # --- Load and prepare the dataset --- #
 
     # Load the HuggingFace dataset into a DataFrame
-    df = utils.load_touch_fl_dataset()
+    df = utils.load_touch_ex_dataset()
 
     # Split the dataset by interaction_id into train, val, and test sets
     train_df, val_df, test_df = utils.split_by_interaction(
@@ -43,9 +43,9 @@ def get_dataloaders(data_config):
     # Get normalisation stats (mean and std) or None if not enabled
     norm_stats = utils.get_norm_stats(train_df, data_config)
 
-    # Create a TouchFLDataset for each split, passing in the appropriate parameters
+    # Create a TouchEXDataset for each split, passing in the appropriate parameters
     datasets = {
-        split: TouchFLDataset(dataframe=df_split,
+        split: TouchEXDataset(dataframe=df_split,
                               label_info=label_info,
                               transform_name=data_config['transform_name'],
                               norm_stats=norm_stats,

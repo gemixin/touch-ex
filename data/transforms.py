@@ -1,6 +1,6 @@
 """
 A module containing functions for defining and applying image transforms to the tactile
-images in the Touch-FL dataset.
+images in the Touch-EX dataset.
 
 Author: Gemma McLean
 Date: April 2026

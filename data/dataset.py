@@ -5,9 +5,9 @@ from PIL import Image
 from data.utils import process_tactile_image
 
 
-class TouchFLDataset(Dataset):
+class TouchEXDataset(Dataset):
     """
-    A custom PyTorch Dataset class for the Touch-FL dataset, designed to handle both image
+    A custom PyTorch Dataset class for the Touch-EX dataset, designed to handle both image
     data and multiple types of labels.
 
     Author: Gemma McLean
@@ -17,7 +17,7 @@ class TouchFLDataset(Dataset):
     def __init__(self, dataframe, label_info, transform_name,
                  norm_stats=None, bg_path=None):
         """
-        Initialise the TouchFLDataset.
+        Initialise the TouchEXDataset.
 
         Args:
             dataframe (pd.DataFrame): The input DataFrame containing the dataset.
