@@ -16,7 +16,7 @@ class PretrainedModel(nn.Module):
 
         Args:
             model_name (str): The name of the pretrained model to use. Options are
-            "resnet50", "resnet18", "vit-b_16".
+            'resnet50', 'resnet18', 'vit-b_16'.
             num_classes (int): The number of classes to classify.
         """
 

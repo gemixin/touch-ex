@@ -87,9 +87,9 @@ def get_label_info(df):
 
     Returns:
         dict: A dictionary containing:
-            - "label2idx": A dictionary mapping column names to label-to-index mappings.
-            - "idx2label": A dictionary mapping column names to index-to-label mappings.
-            - "materials_list": A sorted list of unique materials in the dataset.
+            - 'label2idx': A dictionary mapping column names to label-to-index mappings.
+            - 'idx2label': A dictionary mapping column names to index-to-label mappings.
+            - 'materials_list': A sorted list of unique materials in the dataset.
     """
 
     # Create label-to-index and index-to-label mappings for each label column
@@ -142,7 +142,7 @@ def process_tactile_image(img_data, transform_name, bg_tensor=None):
     and resizing it, before converting it to a tensor.
 
     Args:
-        img_data (dict): The image data (a dictionary containing "bytes" or "path").
+        img_data (dict): The image data (a dictionary containing 'bytes' or 'path').
         transform_name (str): The name of the transform to apply.
         bg_tensor (torch.Tensor, optional): The background tensor to subtract from the
         image. Defaults to None, meaning no background subtraction will be applied.
@@ -293,8 +293,8 @@ def get_norm_stats(df, data_config):
     Get the mean and standard deviation for normalisation based on normalisation type
     specified in the data configuration.
     If the norm type is None, simply return None.
-    If the norm type is "imagenet", return the standard ImageNet stats.
-    If the norm type is "dataset", calculate the stats based on the provided DataFrame.
+    If the norm type is 'imagenet', return the standard ImageNet stats.
+    If the norm type is 'dataset', calculate the stats based on the provided DataFrame.
 
     Args:
         df (pd.DataFrame): The input DataFrame containing the dataset.
