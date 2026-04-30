@@ -15,7 +15,7 @@ def get_transform(transform_name):
 
     Args:
         transform_name (str): The name of the transform to retrieve. Options are
-        'pad_224', 'center_crop_224', 'random_crop_224'.
+        "pad_224", "center_crop_224", "random_crop_224".
 
     Returns:
         torchvision.transforms.Compose: The composed transform corresponding to the

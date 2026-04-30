@@ -6,8 +6,10 @@
 
 - `configs`: Config and cache files.
 - `data`: Dataset modules and classes plus the baseline background subtraction image.
-- `models`: Model classes for feature extraction.
+- `models`: Model modules and classes.
 - `notebooks`: Exploration notebooks.
+- `results`: Saved model results.
+- `scripts`: Various model implementations (training and evaluation).
 
 
 ## Requirements
