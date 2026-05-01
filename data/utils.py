@@ -310,6 +310,7 @@ def get_norm_stats(df, data_config):
         return None
     # If the norm type is 'imagenet', just return the ImageNet stats
     if data_config["norm_type"] == "imagenet":
+        print("Loading imagenet normalisation stats.")
         return get_imagenet_norm_stats()
     # If the norm type is 'dataset', calculate the stats
     elif data_config["norm_type"] == "dataset":

@@ -8,6 +8,7 @@ Date: April 2026
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.metrics import f1_score
 import os
 
 
@@ -36,9 +37,7 @@ def get_optimizer(model, config):
         return optimizer(model.parameters(), lr=config["learning_rate"])
 
 
-def train_classifier(
-    model, device, train_loader, val_loader, target_label, config, checkpoints=True
-):
+def train_classifier(model, device, train_loader, val_loader, target_label, config):
     """
     Train the given classifier model.
 
@@ -49,7 +48,6 @@ def train_classifier(
         val_loader (DataLoader): The validation data loader.
         target_label (str): The label key for the target variable.
         config (dict): Configuration dictionary containing training settings.
-        checkpoints (bool): Whether to save model checkpoints during training.
 
     Returns:
         nn.Module: The trained model.
@@ -65,6 +63,13 @@ def train_classifier(
     optimizer = get_optimizer(model, config)
     # Criterion is cross-entropy loss for classification
     criterion = nn.CrossEntropyLoss()
+
+    # If checkpointing is enabled (checkpoint_dir in the config is not None)
+    if config["checkpoint_dir"]:
+        # Create the checkpoint directory if it doesn't exist
+        os.makedirs(config["checkpoint_dir"], exist_ok=True)
+        # Get the path to save the model checkpoint based on the model title
+        checkpoint_path = os.path.join(config["checkpoint_dir"], f"{model_title}.pth")
 
     # Track the best validation accuracy for checkpointing
     best_val_acc = 0.0
@@ -147,15 +152,13 @@ def train_classifier(
 
         # -- Checkpointing -- #
 
-        if checkpoints:
+        # If checkpointing is enabled (checkpoint_dir in the config is not None)
+        if config["checkpoint_dir"]:
             # If this is the best validation accuracy so far, save the model checkpoint
             if val_acc > best_val_acc:
                 # Update the best validation accuracy
                 best_val_acc = val_acc
-                # Save the model checkpoint to the specified directory with the model title
-                checkpoint_path = os.path.join(
-                    config["checkpoint_dir"], f"{model_title}.pth"
-                )
+                # Save the model checkpoint to the specified path
                 torch.save(
                     {
                         "epoch": epoch + 1,
@@ -165,6 +168,13 @@ def train_classifier(
                     },
                     checkpoint_path,
                 )
+
+    # If checkpointing is enabled (checkpoint_dir in the config is not None)
+    if config["checkpoint_dir"]:
+        # Load the best model checkpoint
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        print(f"Loaded best model checkpoint from epoch {checkpoint['epoch']}.")
 
     # After training is complete, return the trained model and the history of metrics
     return model, history
@@ -222,12 +232,17 @@ def eval_classifier(model, device, test_loader, target_label):
     test_loss = test_loss / len(test_loader)
     test_acc = 100 * test_correct / test_total
 
-    print(f"Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%")
+    # Compute weighted F1 average using sklearn's f1_score function
+    weighted_f1_avg = f1_score(y_true, y_pred, average="weighted")
+
+    print(f"Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc:.2f}%")
+    print(f"Weighted F1 Average: {weighted_f1_avg:.4f}")
 
     # Return a dictionary containing the results
     return {
         "test_loss": test_loss,
         "test_acc": test_acc,
+        "weighted_f1_avg": weighted_f1_avg,
         "y_true": y_true,
         "y_pred": y_pred,
     }

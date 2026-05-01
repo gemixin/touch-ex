@@ -10,37 +10,32 @@ class PretrainedModel(nn.Module):
     Date: April 2026
     """
 
-    def __init__(self, model_name, num_classes):
+    def __init__(self, model_type, num_classes):
         """
         Initialise the PretrainedModel.
 
         Args:
-            model_name (str): The name of the pretrained model to use. Options are
-            'resnet50', 'resnet18', 'vit-b_16'.
+            model_type (str): The type of the pretrained model to use. Options are
+            'resnet' and 'vit'.
             num_classes (int): The number of classes to classify.
         """
 
         super(PretrainedModel, self).__init__()
 
-        # Depending on the model_name, load the appropriate pretrained model and modify
+        # Depending on the model_type, load the appropriate pretrained model and modify
         # it to output features instead of class predictions
-        if model_name == "resnet50":
-            self.backbone = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
-            self.feature_dim = self.backbone.fc.in_features
-            self.backbone.fc = nn.Identity()  # Remove the original fully connected layer
-
-        elif model_name == "resnet18":
+        if model_type == "resnet":
             self.backbone = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
             self.feature_dim = self.backbone.fc.in_features
             self.backbone.fc = nn.Identity()  # Remove the original fully connected layer
 
-        elif model_name == "vit-b_16":
+        elif model_type == "vit":
             self.backbone = models.vit_b_16(weights=models.ViT_B_16_Weights.DEFAULT)
             self.feature_dim = self.backbone.heads.head.in_features
             self.backbone.heads = nn.Identity()  # Remove the original fully connected layer
 
         else:
-            raise ValueError(f"Invalid model name: {model_name}.")
+            raise ValueError(f"Invalid model type: {model_type}.")
 
         # Set the classifier
         self.classifier = nn.Linear(self.feature_dim, num_classes)
