@@ -188,7 +188,7 @@ def get_imagenet_norm_stats():
     return torch.tensor(imagenet_mean), torch.tensor(imagenet_std)
 
 
-def calculate_dataset_norm_stats(df, data_config):
+def calculate_dataset_norm_stats(df, data_config, use_cache=True):
     """
     Get the mean and standard deviation for normalisation based on the provided dataset,
     either by loading from cache or by calculating from the provided DataFrame.
@@ -198,13 +198,11 @@ def calculate_dataset_norm_stats(df, data_config):
     Args:
         df (pd.DataFrame): The input DataFrame containing the dataset.
         data_config (dict): The data configuration containing normalisation parameters.
+        use_cache (bool): Whether to use cached normalisation stats.
 
     Returns:
         tuple: A tuple containing the mean and standard deviation as torch tensors.
     """
-
-    # Create a Path object for the cache file
-    path = Path(data_config["norm_cache_path"])
 
     # Create a norm config dictionary that captures the relevant parameters
     norm_config = {
@@ -215,18 +213,22 @@ def calculate_dataset_norm_stats(df, data_config):
         "bg_path": data_config["bg_path"],
     }
 
-    # Check if the cache file exists and if the norm config matches
-    if not path.exists():
-        cache = None
-        print("No norm cache found.")
-    else:
-        cache = json.loads(path.read_text())
-        if cache.get("norm_config") != norm_config:
-            cache = None
-            print("Norm cache found but config does not match.")
+    # Initialise cache variable
+    cache = None
 
-    # If the cache is not found or the norm config has changed, calculate the stats and
-    # save to cache
+    # Check if the cache file exists and if the norm config matches
+    if use_cache:
+        path = Path(data_config["norm_cache_path"])
+        if not path.exists():
+            print("No norm cache found.")
+        else:
+            cache = json.loads(path.read_text())
+            if cache.get("norm_config") != norm_config:
+                cache = None
+                print("Norm cache found but config does not match.")
+
+    # If the cache is not found or the norm config has changed, or if use_cache is False,
+    # (cache would be set to None) calculate the stats
     if cache is None:
         print("Calculating normalisation stats...")
 
@@ -265,16 +267,17 @@ def calculate_dataset_norm_stats(df, data_config):
         mean = pixel_sum / pixel_count
         std = torch.sqrt((pixel_sum_sq / pixel_count) - (mean**2))
 
-        # Save the calculated stats to cache
-        data = {
-            "norm_config": norm_config,
-            "mean": mean.tolist(),
-            "std": std.tolist(),
-        }
-        # Create the configs directory if it doesn't exist
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2))
-        print("Normalisation stats calculated and saved to cache.")
+        if use_cache:
+            # Save the calculated stats to cache
+            data = {
+                "norm_config": norm_config,
+                "mean": mean.tolist(),
+                "std": std.tolist(),
+            }
+            # Create the configs directory if it doesn't exist
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(data, indent=2))
+            print("Normalisation stats calculated and saved to cache.")
 
         # Return the stats as tensors
         return mean, std
@@ -288,7 +291,7 @@ def calculate_dataset_norm_stats(df, data_config):
         )
 
 
-def get_norm_stats(df, data_config):
+def get_norm_stats(df, data_config, use_cache=True):
     """
     Get the mean and standard deviation for normalisation based on normalisation type
     specified in the data configuration.
@@ -299,6 +302,8 @@ def get_norm_stats(df, data_config):
     Args:
         df (pd.DataFrame): The input DataFrame containing the dataset.
         data_config (dict): The data configuration containing normalisation parameters.
+        use_cache (bool): Whether to use cached normalisation stats (only applicable for
+        'dataset' norm type).
 
     Returns:
         tuple: A tuple containing the mean and standard deviation as torch tensors, or
@@ -308,13 +313,16 @@ def get_norm_stats(df, data_config):
     # If normalisation is not enabled, return None
     if data_config["norm_type"] is None:
         return None
+
     # If the norm type is 'imagenet', just return the ImageNet stats
     if data_config["norm_type"] == "imagenet":
         print("Loading imagenet normalisation stats.")
         return get_imagenet_norm_stats()
+
     # If the norm type is 'dataset', calculate the stats
     elif data_config["norm_type"] == "dataset":
-        return calculate_dataset_norm_stats(df, data_config)
+        return calculate_dataset_norm_stats(df, data_config, use_cache=use_cache)
+
     # If the norm type is not recognised, raise an error
     else:
         raise ValueError(f"Invalid norm type: {data_config['norm_type']}.")

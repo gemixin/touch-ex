@@ -3,9 +3,9 @@
     "split_size": 0.3,
     "stratify_label": "object",
     "transform_name": "pad_224",
-    "bg_path": "../data/baseline.jpg",
+    "bg_path": "data/baseline.jpg",
     "norm_type": "dataset",
-    "norm_cache_path": "../configs/norm_cache.json",
+    "norm_cache_path": "configs/norm_cache.json",
     "batch_size": 32,
     "shuffle_map": {
         "train": true,
