@@ -76,7 +76,7 @@ def train_classifier(model, device, train_loader, val_loader, target_label, conf
     # Get the optimizer and criterion from the config
     optimizer = get_optimizer(model, config)
     # Criterion is cross-entropy loss for classification
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss().to(device)
 
     # If checkpointing is enabled (checkpoint_dir in the config is not None)
     if config["checkpoint_dir"]:
@@ -212,7 +212,7 @@ def eval_classifier(model, device, test_loader, target_label):
     # Move model to the specified device
     model = model.to(device)
     # Criterion is cross-entropy loss for classification
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss().to(device)
 
     # -- Evaluation Phase -- #
 

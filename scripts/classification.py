@@ -64,7 +64,6 @@ with open("configs/default_model_config.json", "r", encoding="utf-8") as f:
 # Update default model config with custom settings
 model_config["checkpoint_dir"] = f"checkpoints/{FOLDER_NAME}"
 model_config["model_title"] = MODEL_TITLE
-model_config["num_epochs"] = 3
 
 # --- Train model --- #
 
