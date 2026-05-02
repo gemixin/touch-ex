@@ -24,17 +24,31 @@ def get_optimizer(model, config):
         torch.optim.Optimizer: The initialized optimizer.
     """
 
-    # Get the optimizer class from the config
-    optimizer = config["optimizer"]
+    # Get class based on string name in config
+    if config["optimizer"].lower() == "sgd":
+        optimizer = optim.SGD
+    elif config["optimizer"].lower() == "adam":
+        optimizer = optim.Adam
+    elif config["optimizer"].lower() == "adamw":
+        optimizer = optim.AdamW
+    else:
+        raise ValueError(f"Unsupported optimizer type: {config['optimizer']}")
 
     # Return the optimizer with the appropriate parameters based on the config
     # If using SGD, include momentum
     if optimizer == optim.SGD:
         return optimizer(
-            model.parameters(), lr=config["learning_rate"], momentum=config["momentum"]
+            model.parameters(),
+            lr=config["learning_rate"],
+            momentum=config["momentum"],
+            weight_decay=config["weight_decay"],
         )
     else:
-        return optimizer(model.parameters(), lr=config["learning_rate"])
+        return optimizer(
+            model.parameters(),
+            lr=config["learning_rate"],
+            weight_decay=config["weight_decay"],
+        )
 
 
 def train_classifier(model, device, train_loader, val_loader, target_label, config):

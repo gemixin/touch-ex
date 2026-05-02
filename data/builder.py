@@ -30,12 +30,25 @@ def get_dataloaders(data_config):
     df = utils.load_touch_ex_dataset()
 
     # Split the dataset by interaction_id into train, val, and test sets
-    train_df, val_df, test_df = utils.split_by_interaction(
-        df,
-        split_size=data_config["split_size"],
-        stratify_label=data_config["stratify_label"],
-        random_state=data_config["random_state"],
-    )
+    # If unseen_objs is provided, split the dataset with unseen objects in the test set
+    if data_config["unseen_objs"] is not None:
+        # Split size is just for the val split so we only want half of our usual split size
+        train_df, val_df, test_df = utils.split_by_interaction_unseen_objs(
+            df,
+            split_size=data_config["split_size"] / 2,
+            stratify_label=data_config["stratify_label"],
+            random_state=data_config["random_state"],
+            unseen_objs=data_config["unseen_objs"],
+        )
+    # Otherwise, do a regular split without unseen objects in the test set
+    else:
+        train_df, val_df, test_df = utils.split_by_interaction(
+            df,
+            split_size=data_config["split_size"],
+            stratify_label=data_config["stratify_label"],
+            random_state=data_config["random_state"],
+        )
+
     split_dfs = {
         "train": train_df,
         "val": val_df,

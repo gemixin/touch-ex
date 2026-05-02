@@ -78,6 +78,57 @@ def split_by_interaction(df, split_size, stratify_label, random_state):
     return train_df, val_df, test_df
 
 
+def split_by_interaction_unseen_objs(
+    df, split_size, stratify_label, random_state, unseen_objs
+):
+    """
+    Split a frame-level dataframe by interaction_id using the specified split size and
+    stratification label, ensuring that all interactions involving the specified unseen
+    objects are placed in the test set.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame to split.
+        split_size (float): The proportion of the dataset for the val split.
+        stratify_label (str): The column name to use for stratification.
+        random_state (int): The random seed for reproducibility.
+        unseen_objs (list): A list of object names to be included in the test set.
+
+    Returns:
+        tuple: A tuple containing the train, validation, and test DataFrames.
+    """
+
+    # Get the unique interactions by grouping on the interaction column
+    # Take the first frame of each interaction
+    interaction_df = df.groupby("interaction_id").first().reset_index()
+
+    # Identify interactions that involve any of the unseen objects
+    test_ids_df = interaction_df[interaction_df["object"].isin(unseen_objs)]
+
+    # The remaining interactions are eligible for train/val splits
+    remaining_ids_df = interaction_df[
+        ~interaction_df["interaction_id"].isin(test_ids_df["interaction_id"])
+    ]
+
+    # Split the remaining interactions into train and val sets
+    train_ids_df, val_ids_df = train_test_split(
+        remaining_ids_df,
+        test_size=split_size,
+        stratify=remaining_ids_df[stratify_label],
+        random_state=random_state,
+    )
+
+    # Apply the splits back to the original dataframe by filtering on the interaction IDs
+    train_df = df[df["interaction_id"].isin(train_ids_df["interaction_id"])]
+    val_df = df[df["interaction_id"].isin(val_ids_df["interaction_id"])]
+    test_df = df[df["interaction_id"].isin(test_ids_df["interaction_id"])]
+
+    # Print split set sizes
+    print("Dataframe split into following sizes:")
+    print(f"Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
+
+    return train_df, val_df, test_df
+
+
 def get_label_info(df):
     """
     Generate required label information from the provided DataFrame.
@@ -209,6 +260,7 @@ def calculate_dataset_norm_stats(df, data_config, use_cache=True):
         "random_state": data_config["random_state"],
         "split_size": data_config["split_size"],
         "stratify_label": data_config["stratify_label"],
+        "unseen_objs": data_config["unseen_objs"],
         "transform_name": data_config["transform_name"],
         "bg_path": data_config["bg_path"],
     }
