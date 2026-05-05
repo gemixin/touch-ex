@@ -79,6 +79,7 @@ def get_dataloaders(data_config):
             datasets[split],
             batch_size=data_config["batch_size"],
             shuffle=data_config["shuffle_map"][split],
+            num_workers=data_config["num_workers"],
         )
         for split in split_dfs
     }

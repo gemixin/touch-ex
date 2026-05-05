@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.metrics import f1_score
+from tqdm.auto import tqdm
 import os
 
 
@@ -99,7 +100,12 @@ def train_classifier(model, device, train_loader, val_loader, target_label, conf
         train_loss, train_correct, train_total = 0.0, 0, 0
 
         # Iterate over training batches
-        for features in train_loader:
+        for features in tqdm(
+            train_loader,
+            desc=f"Epoch {epoch + 1}/{num_epochs} - Train",
+            leave=False,
+            total=len(train_loader),
+        ):
             # Get images and labels from features and move to device
             imgs = features["image"].to(device)
             labels = features[target_label].to(device)
@@ -125,7 +131,12 @@ def train_classifier(model, device, train_loader, val_loader, target_label, conf
 
         # Iterate over validation batches without computing gradients
         with torch.no_grad():
-            for features in val_loader:
+            for features in tqdm(
+                val_loader,
+                desc=f"Epoch {epoch + 1}/{num_epochs} - Val",
+                leave=False,
+                total=len(val_loader),
+            ):
                 # Get images and labels from features and move to device
                 imgs = features["image"].to(device)
                 labels = features[target_label].to(device)
@@ -159,10 +170,12 @@ def train_classifier(model, device, train_loader, val_loader, target_label, conf
         }
         history.append(metrics)
 
-        # Print metrics for this epoch
-        print(f"Epoch {epoch + 1}/{num_epochs}")
-        print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%")
-        print(f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%")
+        # Print metrics for this epoch (use tqdm.write to avoid corrupting bars)
+        tqdm.write(
+            f"Epoch {epoch + 1}/{num_epochs} - "
+            f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%, "
+            f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%"
+        )
 
         # -- Checkpointing -- #
 
@@ -194,12 +207,13 @@ def train_classifier(model, device, train_loader, val_loader, target_label, conf
     return model, history
 
 
-def eval_classifier(model, device, test_loader, target_label):
+def eval_classifier(model, model_title, device, test_loader, target_label):
     """
     Evaluate the given classifier model on the test set.
 
     Args:
         model (nn.Module): The model to evaluate.
+        model_title (str): The title of the model for logging purposes.
         device (torch.device): The device to use for evaluation.
         test_loader (DataLoader): The test data loader.
         target_label (str): The label key for the target variable.
@@ -220,9 +234,11 @@ def eval_classifier(model, device, test_loader, target_label):
     test_loss, test_correct, test_total = 0.0, 0, 0
     y_true, y_pred = [], []
 
+    print(f"Starting evaluation of {model_title} on device: {device}")
+
     # Iterate over test batches without computing gradients
     with torch.no_grad():
-        for features in test_loader:
+        for features in tqdm(test_loader, desc="Test", total=len(test_loader)):
             # Get images and labels from features and move to device
             imgs = features["image"].to(device)
             labels = features[target_label].to(device)
@@ -249,8 +265,8 @@ def eval_classifier(model, device, test_loader, target_label):
     # Compute weighted F1 average using sklearn's f1_score function
     weighted_f1_avg = f1_score(y_true, y_pred, average="weighted")
 
-    print(f"Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc:.2f}%")
-    print(f"Weighted F1 Average: {weighted_f1_avg:.4f}")
+    tqdm.write(f"Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc:.2f}%")
+    tqdm.write(f"Weighted F1 Average: {weighted_f1_avg:.4f}")
 
     # Return a dictionary containing the results
     return {

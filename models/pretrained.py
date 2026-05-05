@@ -16,7 +16,7 @@ class PretrainedModel(nn.Module):
 
         Args:
             model_type (str): The type of the pretrained model to use. Options are
-            'resnet' and 'vit'.
+            'resnet18', 'resnet50', and 'vit'.
             num_classes (int): The number of classes to classify.
         """
 
@@ -24,13 +24,18 @@ class PretrainedModel(nn.Module):
 
         # Depending on the model_type, load the appropriate pretrained model and modify
         # it to output features instead of class predictions
-        if model_type == "resnet":
+        if model_type == "resnet18":
             self.backbone = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
             self.feature_dim = self.backbone.fc.in_features
             self.backbone.fc = nn.Identity()  # Remove the original fully connected layer
 
+        elif model_type == "resnet50":
+            self.backbone = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
+            self.feature_dim = self.backbone.fc.in_features
+            self.backbone.fc = nn.Identity()  # Remove the original fully connected layer
+
         elif model_type == "vit":
-            self.backbone = models.vit_b_16(weights=models.ViT_B_16_Weights.DEFAULT)
+            self.backbone = models.vit.b_16(weights=models.ViT_B_16_Weights.DEFAULT)
             self.feature_dim = self.backbone.heads.head.in_features
             self.backbone.heads = nn.Identity()  # Remove the original fully connected layer
 

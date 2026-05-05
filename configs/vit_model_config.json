@@ -1,0 +1,9 @@
+{
+	"optimizer": "adamw",
+	"learning_rate": 0.004,
+	"momentum": 0.9,
+	"weight_decay": 0.01,
+	"num_epochs": 10,
+	"checkpoint_dir": "checkpoints",
+	"model_title": "vit"
+}
