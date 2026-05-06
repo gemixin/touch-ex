@@ -1,9 +1,9 @@
 {
 	"optimizer": "adam",
-	"learning_rate": 0.004,
+	"learning_rate": 0.04,
 	"momentum": 0.9,
 	"weight_decay": 0,
-	"num_epochs": 5,
+	"num_epochs": 10,
 	"checkpoint_dir": "checkpoints",
 	"model_title": "model"
 }

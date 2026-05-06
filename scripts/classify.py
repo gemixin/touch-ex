@@ -23,12 +23,12 @@ from models.torch_functions import get_device
 # All these are categorical labels ('materials' is multiclass and is handled separately)
 TARGET_LABEL = "object"
 # Experiment name for tracking results
-EXPERIMENT_NAME = "adam_5_epochs"
+EXPERIMENT_NAME = "cnn_adam_10"
 # Set random seed for reproducibility
-SEED = 275
+SEED = 146
 # Model types to compare
 # Choose from 'baseline', 'resnet18', 'resnet50', 'vit_b_16'
-MODEL_TYPES = ["baseline"]
+MODEL_TYPES = ["baseline", "resnet18"]
 
 # --- Setup --- #
 
@@ -39,8 +39,10 @@ DEVICE = get_device()
 # We will use a new folder for each target label
 FOLDER_NAME = f"{TARGET_LABEL}_classify"
 
-# Paths for saving outputs and loading configs
-OUTPUTS_PATH = f"results/{FOLDER_NAME}/outputs.parquet"
+# Paths for saving and loading checkpoints and results and configs
+CHECKPOINTS_PATH = f"checkpoints/{FOLDER_NAME}"
+RESULTS_PATH = f"results/{FOLDER_NAME}"
+EXPERIMENTS_DF_PATH = f"{RESULTS_PATH}/experiments.parquet"
 DATA_CONFIG_PATH = "configs/default_data_config.json"
 MODEL_CONFIG_PATH = "configs/default_model_config.json"
 
@@ -50,18 +52,18 @@ torch.cuda.manual_seed_all(SEED)
 
 # --- Get experiment number --- #
 
-# Check if an outputs parquet file already exists for this folder
-if os.path.exists(OUTPUTS_PATH):
-    # If it exists, load the existing outputs into a DataFrame
-    existing_results_df = pd.read_parquet(OUTPUTS_PATH)
+# Check if an experiments dataframe parquet file already exists for this folder
+if os.path.exists(EXPERIMENTS_DF_PATH):
+    # If it exists, load the existing file into a DataFrame
+    existing_results_df = pd.read_parquet(EXPERIMENTS_DF_PATH)
     # Get max experiment number and increment it
     experiment_number = existing_results_df["experiment_number"].max() + 1
-    concatenate_outputs = True
+    concat = True
 # Otherwise
 else:
     # Start a new experiment number at 1
     experiment_number = 1
-    concatenate_outputs = False
+    concat = False
 
 # --- Load and prepare the dataset --- #
 
@@ -93,13 +95,14 @@ num_classes = len(list_classes)
 with open(MODEL_CONFIG_PATH, "r", encoding="utf-8") as f:
     model_config = json.load(f)
 
-
-# Update default model config with custom settings
+# Set checkpoint directory
+# (new folder for each experiment number within the target label folder)
 model_config["checkpoint_dir"] = (
     f"checkpoints/{FOLDER_NAME}/{str(experiment_number).zfill(3)}"
 )
-model_config["learning_rate"] = 0.004
-model_config["num_epochs"] = 1
+
+# Update default model config with custom settings
+# model_config["num_epochs"] = 3
 
 # Create a copy of the model config for each model type
 model_configs = [model_config.copy() for _ in MODEL_TYPES]
@@ -152,12 +155,12 @@ for i in range(len(dataloaders)):
         device=DEVICE,
     )
 
-    # Append the result to the results list
+    # Append the test result to the list
     results.append(result)
 
-# --- Save outputs --- #
+# --- Save experiment data --- #
 
-# Create a new DataFrame for the new outputs
+# Create a new DataFrame with relevant information for this experiment
 df = pd.DataFrame(
     {
         "experiment_number": experiment_number,
@@ -175,16 +178,16 @@ df = pd.DataFrame(
     }
 )
 
-# If there are existing outputs
-if concatenate_outputs:
+# If there is an existing experiments dataframe
+if concat:
     # Concatenate the existing and new dataframes
     new_df = pd.concat([existing_results_df, df], ignore_index=True)
 # Otherwise
 else:
     # Create folder if it doesn't exist in the results directory
-    os.makedirs(f"results/{FOLDER_NAME}", exist_ok=True)
+    os.makedirs(RESULTS_PATH, exist_ok=True)
     # Just use the new dataframe
     new_df = df
 
 # Save DataFrame to parquet file
-new_df.to_parquet(OUTPUTS_PATH, index=False)
+new_df.to_parquet(EXPERIMENTS_DF_PATH, index=False)
