@@ -13,15 +13,15 @@ import models.visualise as mv
 
 # Experiment we want to generate plots for
 TARGET_LABEL = "object"
-EXPERIMENT_NUMBER = 1
+EXPERIMENT_NUMBER = 2
 
 # --- Setup --- #
 
 # Paths for saving and loading
 FOLDER_NAME = f"{TARGET_LABEL}_classify"
-RESULTS_PATH = f"results/{TARGET_LABEL}_classify"
+RESULTS_PATH = f"results/{FOLDER_NAME}"
 EXPERIMENTS_DF_PATH = f"{RESULTS_PATH}/experiments.parquet"
-PLOTS_FOLDER = f"{RESULTS_PATH}/plots/{str(EXPERIMENT_NUMBER).zfill(3)}"
+PLOTS_PATH = f"{RESULTS_PATH}/plots/{str(EXPERIMENT_NUMBER).zfill(3)}"
 
 # --- Load experiment data --- #
 
@@ -54,10 +54,10 @@ list_classes = df_experiment.iloc[0]["list_classes"].tolist()
 
 # If there are multiple models, plot the model comparison
 if len(model_types) > 1:
-    mv.plot_model_comparison(results, model_types, PLOTS_FOLDER)
+    mv.plot_model_comparison(results, model_types, PLOTS_PATH)
 
 # Plot training curves for each model
-mv.plot_training_curves(histories, model_types, PLOTS_FOLDER)
+mv.plot_training_curves(histories, model_types, PLOTS_PATH)
 
 # Plot confusion matrices for each model
-mv.plot_confusion_matrices(results, model_types, list_classes, PLOTS_FOLDER)
+mv.plot_confusion_matrices(results, model_types, list_classes, PLOTS_PATH)

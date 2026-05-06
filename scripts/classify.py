@@ -15,15 +15,16 @@ from models.baseline import BaselineCNNModel
 from models.pretrained import PretrainedModel
 from models.train_eval import train_classifier, eval_classifier
 from models.torch_functions import get_device
+import models.visualise as mv
 
 # --- CONFIGURABLE PARAMETERS --- #
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', 'hardness'
 # All these are categorical labels ('materials' is multiclass and is handled separately)
-TARGET_LABEL = "object"
+TARGET_LABEL = "object_region"
 # Experiment name for tracking results
-EXPERIMENT_NAME = "cnn_adam_10"
+EXPERIMENT_NAME = "cnn_adamw_10_v2"
 # Set random seed for reproducibility
 SEED = 146
 # Model types to compare
@@ -72,7 +73,7 @@ with open(DATA_CONFIG_PATH, "r", encoding="utf-8") as f:
     data_config = json.load(f)
 
 # Update default data config with custom settings
-data_config["target_label"] = TARGET_LABEL
+data_config["stratify_label"] = TARGET_LABEL
 data_config["random_state"] = SEED
 
 # Create a copy of the data config for each model type
@@ -102,7 +103,9 @@ model_config["checkpoint_dir"] = (
 )
 
 # Update default model config with custom settings
-# model_config["num_epochs"] = 3
+model_config["optimizer"] = "adamw"
+model_config["weight_decay"] = 0.04
+model_config["learning_rate"] = 0.0004
 
 # Create a copy of the model config for each model type
 model_configs = [model_config.copy() for _ in MODEL_TYPES]
@@ -151,7 +154,7 @@ for i in range(len(dataloaders)):
         model=models[i],
         model_title=MODEL_TYPES[i],
         test_loader=dataloaders[i]["test"],
-        target_label="object",
+        target_label=TARGET_LABEL,
         device=DEVICE,
     )
 
@@ -191,3 +194,18 @@ else:
 
 # Save DataFrame to parquet file
 new_df.to_parquet(EXPERIMENTS_DF_PATH, index=False)
+
+# --- Generate plots --- #
+
+# Path for saving plots
+plots_path = f"{RESULTS_PATH}/plots/{str(experiment_number).zfill(3)}"
+
+# If there are multiple models, plot the model comparison
+if len(MODEL_TYPES) > 1:
+    mv.plot_model_comparison(results, MODEL_TYPES, plots_path)
+
+# Plot training curves for each model
+mv.plot_training_curves(histories, MODEL_TYPES, plots_path)
+
+# Plot confusion matrices for each model
+mv.plot_confusion_matrices(results, MODEL_TYPES, list_classes, plots_path)
