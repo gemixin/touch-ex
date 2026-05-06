@@ -5,9 +5,9 @@ from PIL import Image
 from data.utils import process_tactile_image
 
 
-class TouchEXDataset(Dataset):
+class TouchExDataset(Dataset):
     """
-    A custom PyTorch Dataset class for the Touch-EX dataset, designed to handle both image
+    A custom PyTorch Dataset class for the Touch-Ex dataset, designed to handle both image
     data and multiple types of labels.
 
     Author: Gemma McLean
@@ -15,14 +15,14 @@ class TouchEXDataset(Dataset):
     """
 
     def __init__(
-        self, dataframe, label_info, transform_name, norm_stats=None, bg_path=None
+        self, dataframe, label_mappings, transform_name, norm_stats=None, bg_path=None
     ):
         """
-        Initialise the TouchEXDataset.
+        Initialise the TouchExDataset.
 
         Args:
             dataframe (pd.DataFrame): The input DataFrame containing the dataset.
-            label_info (dict): A dictionary containing label mappings and materials list.
+            label_mappings (dict): A dictionary containing label mappings.
             transform_name (str): The name of the transform to apply to the images.
             norm_stats (dict, optional): A dictionary containing mean and std for
             normalisation. Defaults to None, meaning no normalisation will be applied.
@@ -34,8 +34,7 @@ class TouchEXDataset(Dataset):
         self.df = dataframe.reset_index(drop=True)
 
         # Extract label info
-        self.label2idx = label_info["label2idx"]
-        self.material_classes = label_info["materials_list"]
+        self.label2idx = label_mappings["label2idx"]
 
         # Store the name of the transform to apply to the images
         self.transform_name = transform_name
@@ -97,37 +96,24 @@ class TouchEXDataset(Dataset):
         # --- Labels --- #
 
         # Numeric values - convert to tensors
-        force_level_val = torch.tensor(row["force_level"], dtype=torch.long)
         force_n_val = torch.tensor(row["force_n"], dtype=torch.float32)
         fsr_voltage_val = torch.tensor(row["fsr_voltage"], dtype=torch.float32)
 
-        # Text values - keep as strings
+        # Text values (metadata) - keep as strings
         description_value = row["description"]
         interaction_num_value = row["interaction_num"]
         frame_num_value = row["frame_num"]
         interaction_id_value = row["interaction_id"]
 
-        # Encode the materials as a multi-hot vector based on the materials list
-        materials_vector = torch.zeros(len(self.material_classes), dtype=torch.float32)
-        # Get current materials for this sample (may be multiple, separated by ", ")
-        current_materials = row["materials"].split(", ")
-        # Set the corresponding indices in the vector to 1.0 for each material present
-        for mat in current_materials:
-            if mat in self.material_classes:
-                mat_idx = self.material_classes.index(mat)
-                materials_vector[mat_idx] = 1.0
-
         # Combine features into a single dictionary
         features = {
             "image": img_tensor,
-            "force_level": force_level_val,
             "force_n": force_n_val,
             "fsr_voltage": fsr_voltage_val,
             "description": description_value,
             "interaction_num": interaction_num_value,
             "frame_num": frame_num_value,
             "interaction_id": interaction_id_value,
-            "materials": materials_vector,
         }
 
         # Categorical labels (encoded as class indices)

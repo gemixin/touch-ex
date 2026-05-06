@@ -20,9 +20,8 @@ import models.visualise as mv
 # --- CONFIGURABLE PARAMETERS --- #
 
 # Target label for classification
-# Choose from 'object', 'object_region', 'force_level', 'hardness'
-# All these are categorical labels ('materials' is multiclass and is handled separately)
-TARGET_LABEL = "object_region"
+# Choose from 'object', 'object_region', 'force_level', 'hardness', 'material'
+TARGET_LABEL = "force_level"
 # Experiment name for tracking results
 EXPERIMENT_NAME = "cnn_adamw_10_v2"
 # Set random seed for reproducibility
@@ -167,7 +166,7 @@ for i in range(len(dataloaders)):
 df = pd.DataFrame(
     {
         "experiment_number": experiment_number,
-        "experiment_name": FOLDER_NAME,
+        "experiment_name": EXPERIMENT_NAME,
         "model_config": model_configs,
         "data_config": data_configs,
         "model_type": MODEL_TYPES,

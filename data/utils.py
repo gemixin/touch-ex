@@ -1,5 +1,5 @@
 """
-A module containing utility functions for the Touch-EX dataset.
+A module containing utility functions for the Touch-Ex dataset.
 
 Author: Gemma McLean
 Date: April 2026
@@ -15,16 +15,16 @@ from torchvision import transforms
 import json
 from data.transforms import get_transform
 
-# Constants for label columns and cache path
-LABEL_COLS = ["object", "region", "object_region", "motion", "hardness"]
+# Columns in the dataset that we will be using as labels for classification tasks
+LABEL_COLS = ["object", "object_region", "force_level", "hardness", "material"]
 
 
 def load_touch_ex_dataset():
     """
-    Load the Touch-EX Hugging Face dataset and return a pandas DataFrame.
+    Load the Touch-Ex Hugging Face dataset and return a pandas DataFrame.
 
     Returns:
-        pd.DataFrame: A DataFrame containing the Touch-EX dataset.
+        pd.DataFrame: A DataFrame containing the Touch-Ex dataset.
     """
 
     dataset = load_dataset("gemixin/touch-ex", split="train")
@@ -129,18 +129,15 @@ def split_by_interaction_unseen_objs(
     return train_df, val_df, test_df
 
 
-def get_label_info(df):
+def get_label_mappings(df):
     """
-    Generate required label information from the provided DataFrame.
+    Generate required label mappings from the provided DataFrame.
 
     Args:
         df (pd.DataFrame): The input DataFrame containing the dataset.
 
     Returns:
-        dict: A dictionary containing:
-            - 'label2idx': A dictionary mapping column names to label-to-index mappings.
-            - 'idx2label': A dictionary mapping column names to index-to-label mappings.
-            - 'materials_list': A sorted list of unique materials in the dataset.
+        dict: A dictionary containing label-to-index and index-to-label mappings.
     """
 
     # Create label-to-index and index-to-label mappings for each label column
@@ -151,40 +148,11 @@ def get_label_info(df):
         label2idx[col] = {label: idx for idx, label in enumerate(unique_labels)}
         idx2label[col] = {idx: label for idx, label in enumerate(unique_labels)}
 
-    # Extract unique materials from the 'materials' column, which may contain
-    # comma-separated values
-    materials = set()
-    for value in df["materials"]:
-        if value is not None:
-            for mat in str(value).split(", "):
-                materials.add(mat.strip())
-    materials_list = sorted(materials)
-
-    # Return all the mappings and materials list in a single dictionary
+    # Return the mappings in a single dictionary
     return {
         "label2idx": label2idx,
         "idx2label": idx2label,
-        "materials_list": materials_list,
     }
-
-
-def decode_materials(materials_vector, materials_list):
-    """
-    Decode a multi-hot vector back into a list of material names.
-
-    Args:
-        materials_vector (list/tuple/torch.Tensor): The multi-hot encoded vector.
-        materials_list (list): The list of material names corresponding to the indices.
-
-    Returns:
-        list: A list of material names that are active in the multi-hot vector.
-    """
-
-    # Decode the multi-hot vector to get the active materials
-    active_materials = [
-        materials_list[i] for i, v in enumerate(materials_vector) if v > 0.5
-    ]
-    return active_materials
 
 
 def process_tactile_image(img_data, transform_name, bg_tensor=None):

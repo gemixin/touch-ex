@@ -1,8 +1,8 @@
-# Touch-EX
+# Touch-Ex
 
 ## Overview
 
-**Touch-EX** is a set of scripts for building and evaluating models using the Touch-EX dataset, a visuo-tactile dataset collected using a [DIGIT](https://digit.ml/) sensor. It includes the following directories:
+**Touch-Ex** is a set of scripts for building and evaluating models using the Touch-Ex dataset, a visuo-tactile dataset collected using a [DIGIT](https://digit.ml/) sensor. It includes the following directories:
 
 - `configs`: Config and cache files.
 - `data`: Dataset modules and classes plus the baseline background subtraction image.

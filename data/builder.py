@@ -1,27 +1,26 @@
 """
-A module containing the builder function for loading and preparing the Touch-EX dataset.
+A module containing the builder function for loading and preparing the Touch-Ex dataset.
 
 Author: Gemma McLean
 Date: April 2026
 """
 
 from torch.utils.data import DataLoader
-from data.dataset import TouchEXDataset
+from data.dataset import TouchExDataset
 import data.utils as utils
 
 
 def get_dataloaders(data_config):
     """
-    Load the Touch-EX dataset, split it into train/val/test sets, create a TouchEXDataset
-    for each split, and return DataLoaders for each split plus label info (mappings and
-    materials list).
+    Load the Touch-Ex dataset, split it into train/val/test sets, create a TouchEXDataset
+    for each split, and return DataLoaders for each split plus label mappings.
 
     Args:
         data_config (dict): A dictionary containing configuration parameters for loading and
         preparing the dataset.
 
     Returns:
-        tuple: A tuple containing the DataLoaders dictionary and the label info dictionary.
+        tuple: A tuple containing the DataLoaders dictionary and label mappings dictionary.
     """
 
     # --- Load and prepare the dataset --- #
@@ -55,17 +54,17 @@ def get_dataloaders(data_config):
         "test": test_df,
     }
 
-    # Get label info (mappings and materials list) from the training set
-    label_info = utils.get_label_info(train_df)
+    # Get label mappings from the training set
+    label_mappings = utils.get_label_mappings(train_df)
 
     # Get normalisation stats (mean and std) or None if not enabled
     norm_stats = utils.get_norm_stats(train_df, data_config)
 
     # Create a TouchEXDataset for each split, passing in the appropriate parameters
     datasets = {
-        split: TouchEXDataset(
+        split: TouchExDataset(
             dataframe=df_split,
-            label_info=label_info,
+            label_mappings=label_mappings,
             transform_name=data_config["transform_name"],
             norm_stats=norm_stats,
             bg_path=data_config["bg_path"],
@@ -84,5 +83,5 @@ def get_dataloaders(data_config):
         for split in split_dfs
     }
 
-    # Return the DataLoaders and label info
-    return dataloaders, label_info
+    # Return the DataLoaders and label mappings
+    return dataloaders, label_mappings
