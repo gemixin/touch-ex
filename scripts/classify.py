@@ -21,7 +21,7 @@ import models.visualise as mv
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', 'hardness', 'material'
-TARGET_LABEL = "force_level"
+TARGET_LABEL = "material"
 # Experiment name for tracking results
 EXPERIMENT_NAME = "cnn_adamw_10_v2"
 # Set random seed for reproducibility

@@ -12,8 +12,8 @@ import models.visualise as mv
 # --- CONFIGURABLE PARAMETERS --- #
 
 # Experiment we want to generate plots for
-TARGET_LABEL = "object"
-EXPERIMENT_NUMBER = 2
+TARGET_LABEL = "force_level"
+EXPERIMENT_NUMBER = 1
 
 # --- Setup --- #
 

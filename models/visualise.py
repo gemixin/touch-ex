@@ -131,10 +131,12 @@ def plot_confusion_matrices(results, model_types, list_classes, plots_path):
         # Make figure much larger
         fig, ax = plt.subplots(figsize=(12, 12))
 
-        # Create confusion matrix display (set x axis labels to 90 degrees)
+        # Create confusion matrix display
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=list_classes)
         disp.plot(ax=ax, cmap=plt.cm.Blues)
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
+        # Rotate x-axis labels if there are more than 3 classes for better readability
+        rot = 45 if len(list_classes) > 3 else 0
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=rot, ha="right")
         ax.set_yticklabels(ax.get_yticklabels())
         ax.set_title(f"Confusion Matrix for {model_types[i]}")
 
