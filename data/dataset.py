@@ -46,7 +46,10 @@ class TouchExDataset(Dataset):
         # Store the class mappings in the dataframe
         for label in self.label2idx.keys():
             mapping = self.label2idx[label]
-            self.df[f"{label}_class"] = self.df[label].map(mapping)
+            # Map the string labels to class indices, filling any unmapped values with -1
+            # This allows us to handle any potential unseen labels gracefully
+            encoded = self.df[label].map(mapping).fillna(-1).astype("int64")
+            self.df[f"{label}_class"] = encoded
 
         # If a background image path is provided, load and preprocess it
         if bg_path is not None:

@@ -122,6 +122,14 @@ def split_by_interaction_unseen_objs(
     val_df = df[df["interaction_id"].isin(val_ids_df["interaction_id"])]
     test_df = df[df["interaction_id"].isin(test_ids_df["interaction_id"])]
 
+    # Check that all target labels in the test set are present in the train set
+    train_labels = set(train_df[stratify_label].unique())
+    test_labels = set(test_df[stratify_label].unique())
+    # If there are any labels in the test set that are not in the train set, raise an error
+    if not test_labels.issubset(train_labels):
+        missing_labels = test_labels - train_labels
+        raise ValueError(f"Labels missing from train set: {missing_labels}")
+
     # Print split set sizes
     print("Dataframe split into following sizes:")
     print(f"Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")

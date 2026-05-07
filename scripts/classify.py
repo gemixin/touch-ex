@@ -21,9 +21,9 @@ import models.visualise as mv
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', 'hardness', 'material'
-TARGET_LABEL = "material"
+TARGET_LABEL = "object"
 # Experiment name for tracking results
-EXPERIMENT_NAME = "cnn_adamw_10_v2"
+EXPERIMENT_NAME = "default_cnn_10"
 # Set random seed for reproducibility
 SEED = 146
 # Model types to compare
@@ -74,6 +74,7 @@ with open(DATA_CONFIG_PATH, "r", encoding="utf-8") as f:
 # Update default data config with custom settings
 data_config["stratify_label"] = TARGET_LABEL
 data_config["random_state"] = SEED
+# data_config["unseen_objs"] = ["tennis_ball"]
 
 # Create a copy of the data config for each model type
 data_configs = [data_config.copy() for _ in MODEL_TYPES]
@@ -102,9 +103,9 @@ model_config["checkpoint_dir"] = (
 )
 
 # Update default model config with custom settings
-model_config["optimizer"] = "adamw"
-model_config["weight_decay"] = 0.04
-model_config["learning_rate"] = 0.0004
+# model_config["optimizer"] = "adamw"
+# model_config["weight_decay"] = 0.04
+# model_config["learning_rate"] = 0.0004
 
 # Create a copy of the model config for each model type
 model_configs = [model_config.copy() for _ in MODEL_TYPES]
