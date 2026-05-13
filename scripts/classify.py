@@ -20,15 +20,15 @@ import models.visualise as mv
 # --- CONFIGURABLE PARAMETERS --- #
 
 # Target label for classification
-# Choose from 'object', 'object_region', 'force_level', 'hardness', 'material'
+# Choose from 'object', 'object_region', 'force_level'
 TARGET_LABEL = "object"
 # Experiment name for tracking results
-EXPERIMENT_NAME = "default_cnn_10"
+EXPERIMENT_NAME = "efficientnet_10"
 # Set random seed for reproducibility
 SEED = 146
 # Model types to compare
-# Choose from 'baseline', 'resnet18', 'resnet50', 'vit_b_16'
-MODEL_TYPES = ["baseline", "resnet18"]
+# Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'sparsh, 'anytouch'
+MODEL_TYPES = ["efficientnet_b0"]
 
 # --- Setup --- #
 
@@ -74,6 +74,7 @@ with open(DATA_CONFIG_PATH, "r", encoding="utf-8") as f:
 # Update default data config with custom settings
 data_config["stratify_label"] = TARGET_LABEL
 data_config["random_state"] = SEED
+data_config["batch_size"] = 64
 # data_config["unseen_objs"] = ["tennis_ball"]
 
 # Create a copy of the data config for each model type
@@ -104,8 +105,8 @@ model_config["checkpoint_dir"] = (
 
 # Update default model config with custom settings
 # model_config["optimizer"] = "adamw"
-# model_config["weight_decay"] = 0.04
-# model_config["learning_rate"] = 0.0004
+model_config["weight_decay"] = 0.02
+model_config["learning_rate"] = 0.0002
 
 # Create a copy of the model config for each model type
 model_configs = [model_config.copy() for _ in MODEL_TYPES]

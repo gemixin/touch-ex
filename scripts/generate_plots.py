@@ -1,6 +1,8 @@
 """
 A script to generate plots for a given experiment number and target label, using the results
 stored in the associated experiments dataframe.
+These plots are generated automatically after running the classify.py script, but this
+script can be used to regenerate the plots if needed.
 
 Author: Gemma McLean
 Date: April 2026

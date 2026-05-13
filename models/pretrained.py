@@ -16,7 +16,7 @@ class PretrainedModel(nn.Module):
 
         Args:
             model_type (str): The type of the pretrained model to use. Options are
-            'resnet18', 'resnet50', and 'vit'.
+            'resnet18', 'efficientnet_b0', 'vit_b_16', 'sparsh', 'anytouch'.
             num_classes (int): The number of classes to classify.
         """
 
@@ -29,12 +29,16 @@ class PretrainedModel(nn.Module):
             self.feature_dim = self.backbone.fc.in_features
             self.backbone.fc = nn.Identity()  # Remove the original fully connected layer
 
-        elif model_type == "resnet50":
-            self.backbone = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
-            self.feature_dim = self.backbone.fc.in_features
-            self.backbone.fc = nn.Identity()  # Remove the original fully connected layer
+        elif model_type == "efficientnet_b0":
+            self.backbone = models.efficientnet_b0(
+                weights=models.EfficientNet_B0_Weights.DEFAULT
+            )
+            self.feature_dim = self.backbone.classifier[1].in_features
+            self.backbone.classifier[1] = (
+                nn.Identity()
+            )  # Remove the original fully connected layer
 
-        elif model_type == "vit":
+        elif model_type == "vit_b_16":
             self.backbone = models.vit.b_16(weights=models.ViT_B_16_Weights.DEFAULT)
             self.feature_dim = self.backbone.heads.head.in_features
             self.backbone.heads = nn.Identity()  # Remove the original fully connected layer
