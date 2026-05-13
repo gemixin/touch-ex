@@ -39,7 +39,7 @@ class PretrainedModel(nn.Module):
             )  # Remove the original fully connected layer
 
         elif model_type == "vit_b_16":
-            self.backbone = models.vit.b_16(weights=models.ViT_B_16_Weights.DEFAULT)
+            self.backbone = models.vit_b_16(weights=models.ViT_B_16_Weights.DEFAULT)
             self.feature_dim = self.backbone.heads.head.in_features
             self.backbone.heads = nn.Identity()  # Remove the original fully connected layer
 
