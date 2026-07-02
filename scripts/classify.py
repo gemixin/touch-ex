@@ -75,7 +75,6 @@ with open(DATA_CONFIG_PATH, "r", encoding="utf-8") as f:
 data_config["stratify_label"] = TARGET_LABEL
 data_config["random_state"] = SEED
 data_config["batch_size"] = 64
-# data_config["unseen_objs"] = ["tennis_ball"]
 
 # Create a copy of the data config for each model type
 data_configs = [data_config.copy() for _ in MODEL_TYPES]

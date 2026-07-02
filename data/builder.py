@@ -12,37 +12,44 @@ import data.utils as utils
 
 def get_dataloaders(data_config):
     """
-    Load the Touch-Ex dataset, split it into train/val/test sets, create a TouchEXDataset
-    for each split, and return DataLoaders for each split plus label mappings.
+    Load the Touch-Ex dataset, split the main train split into train/val/test sets,
+    create a TouchEXDataset for each split, and return DataLoaders for each split plus
+    label mappings. The separate test_unseen split is included as an additional dataloader
+    along with its own label mappings.
 
     Args:
         data_config (dict): A dictionary containing configuration parameters for loading and
-        preparing the dataset.
+            preparing the dataset.
 
     Returns:
-        tuple: A tuple containing the DataLoaders dictionary and label mappings dictionary.
+        tuple: A tuple containing the DataLoaders dictionary, the training label mappings
+            dictionary, and the unseen test label mappings dictionary.
     """
 
     # --- Load and prepare the dataset --- #
 
-    # Load the HuggingFace dataset into a DataFrame
-    df = utils.load_touch_ex_dataset()
+    # Load the HuggingFace dataset splits into DataFrames
+    dataframes = utils.load_touch_ex_dataset()
+    train_source_df = dataframes["train"]  # Main training split for train/val/test
+    test_unseen_df = dataframes["test_unseen"]  # Separate test split with unseen labels
 
-    # Split the dataset by interaction_id into train, val, and test sets
-    # If unseen_objs is provided, split the dataset with unseen objects in the test set
-    if data_config["unseen_objs"] is not None:
-        # Split size is just for the val split so we only want half of our usual split size
-        train_df, val_df, test_df = utils.split_by_interaction_unseen_objs(
-            df,
-            split_size=data_config["split_size"] / 2,
+    # Add new columns to test_unseen_df for expected labels
+    test_unseen_df = utils.add_expected_labels(test_unseen_df)
+
+    # Split the main dataset by interaction_id into train, val, and test sets
+    # If withheld_labels is provided, split the dataset with withheld labels in the test set
+    if data_config["withheld_labels"] is not None:
+        train_df, val_df, test_df = utils.split_by_interaction_withheld(
+            train_source_df,
+            split_size=data_config["split_size"],
             stratify_label=data_config["stratify_label"],
             random_state=data_config["random_state"],
-            unseen_objs=data_config["unseen_objs"],
+            withheld_labels=data_config["withheld_labels"],
         )
-    # Otherwise, do a regular split without unseen objects in the test set
+    # Otherwise, do a regular split
     else:
         train_df, val_df, test_df = utils.split_by_interaction(
-            df,
+            train_source_df,
             split_size=data_config["split_size"],
             stratify_label=data_config["stratify_label"],
             random_state=data_config["random_state"],
@@ -52,10 +59,13 @@ def get_dataloaders(data_config):
         "train": train_df,
         "val": val_df,
         "test": test_df,
+        "test_unseen": test_unseen_df,
     }
 
     # Get label mappings from the training set
-    label_mappings = utils.get_label_mappings(train_df)
+    train_label_mappings = utils.get_label_mappings(train_df)
+    # Get label mappings from the unseen test set
+    test_unseen_label_mappings = utils.get_label_mappings(test_unseen_df)
 
     # Get normalisation stats (mean and std) or None if not enabled
     norm_stats = utils.get_norm_stats(train_df, data_config)
@@ -64,10 +74,12 @@ def get_dataloaders(data_config):
     datasets = {
         split: TouchExDataset(
             dataframe=df_split,
-            label_mappings=label_mappings,
+            train_label_mappings=train_label_mappings,
+            test_unseen_label_mappings=test_unseen_label_mappings,
             transform_name=data_config["transform_name"],
             norm_stats=norm_stats,
             bg_path=data_config["bg_path"],
+            test_unseen=(split == "test_unseen"),
         )
         for split, df_split in split_dfs.items()
     }
@@ -77,11 +89,11 @@ def get_dataloaders(data_config):
         split: DataLoader(
             datasets[split],
             batch_size=data_config["batch_size"],
-            shuffle=data_config["shuffle_map"][split],
+            shuffle=data_config["shuffle_map"].get(split, False),
             num_workers=data_config["num_workers"],
         )
         for split in split_dfs
     }
 
     # Return the DataLoaders and label mappings
-    return dataloaders, label_mappings
+    return dataloaders, train_label_mappings, test_unseen_label_mappings

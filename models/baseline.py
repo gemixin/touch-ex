@@ -44,12 +44,12 @@ class BaselineCNNModel(nn.Module):
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, 3, 224, 224)
             return_features (bool): If True, return the features before the classifier
-            instead of the final output.
+                instead of the final output.
 
         Returns:
             torch.Tensor: If return_features is False, returns the output of the
-            classifier (batch_size, num_classes). If return_features is True,
-            returns the features before the classifier (batch_size, feature_dim).
+                classifier (batch_size, num_classes). If return_features is True,
+                returns the features before the classifier (batch_size, feature_dim).
         """
 
         # Pass through convolutional layers with ReLU and pooling

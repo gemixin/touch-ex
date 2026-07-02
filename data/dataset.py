@@ -15,26 +15,38 @@ class TouchExDataset(Dataset):
     """
 
     def __init__(
-        self, dataframe, label_mappings, transform_name, norm_stats=None, bg_path=None
+        self,
+        dataframe,
+        train_label_mappings,
+        test_unseen_label_mappings,
+        transform_name,
+        norm_stats=None,
+        bg_path=None,
+        test_unseen=False,
     ):
         """
-        Initialise the TouchExDataset.
+        Initialise the TouchExDataset object.
 
         Args:
             dataframe (pd.DataFrame): The input DataFrame containing the dataset.
-            label_mappings (dict): A dictionary containing label mappings.
+            train_label_mappings (dict): A dictionary containing categorical label mappings
+                for the training set.
+            test_unseen_label_mappings (dict): A dictionary containing categorical label
+                mappings for the unseen test set.
             transform_name (str): The name of the transform to apply to the images.
             norm_stats (dict, optional): A dictionary containing mean and std for
-            normalisation. Defaults to None, meaning no normalisation will be applied.
+                normalisation. Defaults to None, meaning no normalisation will be applied.
             bg_path (str, optional): Path to the background image for subtraction.
-            Defaults to None, meaning no background subtraction will be applied.
+                Defaults to None, meaning no background subtraction will be applied.
+            test_unseen (bool, optional): Whether the dataset is for the unseen test split.
         """
 
         # Initialise with the provided dataset dataframe
         self.df = dataframe.reset_index(drop=True)
 
         # Extract label info
-        self.label2idx = label_mappings["label2idx"]
+        self.train_label2idx = train_label_mappings["label2idx"]
+        self.test_unseen_label2idx = test_unseen_label_mappings["label2idx"]
 
         # Store the name of the transform to apply to the images
         self.transform_name = transform_name
@@ -42,7 +54,17 @@ class TouchExDataset(Dataset):
         # Store the normalisation stats (mean and std)
         self.norm_stats = norm_stats
 
-        # Encode string labels using the provided mappings
+        # Store whether this dataset is for the unseen test split
+        self.test_unseen = test_unseen
+
+        # Get the appropriate label mappings based on whether this is the unseen test split
+        if self.test_unseen:
+            self.label2idx = self.test_unseen_label2idx
+        else:
+            self.label2idx = self.train_label2idx
+
+        # Encode categorical string labels using the provided mappings
+        # ["object", "region", "object_region", "force_level", "motion"]
         # Store the class mappings in the dataframe
         for label in self.label2idx.keys():
             mapping = self.label2idx[label]
@@ -50,6 +72,25 @@ class TouchExDataset(Dataset):
             # This allows us to handle any potential unseen labels gracefully
             encoded = self.df[label].map(mapping).fillna(-1).astype("int64")
             self.df[f"{label}_class"] = encoded
+
+        # If this is the unseen test split, also encode the expected labels
+        if self.test_unseen:
+            # Use the train label mappings for expected labels
+            expected_object_mapping = self.train_label2idx["object"]
+            expected_object_region_mapping = self.train_label2idx["object_region"]
+            # Map the expected labels to class indices, filling any unmapped values with -1
+            self.df["expected_object_class"] = (
+                self.df["expected_object"]
+                .map(expected_object_mapping)
+                .fillna(-1)
+                .astype("int64")
+            )
+            self.df["expected_object_region_class"] = (
+                self.df["expected_object_region"]
+                .map(expected_object_region_mapping)
+                .fillna(-1)
+                .astype("int64")
+            )
 
         # If a background image path is provided, load and preprocess it
         if bg_path is not None:
@@ -102,7 +143,9 @@ class TouchExDataset(Dataset):
         force_n_val = torch.tensor(row["force_n"], dtype=torch.float32)
         fsr_voltage_val = torch.tensor(row["fsr_voltage"], dtype=torch.float32)
 
-        # Text values (metadata) - keep as strings
+        # Text values - keep as strings
+        hardness_value = row["hardness"]
+        material_value = row["material"]
         description_value = row["description"]
         interaction_num_value = row["interaction_num"]
         frame_num_value = row["frame_num"]
@@ -113,6 +156,8 @@ class TouchExDataset(Dataset):
             "image": img_tensor,
             "force_n": force_n_val,
             "fsr_voltage": fsr_voltage_val,
+            "hardness": hardness_value,
+            "material": material_value,
             "description": description_value,
             "interaction_num": interaction_num_value,
             "frame_num": frame_num_value,
@@ -123,6 +168,15 @@ class TouchExDataset(Dataset):
         # Add each categorical label to the features dictionary
         for label in self.label2idx.keys():
             features[label] = torch.tensor(row[f"{label}_class"], dtype=torch.long)
+
+        # If this is the unseen test split, also include the expected labels
+        if self.test_unseen:
+            features["expected_object_class"] = torch.tensor(
+                row["expected_object_class"], dtype=torch.long
+            )
+            features["expected_object_region_class"] = torch.tensor(
+                row["expected_object_region_class"], dtype=torch.long
+            )
 
         # Return a dictionary containing everything
         # This makes it easy to swap out task heads later

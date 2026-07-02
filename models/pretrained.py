@@ -16,7 +16,7 @@ class PretrainedModel(nn.Module):
 
         Args:
             model_type (str): The type of the pretrained model to use. Options are
-            'resnet18', 'efficientnet_b0', 'vit_b_16', 'sparsh', 'anytouch'.
+                'resnet18', 'efficientnet_b0', 'vit_b_16', 'sparsh', 'anytouch'.
             num_classes (int): The number of classes to classify.
         """
 
@@ -55,13 +55,13 @@ class PretrainedModel(nn.Module):
 
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, 3, 224, 224)
-            return_features (bool): If True, return the features before the classifier
-            instead of the final output.
+                return_features (bool): If True, return the features before the classifier
+                instead of the final output.
 
         Returns:
             torch.Tensor: If return_features is False, returns the output of the
-            classifier (batch_size, num_classes). If return_features is True,
-            returns the features before the classifier (batch_size, feature_dim).
+                classifier (batch_size, num_classes). If return_features is True,
+                returns the features before the classifier (batch_size, feature_dim).
         """
 
         # Pass through the backbone to get features

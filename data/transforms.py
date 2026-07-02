@@ -19,7 +19,7 @@ def get_transform(transform_name):
 
     Returns:
         torchvision.transforms.Compose: The composed transform corresponding to the
-        specified name.
+            specified name.
     """
 
     if transform_name == "pad_224":

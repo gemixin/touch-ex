@@ -2,7 +2,7 @@
     "random_state": 129,
     "split_size": 0.3,
     "stratify_label": "object",
-    "unseen_objs": null,
+    "withheld_labels": null,
     "transform_name": "pad_224",
     "bg_path": "data/baseline.jpg",
     "norm_type": "dataset",

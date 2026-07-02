@@ -15,20 +15,86 @@ from torchvision import transforms
 import json
 from data.transforms import get_transform
 
-# Columns in the dataset that we will be using as labels for classification tasks
-LABEL_COLS = ["object", "object_region", "force_level", "hardness", "material"]
+# Columns in the dataset that we can use as labels for classification tasks
+LABEL_COLS = ["object", "region", "object_region", "force_level", "motion"]
+
+# Mappings for expected object labels in the unseen test split
+EXPECTED_OBJECTS = {
+    "tin_peas": "tin_beans",
+    "small_scissors": "scissors",
+    "patterned_mug": "mug",
+    "media_remote": "tv_remote",
+    "table_knife": "scissors",
+    "microfibre_cloth": "tea_towel",
+    "dish_brush": "toothbrush",
+    "beaker": "mug",
+    "rubber_ball": "tennis_ball",
+}
+
+# Mappings for expected object_region labels in the unseen test split
+EXPECTED_OBJECT_REGIONS = {
+    "tin_peas_body": "tin_beans_body",
+    "tin_peas_lid": "tin_beans_lid",
+    "tin_peas_base": "tin_beans_base",
+    "small_scissors_handle": "scissors_handle",
+    "small_scissors_blades": "scissors_blades",
+    "patterned_mug_body": "mug_body",
+    "patterned_mug_handle": "mug_handle",
+    "patterned_mug_rim": "mug_rim",
+    "media_remote_body": "tv_remote_body",
+    "media_remote_buttons": "tv_remote_buttons",
+    "table_knife_handle": "scissors_blade",
+    "table_knife_blade": "scissors_blade",
+    "microfibre_cloth_surface": "tea_towel_surface",
+    "microfibre_cloth_edge": "tea_towel_edge",
+    "dish_brush_handle": "toothbrush_handle",
+    "dish_brush_head": "toothbrush_head",
+    "beaker_body": "mug_body",
+    "beaker_rim": "mug_rim",
+    "rubber_ball_body": "tennis_ball_body",
+    "rubber_ball_ridges": "tennis_ball_seam",
+}
 
 
 def load_touch_ex_dataset():
     """
-    Load the Touch-Ex Hugging Face dataset and return a pandas DataFrame.
+    Load the Touch-Ex Hugging Face dataset and return a dictionary containing the main
+    train split and the test_unseen split as pandas DataFrames.
 
     Returns:
-        pd.DataFrame: A DataFrame containing the Touch-Ex dataset.
+        dict: A dictionary containing the train and test_unseen splits as pandas DataFrames.
     """
 
-    dataset = load_dataset("gemixin/touch-ex", split="train")
-    return dataset.to_pandas()
+    # Load the Touch-Ex dataset from Hugging Face
+    dataset = load_dataset("gemixin/touch-ex")
+
+    # Convert the train and test_unseen splits to pandas DataFrames
+    train_df = dataset["train"].to_pandas()
+    test_unseen_df = dataset["test_unseen"].to_pandas()
+
+    # Return the DataFrames in a dictionary
+    return {"train": train_df, "test_unseen": test_unseen_df}
+
+
+def add_expected_labels(df):
+    """
+    Add expected object and object_region labels for the unseen test split.
+
+    Args:
+        df (pd.DataFrame): The unseen test split DataFrame.
+
+    Returns:
+        pd.DataFrame: A copy of the input DataFrame with expected label columns added.
+    """
+
+    # Create a copy of the input DataFrame
+    updated_df = df.copy()
+    # Map the original labels to the expected labels using the predefined mappings
+    updated_df["expected_object"] = updated_df["object"].map(EXPECTED_OBJECTS)
+    updated_df["expected_object_region"] = updated_df["object_region"].map(
+        EXPECTED_OBJECT_REGIONS
+    )
+    return updated_df
 
 
 def split_by_interaction(df, split_size, stratify_label, random_state):
@@ -78,31 +144,35 @@ def split_by_interaction(df, split_size, stratify_label, random_state):
     return train_df, val_df, test_df
 
 
-def split_by_interaction_unseen_objs(
-    df, split_size, stratify_label, random_state, unseen_objs
+def split_by_interaction_withheld(
+    df, split_size, stratify_label, random_state, withheld_labels
 ):
     """
     Split a frame-level dataframe by interaction_id using the specified split size and
-    stratification label, ensuring that all interactions involving the specified unseen
-    objects are placed in the test set.
+    stratification label, ensuring that all interactions involving the specified withheld
+    labels are placed in the test set.
 
     Args:
         df (pd.DataFrame): The input DataFrame to split.
         split_size (float): The proportion of the dataset for the val split.
         stratify_label (str): The column name to use for stratification.
         random_state (int): The random seed for reproducibility.
-        unseen_objs (list): A list of object names to be included in the test set.
+        withheld_labels (tuple): A tuple in the format ("label", ["label_value"]).
 
     Returns:
         tuple: A tuple containing the train, validation, and test DataFrames.
     """
 
+    # Extract the withheld label and list of values from the tuple
+    withheld_label = withheld_labels[0]
+    withheld_values = withheld_labels[1]
+
     # Get the unique interactions by grouping on the interaction column
     # Take the first frame of each interaction
     interaction_df = df.groupby("interaction_id").first().reset_index()
 
-    # Identify interactions that involve any of the unseen objects
-    test_ids_df = interaction_df[interaction_df["object"].isin(unseen_objs)]
+    # Identify interactions that involve any of the withheld labels
+    test_ids_df = interaction_df[interaction_df[withheld_label].isin(withheld_values)]
 
     # The remaining interactions are eligible for train/val splits
     remaining_ids_df = interaction_df[
@@ -236,7 +306,7 @@ def calculate_dataset_norm_stats(df, data_config, use_cache=True):
         "random_state": data_config["random_state"],
         "split_size": data_config["split_size"],
         "stratify_label": data_config["stratify_label"],
-        "unseen_objs": data_config["unseen_objs"],
+        "withheld_labels": data_config.get("withheld_labels"),
         "transform_name": data_config["transform_name"],
         "bg_path": data_config["bg_path"],
     }
@@ -331,11 +401,11 @@ def get_norm_stats(df, data_config, use_cache=True):
         df (pd.DataFrame): The input DataFrame containing the dataset.
         data_config (dict): The data configuration containing normalisation parameters.
         use_cache (bool): Whether to use cached normalisation stats (only applicable for
-        'dataset' norm type).
+            'dataset' norm type).
 
     Returns:
         tuple: A tuple containing the mean and standard deviation as torch tensors, or
-        None if normalisation is not enabled.
+            None if normalisation is not enabled.
     """
 
     # If normalisation is not enabled, return None
