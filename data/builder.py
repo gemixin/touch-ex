@@ -36,24 +36,31 @@ def get_dataloaders(data_config):
     # Add new columns to test_unseen_df for expected labels
     test_unseen_df = utils.add_expected_labels(test_unseen_df)
 
+    # Filter dataframes if needed
+    # Filter by force if a specific force level is specified in the data_config
+    if data_config["filtered_force_level"]:
+        train_source_df = train_source_df[
+            train_source_df["force_level"] == data_config["filtered_force_level"]
+        ]
+        test_unseen_df = test_unseen_df[
+            test_unseen_df["force_level"] == data_config["filtered_force_level"]
+        ]
+    # Filter by motion if a specific motion type is specified in the data_config
+    if data_config["filtered_motion"]:
+        train_source_df = train_source_df[
+            train_source_df["motion"] == data_config["filtered_motion"]
+        ]
+        test_unseen_df = test_unseen_df[
+            test_unseen_df["motion"] == data_config["filtered_motion"]
+        ]
+
     # Split the main dataset by interaction_id into train, val, and test sets
-    # If withheld_labels is provided, split the dataset with withheld labels in the test set
-    if data_config["withheld_labels"] is not None:
-        train_df, val_df, test_df = utils.split_by_interaction_withheld(
-            train_source_df,
-            split_size=data_config["split_size"],
-            stratify_label=data_config["stratify_label"],
-            random_state=data_config["random_state"],
-            withheld_labels=data_config["withheld_labels"],
-        )
-    # Otherwise, do a regular split
-    else:
-        train_df, val_df, test_df = utils.split_by_interaction(
-            train_source_df,
-            split_size=data_config["split_size"],
-            stratify_label=data_config["stratify_label"],
-            random_state=data_config["random_state"],
-        )
+    train_df, val_df, test_df = utils.split_by_interaction(
+        train_source_df,
+        split_size=data_config["split_size"],
+        stratify_label=data_config["stratify_label"],
+        random_state=data_config["random_state"],
+    )
 
     split_dfs = {
         "train": train_df,
