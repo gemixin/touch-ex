@@ -97,6 +97,40 @@ def add_expected_labels(df):
     return updated_df
 
 
+def filter_by_force_level(df, force_level):
+    """
+    Filter the DataFrame by the given force level.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame to filter.
+        force_level (str): The force level to filter by.
+
+    Returns:
+        pd.DataFrame: A filtered DataFrame containing only rows with the given force level.
+    """
+
+    # Filter the DataFrame based on the given force level
+    filtered_df = df[df["force_level"] == force_level]
+    return filtered_df
+
+
+def filter_by_motion(df, motion):
+    """
+    Filter the DataFrame by the given motion.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame to filter.
+        motion (str): The motion to filter by.
+
+    Returns:
+        pd.DataFrame: A filtered DataFrame containing only rows with the given motion.
+    """
+
+    # Filter the DataFrame based on the specified motion
+    filtered_df = df[df["motion"] == motion]
+    return filtered_df
+
+
 def split_by_interaction(df, split_size, stratify_label, random_state):
     """
     Split a frame-level dataframe by interaction_id using the specified split size and

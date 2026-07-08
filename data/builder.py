@@ -30,6 +30,7 @@ def get_dataloaders(data_config):
 
     # Load the HuggingFace dataset splits into DataFrames
     dataframes = utils.load_touch_ex_dataset()
+
     train_source_df = dataframes["train"]  # Main training split for train/val/test
     test_unseen_df = dataframes["test_unseen"]  # Separate test split with unseen labels
 
@@ -37,22 +38,20 @@ def get_dataloaders(data_config):
     test_unseen_df = utils.add_expected_labels(test_unseen_df)
 
     # Filter dataframes if needed
-    # Filter by force if a specific force level is specified in the data_config
+    # If a specific force level is specified in the data_config
     if data_config["filtered_force_level"]:
-        train_source_df = train_source_df[
-            train_source_df["force_level"] == data_config["filtered_force_level"]
-        ]
-        test_unseen_df = test_unseen_df[
-            test_unseen_df["force_level"] == data_config["filtered_force_level"]
-        ]
-    # Filter by motion if a specific motion type is specified in the data_config
+        # Get the force level string value
+        force_val = data_config["filtered_force_level"]
+        # Filter the train and test_unseen DataFrames by the specified force level
+        train_source_df = utils.filter_by_force_level(train_source_df, force_val)
+        test_unseen_df = utils.filter_by_force_level(test_unseen_df, force_val)
+    # If a specific motion type is specified in the data_config
     if data_config["filtered_motion"]:
-        train_source_df = train_source_df[
-            train_source_df["motion"] == data_config["filtered_motion"]
-        ]
-        test_unseen_df = test_unseen_df[
-            test_unseen_df["motion"] == data_config["filtered_motion"]
-        ]
+        # Get the motion type string value
+        motion_val = data_config["filtered_motion"]
+        # Filter the train and test_unseen DataFrames by the specified motion type
+        train_source_df = utils.filter_by_motion(train_source_df, motion_val)
+        test_unseen_df = utils.filter_by_motion(test_unseen_df, motion_val)
 
     # Split the main dataset by interaction_id into train, val, and test sets
     train_df, val_df, test_df = utils.split_by_interaction(
