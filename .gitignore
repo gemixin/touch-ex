@@ -5,3 +5,4 @@ __pycache__/
 .vscode/
 temp/
 checkpoints/
+requirements_gem_linux.txt
