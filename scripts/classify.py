@@ -168,7 +168,7 @@ df = pd.DataFrame(
     {
         "experiment_number": experiment_number,
         "experiment_name": EXPERIMENT_NAME,
-        "model_config": train_configs,
+        "train_config": train_configs,
         "data_config": data_configs,
         "model_type": MODEL_TYPES,
         "list_classes": [list_classes for _ in range(len(MODEL_TYPES))],

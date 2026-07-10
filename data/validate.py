@@ -154,12 +154,12 @@ def validate_train_config(train_config):
 
     # First check it's actually a dictionary
     if not isinstance(train_config, dict):
-        raise ValueError("model_config must be a dictionary.")
+        raise ValueError("train_config must be a dictionary.")
 
     # Check that all required keys are present
     for key in required_keys:
         if key not in train_config:
-            raise ValueError(f"model_config is missing required key: {key}.")
+            raise ValueError(f"train_config is missing required key: {key}.")
 
     # Validate optimizer
     if train_config["optimizer"] not in optimizers:
