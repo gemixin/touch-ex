@@ -44,7 +44,7 @@ CHECKPOINTS_PATH = f"checkpoints/{FOLDER_NAME}"
 RESULTS_PATH = f"results/{FOLDER_NAME}"
 EXPERIMENTS_DF_PATH = f"{RESULTS_PATH}/experiments.parquet"
 DATA_CONFIG_PATH = "configs/default_data_config.json"
-MODEL_CONFIG_PATH = "configs/default_model_config.json"
+TRAIN_CONFIG_PATH = "configs/default_train_config.json"
 
 # Set torch random seed
 torch.manual_seed(SEED)
@@ -92,26 +92,26 @@ num_classes = len(list_classes)
 
 # --- Prepare models --- #
 
-# Get default model config from json file
-with open(MODEL_CONFIG_PATH, "r", encoding="utf-8") as f:
-    model_config = json.load(f)
+# Get default train config from json file
+with open(TRAIN_CONFIG_PATH, "r", encoding="utf-8") as f:
+    train_config = json.load(f)
 
 # Set checkpoint directory
 # (new folder for each experiment number within the target label folder)
-model_config["checkpoint_dir"] = (
+train_config["checkpoint_dir"] = (
     f"checkpoints/{FOLDER_NAME}/{str(experiment_number).zfill(3)}"
 )
 
-# Update default model config with custom settings
-# model_config["optimizer"] = "adamw"
-model_config["weight_decay"] = 0.02
-model_config["learning_rate"] = 0.0002
+# Update default train config with custom settings
+# train_config["optimizer"] = "adamw"
+train_config["weight_decay"] = 0.02
+train_config["learning_rate"] = 0.0002
 
 # Create a copy of the model config for each model type
-model_configs = [model_config.copy() for _ in MODEL_TYPES]
+train_configs = [train_config.copy() for _ in MODEL_TYPES]
 
 # Set model title in the model config for each model type
-for config, model_type in zip(model_configs, MODEL_TYPES):
+for config, model_type in zip(train_configs, MODEL_TYPES):
     config["model_title"] = model_type
 
 # --- Train models --- #
@@ -135,7 +135,7 @@ for i in range(len(dataloaders)):
         train_loader=dataloaders[i]["train"],
         val_loader=dataloaders[i]["val"],
         target_label=TARGET_LABEL,
-        config=model_configs[i],
+        train_config=train_configs[i],
     )
 
     # Append the model and history to the respective lists
@@ -168,7 +168,7 @@ df = pd.DataFrame(
     {
         "experiment_number": experiment_number,
         "experiment_name": EXPERIMENT_NAME,
-        "model_config": model_configs,
+        "model_config": train_configs,
         "data_config": data_configs,
         "model_type": MODEL_TYPES,
         "list_classes": [list_classes for _ in range(len(MODEL_TYPES))],

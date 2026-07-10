@@ -11,48 +11,10 @@ import torch.optim as optim
 from sklearn.metrics import f1_score
 from tqdm.auto import tqdm
 import os
+from data.validate import validate_train_config
 
 
-def get_optimizer(model, config):
-    """
-    Get the Torch optimizer based on the configuration.
-
-    Args:
-        model (nn.Module): The model for which to create the optimizer.
-        config (dict): Configuration dictionary containing optimizer settings.
-
-    Returns:
-        torch.optim.Optimizer: The initialized optimizer.
-    """
-
-    # Get class based on string name in config
-    if config["optimizer"].lower() == "sgd":
-        optimizer = optim.SGD
-    elif config["optimizer"].lower() == "adam":
-        optimizer = optim.Adam
-    elif config["optimizer"].lower() == "adamw":
-        optimizer = optim.AdamW
-    else:
-        raise ValueError(f"Unsupported optimizer type: {config['optimizer']}")
-
-    # Return the optimizer with the appropriate parameters based on the config
-    # If using SGD, include momentum
-    if optimizer == optim.SGD:
-        return optimizer(
-            model.parameters(),
-            lr=config["learning_rate"],
-            momentum=config["momentum"],
-            weight_decay=config["weight_decay"],
-        )
-    else:
-        return optimizer(
-            model.parameters(),
-            lr=config["learning_rate"],
-            weight_decay=config["weight_decay"],
-        )
-
-
-def train_classifier(model, device, train_loader, val_loader, target_label, config):
+def train_classifier(model, device, train_loader, val_loader, target_label, train_config):
     """
     Train the given classifier model.
 
@@ -62,29 +24,32 @@ def train_classifier(model, device, train_loader, val_loader, target_label, conf
         train_loader (DataLoader): The training data loader.
         val_loader (DataLoader): The validation data loader.
         target_label (str): The label key for the target variable.
-        config (dict): Configuration dictionary containing training settings.
+        train_config (dict): Configuration dictionary containing training settings.
 
     Returns:
         nn.Module: The trained model.
         list: Training history.
     """
 
+    # Validate the training configuration
+    validate_train_config(train_config)
+
     # Get the title of the model from the config for logging and checkpointing
-    model_title = config["model_title"]
-    num_epochs = config["num_epochs"]
+    model_title = train_config["model_title"]
+    num_epochs = train_config["num_epochs"]
     # Move model to the specified device
     model = model.to(device)
     # Get the optimizer and criterion from the config
-    optimizer = get_optimizer(model, config)
+    optimizer = get_optimizer(model, train_config)
     # Criterion is cross-entropy loss for classification
     criterion = nn.CrossEntropyLoss().to(device)
 
     # If checkpointing is enabled (checkpoint_dir in the config is not None)
-    if config["checkpoint_dir"]:
+    if train_config["checkpoint_dir"]:
         # Create the checkpoint directory if it doesn't exist
-        os.makedirs(config["checkpoint_dir"], exist_ok=True)
+        os.makedirs(train_config["checkpoint_dir"], exist_ok=True)
         # Get the path to save the model checkpoint based on the model title
-        checkpoint_path = os.path.join(config["checkpoint_dir"], f"{model_title}.pth")
+        checkpoint_path = os.path.join(train_config["checkpoint_dir"], f"{model_title}.pth")
 
     # Track the best validation accuracy for checkpointing
     best_val_acc = 0.0
@@ -180,7 +145,7 @@ def train_classifier(model, device, train_loader, val_loader, target_label, conf
         # -- Checkpointing -- #
 
         # If checkpointing is enabled (checkpoint_dir in the config is not None)
-        if config["checkpoint_dir"]:
+        if train_config["checkpoint_dir"]:
             # If this is the best validation accuracy so far, save the model checkpoint
             if val_acc > best_val_acc:
                 # Update the best validation accuracy
@@ -197,7 +162,7 @@ def train_classifier(model, device, train_loader, val_loader, target_label, conf
                 )
 
     # If checkpointing is enabled (checkpoint_dir in the config is not None)
-    if config["checkpoint_dir"]:
+    if train_config["checkpoint_dir"]:
         # Load the best model checkpoint
         checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint["model_state_dict"])
@@ -205,6 +170,45 @@ def train_classifier(model, device, train_loader, val_loader, target_label, conf
 
     # After training is complete, return the trained model and the history of metrics
     return model, history
+
+
+def get_optimizer(model, train_config):
+    """
+    Get the Torch optimizer based on the configuration.
+
+    Args:
+        model (nn.Module): The model for which to create the optimizer.
+        train_config (dict): Configuration dictionary containing optimizer settings.
+
+    Returns:
+        torch.optim.Optimizer: The initialized optimizer.
+    """
+
+    # Get class based on string name in config
+    if train_config["optimizer"].lower() == "sgd":
+        optimizer = optim.SGD
+    elif train_config["optimizer"].lower() == "adam":
+        optimizer = optim.Adam
+    elif train_config["optimizer"].lower() == "adamw":
+        optimizer = optim.AdamW
+    else:
+        raise ValueError(f"Unsupported optimizer type: {train_config['optimizer']}")
+
+    # Return the optimizer with the appropriate parameters based on the config
+    # If using SGD, include momentum
+    if optimizer == optim.SGD:
+        return optimizer(
+            model.parameters(),
+            lr=train_config["learning_rate"],
+            momentum=train_config["momentum"],
+            weight_decay=train_config["weight_decay"],
+        )
+    else:
+        return optimizer(
+            model.parameters(),
+            lr=train_config["learning_rate"],
+            weight_decay=train_config["weight_decay"],
+        )
 
 
 def eval_classifier(model, model_title, device, test_loader, target_label):

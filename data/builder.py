@@ -7,6 +7,7 @@ Date: April 2026
 
 from torch.utils.data import DataLoader
 from data.dataset import TouchExDataset
+from data.validate import validate_data_config
 import data.utils as utils
 
 
@@ -26,7 +27,8 @@ def get_dataloaders(data_config):
             dictionary, and the unseen test label mappings dictionary.
     """
 
-    # --- Load and prepare the dataset --- #
+    # Validate the data configuration
+    validate_data_config(data_config)
 
     # Load the HuggingFace dataset splits into DataFrames
     dataframes = utils.load_touch_ex_dataset()
