@@ -57,6 +57,13 @@ class TouchExDataset(Dataset):
         # Store whether this dataset is for the unseen test split
         self.test_unseen = test_unseen
 
+        # Define the expected label targets for the unseen test split, mapping them to their
+        # corresponding training label spaces
+        self.expected_label_targets = {
+            "expected_object": "object",
+            "expected_object_region": "object_region",
+        }
+
         # Get the appropriate label mappings based on whether this is the unseen test split
         if self.test_unseen:
             self.label2idx = self.test_unseen_label2idx
@@ -73,24 +80,14 @@ class TouchExDataset(Dataset):
             encoded = self.df[label].map(mapping).fillna(-1).astype("int64")
             self.df[f"{label}_class"] = encoded
 
-        # If this is the unseen test split, also encode the expected labels
+        # If this is the unseen test split, also encode the expected labels using
+        # the corresponding training-set label spaces.
         if self.test_unseen:
-            # Use the train label mappings for expected labels
-            expected_object_mapping = self.train_label2idx["object"]
-            expected_object_region_mapping = self.train_label2idx["object_region"]
-            # Map the expected labels to class indices, filling any unmapped values with -1
-            self.df["expected_object_class"] = (
-                self.df["expected_object"]
-                .map(expected_object_mapping)
-                .fillna(-1)
-                .astype("int64")
-            )
-            self.df["expected_object_region_class"] = (
-                self.df["expected_object_region"]
-                .map(expected_object_region_mapping)
-                .fillna(-1)
-                .astype("int64")
-            )
+            for expected_label, train_label in self.expected_label_targets.items():
+                mapping = self.train_label2idx[train_label]
+                self.df[f"{expected_label}_class"] = (
+                    self.df[expected_label].map(mapping).fillna(-1).astype("int64")
+                )
 
         # If a background image path is provided, load and preprocess it
         if bg_path is not None:
@@ -169,14 +166,12 @@ class TouchExDataset(Dataset):
         for label in self.label2idx.keys():
             features[label] = torch.tensor(row[f"{label}_class"], dtype=torch.long)
 
-        # If this is the unseen test split, also include the expected labels
+        # Expected labels for the unseen test split are encoded in the training label spaces
         if self.test_unseen:
-            features["expected_object_class"] = torch.tensor(
-                row["expected_object_class"], dtype=torch.long
-            )
-            features["expected_object_region_class"] = torch.tensor(
-                row["expected_object_region_class"], dtype=torch.long
-            )
+            for expected_label in self.expected_label_targets:
+                features[expected_label] = torch.tensor(
+                    row[f"{expected_label}_class"], dtype=torch.long
+                )
 
         # Return a dictionary containing everything
         # This makes it easy to swap out task heads later
