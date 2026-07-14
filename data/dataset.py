@@ -63,6 +63,10 @@ class TouchExDataset(Dataset):
         # Store the class mappings in the dataframe
         for label in self.label2idx.keys():
             mapping = self.label2idx[label]
+            # Force level and motion retain their existing labels across splits, but must
+            # use training-space indices for unseen evaluation.
+            if self.test_unseen and label in {"force_level", "motion"}:
+                mapping = mappings["train"]["label2idx"][label]
             # Map the string labels to class indices, filling any unmapped values with -1
             # This allows us to handle any potential unseen labels gracefully
             encoded = self.df[label].map(mapping).fillna(-1).astype("int64")

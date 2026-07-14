@@ -211,7 +211,15 @@ def get_optimizer(model, train_config):
         )
 
 
-def eval_classifier(model, model_title, device, test_loader, target_label):
+def eval_classifier(
+    model,
+    model_title,
+    device,
+    test_loader,
+    target_label,
+    source_target_label=None,
+    evaluation_name="test",
+):
     """
     Evaluate the given classifier model on the test set.
 
@@ -220,11 +228,14 @@ def eval_classifier(model, model_title, device, test_loader, target_label):
         model_title (str): The title of the model for logging purposes.
         device (torch.device): The device to use for evaluation.
         test_loader (DataLoader): The test data loader.
-        target_label (str): The label key for the target variable.
+        target_label (str): The label key used to calculate loss and metrics.
+        source_target_label (str, optional): The label key used for confusion-matrix row
+            labels. Defaults to ``target_label``.
+        evaluation_name (str): Name used in evaluation progress output.
 
     Returns:
-        dict: A dictionary containing test loss, test accuracy, true labels, and
-        predicted labels.
+        dict: A dictionary containing test loss, test accuracy, metric labels, source
+            labels, and predicted labels.
     """
 
     # Move model to the specified device
@@ -236,16 +247,21 @@ def eval_classifier(model, model_title, device, test_loader, target_label):
 
     model.eval()
     test_loss, test_correct, test_total = 0.0, 0, 0
-    y_true, y_pred = [], []
+    y_true, y_true_source, y_pred = [], [], []
 
-    print(f"Starting evaluation of {model_title} on device: {device}")
+    print(
+        f"Starting {evaluation_name} evaluation of {model_title} on device: {device}"
+    )
 
     # Iterate over test batches without computing gradients
     with torch.no_grad():
-        for features in tqdm(test_loader, desc="Test", total=len(test_loader)):
+        for features in tqdm(
+            test_loader, desc=evaluation_name, total=len(test_loader)
+        ):
             # Get images and labels from features and move to device
             imgs = features["image"].to(device)
             labels = features[target_label].to(device)
+            source_labels = features[source_target_label or target_label].to(device)
 
             # Perform forward pass and compute loss
             outputs = model(imgs)
@@ -260,6 +276,7 @@ def eval_classifier(model, model_title, device, test_loader, target_label):
             # Append true and predicted labels to lists for later analysis
             # Move to CPU and convert to numpy array before appending
             y_true.extend(labels.cpu().numpy())
+            y_true_source.extend(source_labels.cpu().numpy())
             y_pred.extend(predicted.cpu().numpy())
 
     # Compute average test loss and accuracy
@@ -269,8 +286,11 @@ def eval_classifier(model, model_title, device, test_loader, target_label):
     # Compute weighted F1 average using sklearn's f1_score function
     weighted_f1_avg = f1_score(y_true, y_pred, average="weighted")
 
-    tqdm.write(f"Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc:.2f}%")
-    tqdm.write(f"Weighted F1 Average: {weighted_f1_avg:.4f}")
+    tqdm.write(
+        f"{evaluation_name} Loss: {test_loss:.4f}, "
+        f"{evaluation_name} Accuracy: {test_acc:.2f}%"
+    )
+    tqdm.write(f"{evaluation_name} Weighted F1 Average: {weighted_f1_avg:.4f}")
 
     # Return a dictionary containing the results
     return {
@@ -278,5 +298,6 @@ def eval_classifier(model, model_title, device, test_loader, target_label):
         "test_acc": test_acc,
         "weighted_f1_avg": weighted_f1_avg,
         "y_true": y_true,
+        "y_true_source": y_true_source,
         "y_pred": y_pred,
     }

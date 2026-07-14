@@ -6,206 +6,41 @@ Author: Gemma McLean
 Date: April 2026
 """
 
-import json
-import pandas as pd
-import os
-import torch
-from data.builder import get_dataloaders
-from models.baseline import BaselineCNNModel
-from models.pretrained import PretrainedModel
-from models.train_eval import train_classifier, eval_classifier
-from models.torch_functions import get_device
-import models.visualise as mv
+from models.experiments import classify
 
 # --- CONFIGURABLE PARAMETERS --- #
 
 # Target label for classification
-# Choose from 'object', 'object_region', 'force_level'
-TARGET_LABEL = "object"
+# Choose from 'object', 'object_region', 'force_level', or 'motion'
+TARGET_LABEL = "force_level"
 # Experiment name for tracking results
-EXPERIMENT_NAME = "efficientnet_10"
+EXPERIMENT_NAME = "resnet18_quick"
 # Set random seed for reproducibility
 SEED = 146
 # Model types to compare
 # Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'sparsh, 'anytouch'
-MODEL_TYPES = ["efficientnet_b0"]
+MODEL_TYPES = ["resnet18"]
 
-# --- Setup --- #
+# --- CONFIGURATION OVERRIDES --- #
 
-# Get device
-DEVICE = get_device()
+# Values here override keys in configs/default_data_config.json.
+DATA_CONFIG_OVERRIDES = {}
 
-# Folder name for saving results and checkpoints
-# We will use a new folder for each target label
-FOLDER_NAME = f"{TARGET_LABEL}_classify"
+# Values here override keys in configs/default_train_config.json.
+TRAIN_CONFIG_OVERRIDES = {
+    # "optimizer": "adamw",
+    "weight_decay": 0.02,
+    "learning_rate": 0.0002,
+    "num_epochs": 1,
+}
 
-# Paths for saving and loading checkpoints and results and configs
-CHECKPOINTS_PATH = f"checkpoints/{FOLDER_NAME}"
-RESULTS_PATH = f"results/{FOLDER_NAME}"
-EXPERIMENTS_DF_PATH = f"{RESULTS_PATH}/experiments.parquet"
-DATA_CONFIG_PATH = "configs/default_data_config.json"
-TRAIN_CONFIG_PATH = "configs/default_train_config.json"
+# --- Train and evaluate models --- #
 
-# Set torch random seed
-torch.manual_seed(SEED)
-torch.cuda.manual_seed_all(SEED)
-
-# --- Get experiment number --- #
-
-# Check if an experiments dataframe parquet file already exists for this folder
-if os.path.exists(EXPERIMENTS_DF_PATH):
-    # If it exists, load the existing file into a DataFrame
-    existing_results_df = pd.read_parquet(EXPERIMENTS_DF_PATH)
-    # Get max experiment number and increment it
-    experiment_number = existing_results_df["experiment_number"].max() + 1
-    concat = True
-# Otherwise
-else:
-    # Start a new experiment number at 1
-    experiment_number = 1
-    concat = False
-
-# --- Load and prepare the dataset --- #
-
-# Get default data config from json file
-with open(DATA_CONFIG_PATH, "r", encoding="utf-8") as f:
-    data_config = json.load(f)
-
-# Update default data config with custom settings
-data_config["stratify_label"] = TARGET_LABEL
-data_config["random_state"] = SEED
-
-# Create a copy of the data config for each model type
-data_configs = [data_config.copy() for _ in MODEL_TYPES]
-
-# Get (dataloaders, mappings) tuples for each fold using the different data configs
-data = [get_dataloaders(cfg) for cfg in data_configs]
-# Get dataloaders and mappings lists from the data tuples
-dataloaders = [item[0] for item in data]
-mappings = [item[1] for item in data]
-
-# Extract list of training classes from the mappings for the target label
-# As all mappings are the same, we can just use the first one
-train_class_labels = list(mappings[0]["train"]["label2idx"][TARGET_LABEL].keys())
-# Get the number of training classes for the target label
-num_train_classes = len(train_class_labels)
-
-# --- Prepare models --- #
-
-# Get default train config from json file
-with open(TRAIN_CONFIG_PATH, "r", encoding="utf-8") as f:
-    train_config = json.load(f)
-
-# Set checkpoint directory
-# (new folder for each experiment number within the target label folder)
-train_config["checkpoint_dir"] = (
-    f"checkpoints/{FOLDER_NAME}/{str(experiment_number).zfill(3)}"
+classify(
+    model_types=MODEL_TYPES,
+    target_label=TARGET_LABEL,
+    experiment_name=EXPERIMENT_NAME,
+    seed=SEED,
+    data_config_overrides=DATA_CONFIG_OVERRIDES,
+    train_config_overrides=TRAIN_CONFIG_OVERRIDES,
 )
-
-# Update default train config with custom settings
-# train_config["optimizer"] = "adamw"
-train_config["weight_decay"] = 0.02
-train_config["learning_rate"] = 0.0002
-
-# Create a copy of the model config for each model type
-train_configs = [train_config.copy() for _ in MODEL_TYPES]
-
-# Set model title in the model config for each model type
-for config, model_type in zip(train_configs, MODEL_TYPES):
-    config["model_title"] = model_type
-
-# --- Train models --- #
-
-# Create empty lists to store models and histories
-models = []
-histories = []
-
-# Loop through each model type
-for i in range(len(dataloaders)):
-    # Create the model based on the model type
-    if MODEL_TYPES[i] == "baseline":
-        model = BaselineCNNModel(num_classes=num_train_classes)
-    else:
-        model = PretrainedModel(model_type=MODEL_TYPES[i], num_classes=num_train_classes)
-
-    # Train the model and save the history
-    model, history = train_classifier(
-        model=model,
-        device=DEVICE,
-        train_loader=dataloaders[i]["train"],
-        val_loader=dataloaders[i]["val"],
-        target_label=TARGET_LABEL,
-        train_config=train_configs[i],
-    )
-
-    # Append the model and history to the respective lists
-    models.append(model)
-    histories.append(history)
-
-# --- Evaluate models --- #
-
-# Create empty list to store results
-results = []
-
-# Loop through each model
-for i in range(len(dataloaders)):
-    # Evaluate the current model on the test set
-    result = eval_classifier(
-        model=models[i],
-        model_title=MODEL_TYPES[i],
-        device=DEVICE,
-        test_loader=dataloaders[i]["test"],
-        target_label=TARGET_LABEL,
-    )
-
-    # Append the test result to the list
-    results.append(result)
-
-# --- Save experiment data --- #
-
-# Create a new DataFrame with relevant information for this experiment
-df = pd.DataFrame(
-    {
-        "experiment_number": experiment_number,
-        "experiment_name": EXPERIMENT_NAME,
-        "train_config": train_configs,
-        "data_config": data_configs,
-        "model_type": MODEL_TYPES,
-        "list_classes": [train_class_labels for _ in range(len(MODEL_TYPES))],
-        "history": histories,
-        "test_acc": [result["test_acc"] for result in results],
-        "test_loss": [result["test_loss"] for result in results],
-        "weighted_f1_avg": [result["weighted_f1_avg"] for result in results],
-        "y_pred": [result["y_pred"] for result in results],
-        "y_true": [result["y_true"] for result in results],
-    }
-)
-
-# If there is an existing experiments dataframe
-if concat:
-    # Concatenate the existing and new dataframes
-    new_df = pd.concat([existing_results_df, df], ignore_index=True)
-# Otherwise
-else:
-    # Create folder if it doesn't exist in the results directory
-    os.makedirs(RESULTS_PATH, exist_ok=True)
-    # Just use the new dataframe
-    new_df = df
-
-# Save DataFrame to parquet file
-new_df.to_parquet(EXPERIMENTS_DF_PATH, index=False)
-
-# --- Generate plots --- #
-
-# Path for saving plots
-plots_path = f"{RESULTS_PATH}/plots/{str(experiment_number).zfill(3)}"
-
-# If there are multiple models, plot the model comparison
-if len(MODEL_TYPES) > 1:
-    mv.plot_model_comparison(results, MODEL_TYPES, plots_path)
-
-# Plot training curves for each model
-mv.plot_training_curves(histories, MODEL_TYPES, plots_path)
-
-# Plot confusion matrices for each model
-mv.plot_confusion_matrices(results, MODEL_TYPES, train_class_labels, plots_path)
