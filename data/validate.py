@@ -5,7 +5,6 @@ Author: Gemma McLean
 Date: July 2026
 """
 
-import json
 from pathlib import Path
 
 
@@ -97,16 +96,17 @@ def validate_data_config(data_config):
 
     # Validate norm_cache_path
     norm_cache_path = data_config["norm_cache_path"]
-    if norm_cache_path is not None:
+    if norm_cache_path is None:
+        if norm_type is not None:
+            raise ValueError(
+                "norm_cache_path can only be None when norm_type is also None."
+            )
+    else:
         if not isinstance(norm_cache_path, (str, Path)):
-            raise ValueError("norm_cache_path must be an existing .json file or None.")
+            raise ValueError("norm_cache_path must be a .json path or None.")
         norm_cache_path = Path(norm_cache_path)
-        if norm_cache_path.suffix.lower() != ".json" or not norm_cache_path.is_file():
-            raise ValueError("norm_cache_path must be an existing .json file or None.")
-        try:
-            json.loads(norm_cache_path.read_text())
-        except json.JSONDecodeError as error:
-            raise ValueError("norm_cache_path must contain valid JSON.") from error
+        if norm_cache_path.suffix.lower() != ".json":
+            raise ValueError("norm_cache_path must have a .json extension.")
 
     # Validate batch_size
     if type(data_config["batch_size"]) is not int or data_config["batch_size"] < 1:

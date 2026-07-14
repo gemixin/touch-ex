@@ -55,6 +55,19 @@ EXPECTED_OBJECT_REGIONS = {
     "rubber_ball_ridges": "tennis_ball_seam",
 }
 
+# Categorise objects from the unseen test split
+# Matched objects are those that have a close counterpart in the training set
+MATCHED_OBJECTS = ["tin_peas", "small_scissors", "patterned_mug", "media_remote"]
+
+# Related objects are different but evaluated against a related training class
+RELATED_OBJECTS = [
+    "table_knife",
+    "microfibre_cloth",
+    "dish_brush",
+    "beaker",
+    "rubber_ball",
+]
+
 
 def load_touch_ex_dataset():
     """
@@ -176,6 +189,24 @@ def split_by_interaction(df, split_size, stratify_label, random_state):
     print(f"Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
 
     return train_df, val_df, test_df
+
+
+def split_test_unseen(df):
+    """
+    Split the test_unseen DataFrame into matched and related unseen-object sets.
+
+    Args:
+        df (pd.DataFrame): The input test_unseen DataFrame.
+
+    Returns:
+        tuple: A tuple containing the matched and related unseen-object DataFrames.
+    """
+
+    # Split unseen test data into matched and related unseen-object sets
+    test_unseen_matched_df = df[df["object"].isin(MATCHED_OBJECTS)]
+    test_unseen_related_df = df[df["object"].isin(RELATED_OBJECTS)]
+
+    return test_unseen_matched_df, test_unseen_related_df
 
 
 def get_label_mappings(df):
@@ -344,7 +375,7 @@ def calculate_dataset_norm_stats(df, data_config, use_cache=True):
                 "mean": mean.tolist(),
                 "std": std.tolist(),
             }
-            # Create the configs directory if it doesn't exist
+            # Create the cache file’s parent directory if it doesn't exist
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(data, indent=2))
             print("Normalisation stats calculated and saved to cache.")

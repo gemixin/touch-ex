@@ -74,21 +74,21 @@ with open(DATA_CONFIG_PATH, "r", encoding="utf-8") as f:
 # Update default data config with custom settings
 data_config["stratify_label"] = TARGET_LABEL
 data_config["random_state"] = SEED
-data_config["batch_size"] = 64
 
 # Create a copy of the data config for each model type
 data_configs = [data_config.copy() for _ in MODEL_TYPES]
 
-# Get (dataloaders, label_info) tuples for each fold using the different data configs
+# Get (dataloaders, mappings) tuples for each fold using the different data configs
 data = [get_dataloaders(cfg) for cfg in data_configs]
-# Get dataloaders list from the data tuples
+# Get dataloaders and mappings lists from the data tuples
 dataloaders = [item[0] for item in data]
-# Label_info is the same for all configs
-label_info = data[0][1]
+mappings = [item[1] for item in data]
 
-# Extract number of classes from the label info for the target label
-list_classes = list(label_info["label2idx"][TARGET_LABEL].keys())
-num_classes = len(list_classes)
+# Extract list of training classes from the mappings for the target label
+# As all mappings are the same, we can just use the first one
+train_class_labels = list(mappings[0]["train"]["label2idx"][TARGET_LABEL].keys())
+# Get the number of training classes for the target label
+num_train_classes = len(train_class_labels)
 
 # --- Prepare models --- #
 
@@ -124,9 +124,9 @@ histories = []
 for i in range(len(dataloaders)):
     # Create the model based on the model type
     if MODEL_TYPES[i] == "baseline":
-        model = BaselineCNNModel(num_classes=num_classes)
+        model = BaselineCNNModel(num_classes=num_train_classes)
     else:
-        model = PretrainedModel(model_type=MODEL_TYPES[i], num_classes=num_classes)
+        model = PretrainedModel(model_type=MODEL_TYPES[i], num_classes=num_train_classes)
 
     # Train the model and save the history
     model, history = train_classifier(
@@ -153,9 +153,9 @@ for i in range(len(dataloaders)):
     result = eval_classifier(
         model=models[i],
         model_title=MODEL_TYPES[i],
+        device=DEVICE,
         test_loader=dataloaders[i]["test"],
         target_label=TARGET_LABEL,
-        device=DEVICE,
     )
 
     # Append the test result to the list
@@ -171,7 +171,7 @@ df = pd.DataFrame(
         "train_config": train_configs,
         "data_config": data_configs,
         "model_type": MODEL_TYPES,
-        "list_classes": [list_classes for _ in range(len(MODEL_TYPES))],
+        "list_classes": [train_class_labels for _ in range(len(MODEL_TYPES))],
         "history": histories,
         "test_acc": [result["test_acc"] for result in results],
         "test_loss": [result["test_loss"] for result in results],
@@ -208,4 +208,4 @@ if len(MODEL_TYPES) > 1:
 mv.plot_training_curves(histories, MODEL_TYPES, plots_path)
 
 # Plot confusion matrices for each model
-mv.plot_confusion_matrices(results, MODEL_TYPES, list_classes, plots_path)
+mv.plot_confusion_matrices(results, MODEL_TYPES, train_class_labels, plots_path)

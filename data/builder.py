@@ -13,18 +13,18 @@ import data.utils as utils
 
 def get_dataloaders(data_config):
     """
-    Load the Touch-Ex dataset, split the main train split into train/val/test sets,
-    create a TouchEXDataset for each split, and return DataLoaders for each split plus
-    label mappings. The separate test_unseen split is included as an additional dataloader
-    along with its own label mappings.
+    Load the Touch-Ex dataset and split the main train split into train/val/test sets.
+    Split the unseen test data into two sets: matched unseen objects and related unseen
+    objects. Create a TouchExDataset for each split and return a dictionary of DataLoaders,
+    along with the label mappings.
 
     Args:
         data_config (dict): A dictionary containing configuration parameters for loading and
             preparing the dataset.
 
     Returns:
-        tuple: A tuple containing the DataLoaders dictionary, the training label mappings
-            dictionary, and the unseen test label mappings dictionary.
+        tuple: A tuple containing the DataLoaders dictionary and the label mappings
+            dictionary.
     """
 
     # Validate the data configuration
@@ -63,17 +63,24 @@ def get_dataloaders(data_config):
         random_state=data_config["random_state"],
     )
 
+    # Split the unseen test data into matched and related unseen-object sets
+    test_unseen_matched_df, test_unseen_related_df = utils.split_test_unseen(test_unseen_df)
+
+    # Create a dictionary of DataFrames for each split
     split_dfs = {
         "train": train_df,
         "val": val_df,
         "test": test_df,
-        "test_unseen": test_unseen_df,
+        "test_unseen_matched": test_unseen_matched_df,
+        "test_unseen_related": test_unseen_related_df,
     }
 
-    # Get label mappings from the training set
-    train_label_mappings = utils.get_label_mappings(train_df)
-    # Get label mappings from the unseen test set
-    test_unseen_label_mappings = utils.get_label_mappings(test_unseen_df)
+    # Get label mappings from the training, matched, and related unseen sets.
+    mappings = {
+        "train": utils.get_label_mappings(train_df),
+        "test_unseen_matched": utils.get_label_mappings(test_unseen_matched_df),
+        "test_unseen_related": utils.get_label_mappings(test_unseen_related_df),
+    }
 
     # Get normalisation stats (mean and std) or None if not enabled
     norm_stats = utils.get_norm_stats(train_df, data_config)
@@ -82,12 +89,11 @@ def get_dataloaders(data_config):
     datasets = {
         split: TouchExDataset(
             dataframe=df_split,
-            train_label_mappings=train_label_mappings,
-            test_unseen_label_mappings=test_unseen_label_mappings,
+            mappings=mappings,
             transform_name=data_config["transform_name"],
             norm_stats=norm_stats,
             bg_path=data_config["bg_path"],
-            test_unseen=(split == "test_unseen"),
+            split=split,
         )
         for split, df_split in split_dfs.items()
     }
@@ -104,4 +110,4 @@ def get_dataloaders(data_config):
     }
 
     # Return the DataLoaders and label mappings
-    return dataloaders, train_label_mappings, test_unseen_label_mappings
+    return dataloaders, mappings
