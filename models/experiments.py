@@ -162,22 +162,18 @@ def prepare_experiment(
     # Create a copy of the data config for each model type
     data_configs = [data_config.copy() for _ in model_types]
 
-    # Get (dataloaders, mappings) tuples for each model type using the data configs
+    # Get (dataloaders, label_lists) tuples for each model type using the data configs
     data = [get_dataloaders(config) for config in data_configs]
-    # Get dataloaders and mappings lists from the data tuples
+    # Get dataloaders and class-label lists from the data tuples
     dataloaders = [item[0] for item in data]
-    mappings = [item[1] for item in data]
+    label_lists = [item[1] for item in data]
 
     # Extract label lists in their class-index order.
     # Training labels describe the model's output space and expected unseen labels.
-    train_labels = list(mappings[0]["train"]["idx2label"][target_label].values())
+    train_labels = label_lists[0]["train"][target_label]
     # Source labels describe the original unseen objects shown on matrix rows.
-    test_unseen_matched_source_labels = list(
-        mappings[0]["test_unseen_matched"]["idx2label"][target_label].values()
-    )
-    test_unseen_related_source_labels = list(
-        mappings[0]["test_unseen_related"]["idx2label"][target_label].values()
-    )
+    test_unseen_matched_labels = list(label_lists[0]["test_unseen_matched"][target_label])
+    test_unseen_related_labels = list(label_lists[0]["test_unseen_related"][target_label])
 
     # --- Prepare models --- #
 
@@ -212,8 +208,8 @@ def prepare_experiment(
         "results_path": results_path,
         "target_label": target_label,
         "train_labels": train_labels,
-        "test_unseen_matched_source_labels": test_unseen_matched_source_labels,
-        "test_unseen_related_source_labels": test_unseen_related_source_labels,
+        "test_unseen_matched_labels": test_unseen_matched_labels,
+        "test_unseen_related_labels": test_unseen_related_labels,
         "train_configs": train_configs,
     }
 
@@ -305,7 +301,7 @@ def evaluate_models(experiment):
             device=experiment["device"],
             test_loader=experiment["dataloaders"][i]["test_unseen_matched"],
             target_label=unseen_evaluation["target_label"],
-            source_target_label=experiment["target_label"],
+            true_label=experiment["target_label"],
             evaluation_name="test_unseen_matched",
         )
         experiment["test_unseen_matched_results"].append(result)
@@ -319,7 +315,7 @@ def evaluate_models(experiment):
             device=experiment["device"],
             test_loader=experiment["dataloaders"][i]["test_unseen_related"],
             target_label=unseen_evaluation["target_label"],
-            source_target_label=experiment["target_label"],
+            true_label=experiment["target_label"],
             evaluation_name="test_unseen_related",
         )
         experiment["test_unseen_related_results"].append(result)
@@ -349,12 +345,12 @@ def save_experiment_results(experiment, experiment_name):
             "train_labels": [
                 experiment["train_labels"] for _ in range(len(experiment["model_types"]))
             ],
-            "test_unseen_matched_source_labels": [
-                experiment["test_unseen_matched_source_labels"]
+            "test_unseen_matched_labels": [
+                experiment["test_unseen_matched_labels"]
                 for _ in range(len(experiment["model_types"]))
             ],
-            "test_unseen_related_source_labels": [
-                experiment["test_unseen_related_source_labels"]
+            "test_unseen_related_labels": [
+                experiment["test_unseen_related_labels"]
                 for _ in range(len(experiment["model_types"]))
             ],
             "history": experiment["histories"],
@@ -366,52 +362,42 @@ def save_experiment_results(experiment, experiment_name):
             "test_y_pred": [result["y_pred"] for result in experiment["test_results"]],
             "test_y_true": [result["y_true"] for result in experiment["test_results"]],
             "test_unseen_matched_acc": [
-                result["test_acc"]
-                for result in experiment["test_unseen_matched_results"]
+                result["test_acc"] for result in experiment["test_unseen_matched_results"]
             ],
             "test_unseen_matched_loss": [
-                result["test_loss"]
-                for result in experiment["test_unseen_matched_results"]
+                result["test_loss"] for result in experiment["test_unseen_matched_results"]
             ],
             "test_unseen_matched_weighted_f1_avg": [
                 result["weighted_f1_avg"]
                 for result in experiment["test_unseen_matched_results"]
             ],
-            "test_unseen_matched_y_true_target": [
-                result["y_true"]
-                for result in experiment["test_unseen_matched_results"]
+            "test_unseen_matched_y_true": [
+                result["y_true"] for result in experiment["test_unseen_matched_results"]
             ],
-            "test_unseen_matched_y_true_source": [
-                result["y_true_source"]
-                for result in experiment["test_unseen_matched_results"]
+            "test_unseen_matched_y_expected": [
+                result["y_expected"] for result in experiment["test_unseen_matched_results"]
             ],
             "test_unseen_matched_y_pred": [
-                result["y_pred"]
-                for result in experiment["test_unseen_matched_results"]
+                result["y_pred"] for result in experiment["test_unseen_matched_results"]
             ],
             "test_unseen_related_acc": [
-                result["test_acc"]
-                for result in experiment["test_unseen_related_results"]
+                result["test_acc"] for result in experiment["test_unseen_related_results"]
             ],
             "test_unseen_related_loss": [
-                result["test_loss"]
-                for result in experiment["test_unseen_related_results"]
+                result["test_loss"] for result in experiment["test_unseen_related_results"]
             ],
             "test_unseen_related_weighted_f1_avg": [
                 result["weighted_f1_avg"]
                 for result in experiment["test_unseen_related_results"]
             ],
-            "test_unseen_related_y_true_target": [
-                result["y_true"]
-                for result in experiment["test_unseen_related_results"]
+            "test_unseen_related_y_true": [
+                result["y_true"] for result in experiment["test_unseen_related_results"]
             ],
-            "test_unseen_related_y_true_source": [
-                result["y_true_source"]
-                for result in experiment["test_unseen_related_results"]
+            "test_unseen_related_y_expected": [
+                result["y_expected"] for result in experiment["test_unseen_related_results"]
             ],
             "test_unseen_related_y_pred": [
-                result["y_pred"]
-                for result in experiment["test_unseen_related_results"]
+                result["y_pred"] for result in experiment["test_unseen_related_results"]
             ],
         }
     )
@@ -479,7 +465,7 @@ def generate_experiment_plots(experiment):
         mv.plot_cross_space_confusion_matrices(
             experiment["test_unseen_matched_results"],
             experiment["model_types"],
-            experiment["test_unseen_matched_source_labels"],
+            experiment["test_unseen_matched_labels"],
             experiment["train_labels"],
             plots_path,
             "test_unseen_matched",
@@ -505,7 +491,7 @@ def generate_experiment_plots(experiment):
         mv.plot_cross_space_confusion_matrices(
             experiment["test_unseen_related_results"],
             experiment["model_types"],
-            experiment["test_unseen_related_source_labels"],
+            experiment["test_unseen_related_labels"],
             experiment["train_labels"],
             plots_path,
             "test_unseen_related",

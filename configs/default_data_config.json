@@ -8,7 +8,7 @@
     "bg_path": "data/baseline.jpg",
     "norm_type": "dataset",
     "norm_cache_path": "configs/norm_cache.json",
-    "batch_size": 64,
+    "batch_size": 32,
     "num_workers": 4,
     "shuffle_map": {
         "train": true,

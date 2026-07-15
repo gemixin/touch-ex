@@ -15,7 +15,7 @@ class TouchExDataset(Dataset):
     """
 
     def __init__(
-        self, dataframe, split, mappings, transform_name, norm_stats=None, bg_path=None
+        self, dataframe, split, label_lists, transform_name, norm_stats=None, bg_path=None
     ):
         """
         Initialise the TouchExDataset object.
@@ -23,7 +23,8 @@ class TouchExDataset(Dataset):
         Args:
             dataframe (pd.DataFrame): The input DataFrame containing the dataset.
             split (str): The split to which the dataset belongs.
-            mappings (dict): A dictionary containing label mappings for different splits.
+            label_lists (dict): A dictionary containing class-label lists for different
+                splits.
             transform_name (str): The name of the transform to apply to the images.
             norm_stats (dict, optional): A dictionary containing mean and std for
                 normalisation. Defaults to None, meaning no normalisation will be applied.
@@ -49,24 +50,33 @@ class TouchExDataset(Dataset):
         else:
             self.test_unseen = False
 
-        # Get the appropriate label mappings based on the split
+        # Get class-label lists for this split and derive label-to-index dictionaries.
         if self.split == "test_unseen_matched":
-            self.label2idx = mappings["test_unseen_matched"]["label2idx"]
+            split_label_lists = label_lists["test_unseen_matched"]
         elif self.split == "test_unseen_related":
-            self.label2idx = mappings["test_unseen_related"]["label2idx"]
-        # Standard train, val and test splits use the training label mappings
+            split_label_lists = label_lists["test_unseen_related"]
+        # Standard train, val and test splits use the training class-label lists.
         else:
-            self.label2idx = mappings["train"]["label2idx"]
+            split_label_lists = label_lists["train"]
 
-        # Encode categorical string labels using the provided mappings
+        self.label2idx = {
+            label: {class_name: index for index, class_name in enumerate(class_list)}
+            for label, class_list in split_label_lists.items()
+        }
+        train_label2idx = {
+            label: {class_name: index for index, class_name in enumerate(class_list)}
+            for label, class_list in label_lists["train"].items()
+        }
+
+        # Encode categorical string labels using derived label-to-index dictionaries.
         # ["object", "region", "object_region", "force_level", "motion"]
-        # Store the class mappings in the dataframe
+        # Store the encoded class indices in the dataframe.
         for label in self.label2idx.keys():
             mapping = self.label2idx[label]
             # Force level and motion retain their existing labels across splits, but must
             # use training-space indices for unseen evaluation.
             if self.test_unseen and label in {"force_level", "motion"}:
-                mapping = mappings["train"]["label2idx"][label]
+                mapping = train_label2idx[label]
             # Map the string labels to class indices, filling any unmapped values with -1
             # This allows us to handle any potential unseen labels gracefully
             encoded = self.df[label].map(mapping).fillna(-1).astype("int64")
@@ -82,7 +92,7 @@ class TouchExDataset(Dataset):
         # the corresponding training-set label spaces.
         if self.test_unseen:
             for expected_label, train_label in self.expected_label_targets.items():
-                mapping = mappings["train"]["label2idx"][train_label]
+                mapping = train_label2idx[train_label]
                 self.df[f"{expected_label}_class"] = (
                     self.df[expected_label].map(mapping).fillna(-1).astype("int64")
                 )

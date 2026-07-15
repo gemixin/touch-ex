@@ -188,7 +188,7 @@ def plot_cross_space_confusion_matrices(
     for i in range(len(model_types)):
         cm = np.zeros((len(source_labels), len(predicted_labels)), dtype=int)
         for source_index, predicted_index in zip(
-            results[i]["y_true_source"], results[i]["y_pred"]
+            results[i]["y_true"], results[i]["y_pred"]
         ):
             if not (
                 0 <= source_index < len(source_labels)
@@ -211,7 +211,7 @@ def plot_cross_space_confusion_matrices(
             ax=ax,
         )
         ax.set_xlabel("Predicted Training Class")
-        ax.set_ylabel("Source Unseen Object")
+        ax.set_ylabel("Unseen Object")
         ax.set_title(f"Confusion Matrix — {test_set_title} ({model_types[i]})")
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
 

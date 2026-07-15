@@ -217,7 +217,7 @@ def eval_classifier(
     device,
     test_loader,
     target_label,
-    source_target_label=None,
+    true_label=None,
     evaluation_name="test",
 ):
     """
@@ -228,13 +228,13 @@ def eval_classifier(
         model_title (str): The title of the model for logging purposes.
         device (torch.device): The device to use for evaluation.
         test_loader (DataLoader): The test data loader.
-        target_label (str): The label key used to calculate loss and metrics.
-        source_target_label (str, optional): The label key used for confusion-matrix row
-            labels. Defaults to ``target_label``.
+        target_label (str): The expected-label key used to calculate loss and metrics.
+        true_label (str, optional): The original-label key used for confusion-matrix rows.
+            Defaults to ``target_label``.
         evaluation_name (str): Name used in evaluation progress output.
 
     Returns:
-        dict: A dictionary containing test loss, test accuracy, metric labels, source
+        dict: A dictionary containing test loss, test accuracy, true labels, expected
             labels, and predicted labels.
     """
 
@@ -247,36 +247,32 @@ def eval_classifier(
 
     model.eval()
     test_loss, test_correct, test_total = 0.0, 0, 0
-    y_true, y_true_source, y_pred = [], [], []
+    y_true, y_expected, y_pred = [], [], []
 
-    print(
-        f"Starting {evaluation_name} evaluation of {model_title} on device: {device}"
-    )
+    print(f"Starting {evaluation_name} evaluation of {model_title} on device: {device}")
 
     # Iterate over test batches without computing gradients
     with torch.no_grad():
-        for features in tqdm(
-            test_loader, desc=evaluation_name, total=len(test_loader)
-        ):
+        for features in tqdm(test_loader, desc=evaluation_name, total=len(test_loader)):
             # Get images and labels from features and move to device
             imgs = features["image"].to(device)
-            labels = features[target_label].to(device)
-            source_labels = features[source_target_label or target_label].to(device)
+            expected_labels = features[target_label].to(device)
+            true_labels = features[true_label or target_label].to(device)
 
             # Perform forward pass and compute loss
             outputs = model(imgs)
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs, expected_labels)
 
             # Update overall test loss
             test_loss += loss.item()
             # Get predicted classes and update overall correct/total counts for accuracy
             _, predicted = torch.max(outputs.data, 1)
-            test_total += labels.size(0)
-            test_correct += (predicted == labels).sum().item()
-            # Append true and predicted labels to lists for later analysis
+            test_total += expected_labels.size(0)
+            test_correct += (predicted == expected_labels).sum().item()
+            # Append true, expected, and predicted labels to lists for later analysis.
             # Move to CPU and convert to numpy array before appending
-            y_true.extend(labels.cpu().numpy())
-            y_true_source.extend(source_labels.cpu().numpy())
+            y_true.extend(true_labels.cpu().numpy())
+            y_expected.extend(expected_labels.cpu().numpy())
             y_pred.extend(predicted.cpu().numpy())
 
     # Compute average test loss and accuracy
@@ -284,7 +280,7 @@ def eval_classifier(
     test_acc = 100 * test_correct / test_total
 
     # Compute weighted F1 average using sklearn's f1_score function
-    weighted_f1_avg = f1_score(y_true, y_pred, average="weighted")
+    weighted_f1_avg = f1_score(y_expected, y_pred, average="weighted")
 
     tqdm.write(
         f"{evaluation_name} Loss: {test_loss:.4f}, "
@@ -293,11 +289,13 @@ def eval_classifier(
     tqdm.write(f"{evaluation_name} Weighted F1 Average: {weighted_f1_avg:.4f}")
 
     # Return a dictionary containing the results
+    # For anything except object/object_region in the unseen test sets, y_expected will be
+    # the same as y_true
     return {
         "test_loss": test_loss,
         "test_acc": test_acc,
         "weighted_f1_avg": weighted_f1_avg,
         "y_true": y_true,
-        "y_true_source": y_true_source,
+        "y_expected": y_expected,
         "y_pred": y_pred,
     }

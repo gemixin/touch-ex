@@ -209,30 +209,19 @@ def split_test_unseen(df):
     return test_unseen_matched_df, test_unseen_related_df
 
 
-def get_label_mappings(df):
+def get_label_lists(df):
     """
-    Generate required label mappings from the provided DataFrame.
+    Get the unique class labels for each classification label column.
 
     Args:
         df (pd.DataFrame): The input DataFrame containing the dataset.
 
     Returns:
-        dict: A dictionary containing label-to-index and index-to-label mappings.
+        dict: A dictionary mapping each label column to its ordered class list.
     """
 
-    # Create label-to-index and index-to-label mappings for each label column
-    label2idx = {}
-    idx2label = {}
-    for col in LABEL_COLS:
-        unique_labels = df[col].unique()
-        label2idx[col] = {label: idx for idx, label in enumerate(unique_labels)}
-        idx2label[col] = {idx: label for idx, label in enumerate(unique_labels)}
-
-    # Return the mappings in a single dictionary
-    return {
-        "label2idx": label2idx,
-        "idx2label": idx2label,
-    }
+    # Preserve DataFrame order so each class list corresponds to indices 0 to n - 1.
+    return {label: df[label].unique().tolist() for label in LABEL_COLS}
 
 
 def process_tactile_image(img_data, transform_name, bg_tensor=None):

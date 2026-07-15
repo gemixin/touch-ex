@@ -16,14 +16,14 @@ def get_dataloaders(data_config):
     Load the Touch-Ex dataset and split the main train split into train/val/test sets.
     Split the unseen test data into two sets: matched unseen objects and related unseen
     objects. Create a TouchExDataset for each split and return a dictionary of DataLoaders,
-    along with the label mappings.
+    along with the class-label lists.
 
     Args:
         data_config (dict): A dictionary containing configuration parameters for loading and
             preparing the dataset.
 
     Returns:
-        tuple: A tuple containing the DataLoaders dictionary and the label mappings
+        tuple: A tuple containing the DataLoaders dictionary and the class-label lists
             dictionary.
     """
 
@@ -75,11 +75,11 @@ def get_dataloaders(data_config):
         "test_unseen_related": test_unseen_related_df,
     }
 
-    # Get label mappings from the training, matched, and related unseen sets.
-    mappings = {
-        "train": utils.get_label_mappings(train_df),
-        "test_unseen_matched": utils.get_label_mappings(test_unseen_matched_df),
-        "test_unseen_related": utils.get_label_mappings(test_unseen_related_df),
+    # Get class-label lists from the training, matched, and related unseen sets.
+    label_lists = {
+        "train": utils.get_label_lists(train_df),
+        "test_unseen_matched": utils.get_label_lists(test_unseen_matched_df),
+        "test_unseen_related": utils.get_label_lists(test_unseen_related_df),
     }
 
     # Get normalisation stats (mean and std) or None if not enabled
@@ -89,7 +89,7 @@ def get_dataloaders(data_config):
     datasets = {
         split: TouchExDataset(
             dataframe=df_split,
-            mappings=mappings,
+            label_lists=label_lists,
             transform_name=data_config["transform_name"],
             norm_stats=norm_stats,
             bg_path=data_config["bg_path"],
@@ -109,5 +109,5 @@ def get_dataloaders(data_config):
         for split in split_dfs
     }
 
-    # Return the DataLoaders and label mappings
-    return dataloaders, mappings
+    # Return the DataLoaders and class-label lists
+    return dataloaders, label_lists
