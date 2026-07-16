@@ -230,7 +230,7 @@ def eval_classifier(
         test_loader (DataLoader): The test data loader.
         target_label (str): The expected-label key used to calculate loss and metrics.
         true_label (str, optional): The original-label key used for confusion-matrix rows.
-            Defaults to ``target_label``.
+            Defaults to target_label.
         evaluation_name (str): Name used in evaluation progress output.
 
     Returns:
@@ -269,7 +269,7 @@ def eval_classifier(
             _, predicted = torch.max(outputs.data, 1)
             test_total += expected_labels.size(0)
             test_correct += (predicted == expected_labels).sum().item()
-            # Append true, expected, and predicted labels to lists for later analysis.
+            # Append true, expected, and predicted labels to lists for later analysis
             # Move to CPU and convert to numpy array before appending
             y_true.extend(true_labels.cpu().numpy())
             y_expected.extend(expected_labels.cpu().numpy())
@@ -282,11 +282,8 @@ def eval_classifier(
     # Compute weighted F1 average using sklearn's f1_score function
     weighted_f1_avg = f1_score(y_expected, y_pred, average="weighted")
 
-    tqdm.write(
-        f"{evaluation_name} Loss: {test_loss:.4f}, "
-        f"{evaluation_name} Accuracy: {test_acc:.2f}%"
-    )
-    tqdm.write(f"{evaluation_name} Weighted F1 Average: {weighted_f1_avg:.4f}")
+    tqdm.write(f"Loss: {test_loss:.4f}, Accuracy: {test_acc:.2f}%")
+    tqdm.write(f"Weighted F1 Average: {weighted_f1_avg:.4f}")
 
     # Return a dictionary containing the results
     # For anything except object/object_region in the unseen test sets, y_expected will be

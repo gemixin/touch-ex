@@ -8,11 +8,11 @@ Date: April 2026
 
 from models.experiments import classify
 
-# --- CONFIGURABLE PARAMETERS --- #
+# --- Configurable parameters --- #
 
 # Target label for classification
-# Choose from 'object', 'object_region', 'force_level', or 'motion'
-TARGET_LABEL = "object"
+# Choose from 'object', 'region', 'object_region', 'force_level', or 'motion'
+TARGET_LABEL = "force_level"
 # Experiment name for tracking results
 EXPERIMENT_NAME = "resnet18_quick"
 # Set random seed for reproducibility
@@ -21,7 +21,7 @@ SEED = 146
 # Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'sparsh, 'anytouch'
 MODEL_TYPES = ["resnet18"]
 
-# --- CONFIGURATION OVERRIDES --- #
+# --- Config overrides --- #
 
 # Values here override keys in configs/default_data_config.json.
 DATA_CONFIG_OVERRIDES = {}

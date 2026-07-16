@@ -1,5 +1,5 @@
 """
-Functions for preparing and running experiments.
+A module containing functions for preparing and running experiments.
 
 Author: Gemma McLean
 Date: July 2026
@@ -17,6 +17,8 @@ from models.torch_functions import get_device
 import models.visualise as mv
 
 
+# Map each target label to its unseen-evaluation label and whether its true and
+# expected labels use different class spaces
 UNSEEN_EVALUATION_TARGETS = {
     "object": {"target_label": "expected_object", "cross_space": True},
     "object_region": {"target_label": "expected_object_region", "cross_space": True},
@@ -60,6 +62,7 @@ def classify(
     # Check that model_types is not empty
     if not model_types:
         raise ValueError("model_types must contain at least one model type.")
+    # Check that target_label is valid
     if target_label not in UNSEEN_EVALUATION_TARGETS:
         raise ValueError(
             "target_label must be 'object', 'object_region', 'force_level', or 'motion'."
@@ -82,7 +85,7 @@ def classify(
     save_experiment_results(experiment, experiment_name)
     generate_experiment_plots(experiment)
 
-    # Return the trained models, training histories, and evaluation results
+    # Return the outputs as a tuple of (models, histories, test_results)
     return experiment["models"], experiment["histories"], experiment["test_results"]
 
 
@@ -120,7 +123,7 @@ def prepare_experiment(
     device = get_device()
 
     # Folder name for saving results and checkpoints
-    # We will use a new folder for each target label
+    # Use a new folder for each target label
     folder_name = f"{target_label}_classify"
 
     # Paths for checkpoints, results, and configuration files
@@ -168,10 +171,8 @@ def prepare_experiment(
     dataloaders = [item[0] for item in data]
     label_lists = [item[1] for item in data]
 
-    # Extract label lists in their class-index order.
-    # Training labels describe the model's output space and expected unseen labels.
+    # Extract relevant class-label lists for target label
     train_labels = label_lists[0]["train"][target_label]
-    # Source labels describe the original unseen objects shown on matrix rows.
     test_unseen_matched_labels = list(label_lists[0]["test_unseen_matched"][target_label])
     test_unseen_related_labels = list(label_lists[0]["test_unseen_related"][target_label])
 
@@ -184,7 +185,7 @@ def prepare_experiment(
     # Update default train config with custom settings
     train_config.update(train_config_overrides)
     # Set checkpoint directory
-    # (new folder for each experiment number within the target label folder)
+    # Use a new folder for each experiment number within the target label folder
     train_config["checkpoint_dir"] = os.path.join(
         checkpoints_path, str(experiment_number).zfill(3)
     )
@@ -269,14 +270,14 @@ def evaluate_models(experiment):
             including dataloaders, device, configurations, and paths for saving results.
     """
 
-    # --- Evaluate models --- #
+    # --- Evaluate using standard test set --- #
 
     # Create empty list to store results
     experiment["test_results"] = []
 
     # Loop through each model
     for i in range(len(experiment["dataloaders"])):
-        # Evaluate the current model on the test set
+        # Evaluate the current model on the standard test set
         result = eval_classifier(
             model=experiment["models"][i],
             model_title=experiment["model_types"][i],
@@ -285,16 +286,21 @@ def evaluate_models(experiment):
             target_label=experiment["target_label"],
             evaluation_name="test",
         )
-
         # Append the test result to the list
         experiment["test_results"].append(result)
 
-    # Evaluate both unseen test splits against labels encoded in the training label space.
+    # --- Evaluate using unseen test sets --- #
+
+    # Get the unseen evaluation target for the experiment's target label
     unseen_evaluation = UNSEEN_EVALUATION_TARGETS[experiment["target_label"]]
 
-    # Evaluate the matched unseen test split.
+    # Create empty lists to store results
     experiment["test_unseen_matched_results"] = []
+    experiment["test_unseen_related_results"] = []
+
+    # Loop through each model
     for i in range(len(experiment["dataloaders"])):
+        # Evaluate the current model on the test_unseen_matched set
         result = eval_classifier(
             model=experiment["models"][i],
             model_title=experiment["model_types"][i],
@@ -306,9 +312,9 @@ def evaluate_models(experiment):
         )
         experiment["test_unseen_matched_results"].append(result)
 
-    # Evaluate the related unseen test split.
-    experiment["test_unseen_related_results"] = []
+    # Loop through each model
     for i in range(len(experiment["dataloaders"])):
+        # Evaluate the current model on the test_unseen_related set
         result = eval_classifier(
             model=experiment["models"][i],
             model_title=experiment["model_types"][i],
@@ -435,72 +441,94 @@ def generate_experiment_plots(experiment):
         str(experiment["experiment_number"]).zfill(3),
     )
 
+    # --- Training plots --- #
+
+    # Plot training curves for each model
+    mv.plot_training_curves(
+        histories=experiment["histories"],
+        model_types=experiment["model_types"],
+        plots_path=plots_path,
+    )
+
+    # --- Standard test set plots --- #
+
     # If there are multiple models, plot the model comparison
     if len(experiment["model_types"]) > 1:
         mv.plot_model_comparison(
-            experiment["test_results"], experiment["model_types"], plots_path, "test"
+            results=experiment["test_results"],
+            model_types=experiment["model_types"],
+            plots_path=plots_path,
+            test_set_name="test",
         )
-
-    # Plot training curves for each model
-    mv.plot_training_curves(experiment["histories"], experiment["model_types"], plots_path)
 
     # Plot confusion matrices for each model
     mv.plot_confusion_matrices(
-        experiment["test_results"],
-        experiment["model_types"],
-        experiment["train_labels"],
-        plots_path,
-        "test",
+        results=experiment["test_results"],
+        model_types=experiment["model_types"],
+        row_labels=experiment["train_labels"],
+        column_labels=experiment["train_labels"],
+        plots_path=plots_path,
+        test_set_name="test",
+        rotate_x_labels=experiment["target_label"] != "force_level",
     )
 
-    # Plot matched unseen test results.
+    # --- Unseen matched test set plots --- #
+
+    # Use unseen labels for rows only when the evaluation uses different label spaces
+    cross_space = UNSEEN_EVALUATION_TARGETS[experiment["target_label"]]["cross_space"]
+
+    # If there are multiple models, plot the model comparison
     if len(experiment["model_types"]) > 1:
         mv.plot_model_comparison(
-            experiment["test_unseen_matched_results"],
-            experiment["model_types"],
-            plots_path,
-            "test_unseen_matched",
+            results=experiment["test_unseen_matched_results"],
+            model_types=experiment["model_types"],
+            plots_path=plots_path,
+            test_set_name="test_unseen_matched",
         )
-    if UNSEEN_EVALUATION_TARGETS[experiment["target_label"]]["cross_space"]:
-        mv.plot_cross_space_confusion_matrices(
-            experiment["test_unseen_matched_results"],
-            experiment["model_types"],
-            experiment["test_unseen_matched_labels"],
-            experiment["train_labels"],
-            plots_path,
-            "test_unseen_matched",
-        )
-    else:
-        mv.plot_confusion_matrices(
-            experiment["test_unseen_matched_results"],
-            experiment["model_types"],
-            experiment["train_labels"],
-            plots_path,
-            "test_unseen_matched",
-        )
+    # Get the row labels for the confusion matrix based on whether the evaluation uses
+    # different label spaces
+    matched_row_labels = (
+        experiment["test_unseen_matched_labels"]
+        if cross_space
+        else experiment["train_labels"]
+    )
+    # Plot confusion matrices for each model
+    mv.plot_confusion_matrices(
+        results=experiment["test_unseen_matched_results"],
+        model_types=experiment["model_types"],
+        row_labels=matched_row_labels,
+        column_labels=experiment["train_labels"],
+        plots_path=plots_path,
+        test_set_name="test_unseen_matched",
+        cross_space=cross_space,
+        rotate_x_labels=experiment["target_label"] != "force_level",
+    )
+
+    # --- Unseen related test set plots --- #
 
     # Plot related unseen test results.
     if len(experiment["model_types"]) > 1:
         mv.plot_model_comparison(
-            experiment["test_unseen_related_results"],
-            experiment["model_types"],
-            plots_path,
-            "test_unseen_related",
+            results=experiment["test_unseen_related_results"],
+            model_types=experiment["model_types"],
+            plots_path=plots_path,
+            test_set_name="test_unseen_related",
         )
-    if UNSEEN_EVALUATION_TARGETS[experiment["target_label"]]["cross_space"]:
-        mv.plot_cross_space_confusion_matrices(
-            experiment["test_unseen_related_results"],
-            experiment["model_types"],
-            experiment["test_unseen_related_labels"],
-            experiment["train_labels"],
-            plots_path,
-            "test_unseen_related",
-        )
-    else:
-        mv.plot_confusion_matrices(
-            experiment["test_unseen_related_results"],
-            experiment["model_types"],
-            experiment["train_labels"],
-            plots_path,
-            "test_unseen_related",
-        )
+    # Get the row labels for the confusion matrix based on whether the evaluation uses
+    # different label spaces
+    related_row_labels = (
+        experiment["test_unseen_related_labels"]
+        if cross_space
+        else experiment["train_labels"]
+    )
+    # Plot confusion matrices for each model
+    mv.plot_confusion_matrices(
+        results=experiment["test_unseen_related_results"],
+        model_types=experiment["model_types"],
+        row_labels=related_row_labels,
+        column_labels=experiment["train_labels"],
+        plots_path=plots_path,
+        test_set_name="test_unseen_related",
+        cross_space=cross_space,
+        rotate_x_labels=experiment["target_label"] != "force_level",
+    )

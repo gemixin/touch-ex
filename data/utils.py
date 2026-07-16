@@ -43,8 +43,8 @@ EXPECTED_OBJECT_REGIONS = {
     "patterned_mug_rim": "mug_rim",
     "media_remote_body": "tv_remote_body",
     "media_remote_buttons": "tv_remote_buttons",
-    "table_knife_handle": "scissors_blade",
-    "table_knife_blade": "scissors_blade",
+    "table_knife_handle": "scissors_blades",
+    "table_knife_blade": "scissors_blades",
     "microfibre_cloth_surface": "tea_towel_surface",
     "microfibre_cloth_edge": "tea_towel_edge",
     "dish_brush_handle": "toothbrush_handle",
@@ -220,7 +220,7 @@ def get_label_lists(df):
         dict: A dictionary mapping each label column to its ordered class list.
     """
 
-    # Preserve DataFrame order so each class list corresponds to indices 0 to n - 1.
+    # Preserve DataFrame order so each class list corresponds to indices 0 to n-1
     return {label: df[label].unique().tolist() for label in LABEL_COLS}
 
 

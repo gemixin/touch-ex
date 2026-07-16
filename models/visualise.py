@@ -11,13 +11,12 @@ import os
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 # Set default Seaborn styles
 sns.set_style("darkgrid")
 sns.set_palette("hls")
 
-
+# Define a mapping of test set names to their corresponding titles for plots
 TEST_SET_TITLES = {
     "test": "Standard Test",
     "test_unseen_matched": "Unseen Matched Objects",
@@ -117,7 +116,14 @@ def plot_model_comparison(results, model_types, plots_path, test_set_name="test"
 
 
 def plot_confusion_matrices(
-    results, model_types, list_classes, plots_path, test_set_name="test"
+    results,
+    model_types,
+    row_labels,
+    column_labels,
+    plots_path,
+    test_set_name,
+    cross_space=False,
+    rotate_x_labels=True,
 ):
     """
     Plot confusion matrices for each model.
@@ -125,9 +131,14 @@ def plot_confusion_matrices(
     Args:
         results (list): A list of result dictionaries for each model.
         model_types (list): A list of model type names corresponding to each result.
-        list_classes (list): A list of class names.
+        row_labels (list): Class names for the matrix rows.
+        column_labels (list): Class names for the matrix columns.
         plots_path (str): The folder path where the plots will be saved.
         test_set_name (str): Name of the evaluated test set, used in plot titles and paths.
+        cross_space (bool, optional): Whether the rows and columns use different class
+            spaces. Defaults to False.
+        rotate_x_labels (bool, optional): Whether to rotate x-axis labels.
+            Defaults to True.
     """
 
     # Set Seaborn style for confusion matrix plots (no grid)
@@ -135,87 +146,49 @@ def plot_confusion_matrices(
 
     # Loop through each model and plot confusion matrix
     for i in range(len(model_types)):
-        # Get the true and predicted labels for the current model
-        y_true = results[i]["y_true"]
-        y_pred = results[i]["y_pred"]
-
         # Create confusion matrix
-        cm = confusion_matrix(y_true, y_pred, labels=range(len(list_classes)))
+        cm = np.zeros((len(row_labels), len(column_labels)), dtype=int)
+        # Count each true-label and predicted-label pair
+        for true_index, predicted_index in zip(results[i]["y_true"], results[i]["y_pred"]):
+            cm[true_index, predicted_index] += 1
 
-        # Make figure much larger
-        fig, ax = plt.subplots(figsize=(12, 12))
+        # Size standard matrices according to their number of class labels
+        if cross_space:
+            figure_size = (max(12, len(column_labels)), 8)
+        else:
+            figure_size = (
+                max(12, len(column_labels) * 0.6),
+                max(12, len(row_labels) * 0.45),
+            )
+        fig, ax = plt.subplots(figsize=figure_size)
 
         # Create confusion matrix display
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=list_classes)
-        disp.plot(ax=ax, cmap=plt.cm.Blues)
-        # Rotate x-axis labels if there are more than 3 classes for better readability
-        rot = 45 if len(list_classes) > 3 else 0
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=rot, ha="right")
-        ax.set_yticklabels(ax.get_yticklabels())
+        sns.heatmap(
+            cm,
+            cmap="Blues",
+            annot=True,
+            fmt="d",
+            xticklabels=column_labels,
+            yticklabels=row_labels,
+            ax=ax,
+        )
+
+        # Set axis labels and title based on whether the confusion matrix is cross-space
+        if cross_space:
+            ax.set_xlabel("Predicted Training Class")
+            ax.set_ylabel("Unseen Source Class")
+        else:
+            ax.set_xlabel("Predicted Class")
+            ax.set_ylabel("True Class")
+
+        # Rotate x-axis labels for better readability
+        if rotate_x_labels:
+            ax.set_xticklabels(ax.get_xticklabels(), rotation=60, ha="right")
         test_set_title = TEST_SET_TITLES[test_set_name]
         ax.set_title(f"Confusion Matrix — {test_set_title} ({model_types[i]})")
 
         # Save plot
         save_path = f"{plots_path}/confusion_matrix_{test_set_name}_{model_types[i]}.png"
         os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
-        fig.savefig(save_path, bbox_inches="tight", dpi=300)
-        print(f"Saved confusion matrix for {model_types[i]} at {save_path}")
-
-
-def plot_cross_space_confusion_matrices(
-    results,
-    model_types,
-    source_labels,
-    predicted_labels,
-    plots_path,
-    test_set_name,
-):
-    """
-    Plot confusion matrices whose true and predicted labels use different class spaces.
-
-    Args:
-        results (list): Evaluation result dictionaries for each model.
-        model_types (list): Model type names corresponding to each result.
-        source_labels (list): Original unseen-label names for the matrix rows.
-        predicted_labels (list): Training-label names for the matrix columns.
-        plots_path (str): Folder path where plots will be saved.
-        test_set_name (str): Name of the evaluated unseen test set.
-    """
-
-    sns.set_style("white")
-    test_set_title = TEST_SET_TITLES[test_set_name]
-
-    for i in range(len(model_types)):
-        cm = np.zeros((len(source_labels), len(predicted_labels)), dtype=int)
-        for source_index, predicted_index in zip(
-            results[i]["y_true"], results[i]["y_pred"]
-        ):
-            if not (
-                0 <= source_index < len(source_labels)
-                and 0 <= predicted_index < len(predicted_labels)
-            ):
-                raise ValueError(
-                    "Confusion-matrix indices must be valid for their source and "
-                    "predicted label spaces."
-                )
-            cm[source_index, predicted_index] += 1
-
-        fig, ax = plt.subplots(figsize=(max(12, len(predicted_labels)), 8))
-        sns.heatmap(
-            cm,
-            cmap="Blues",
-            annot=True,
-            fmt="d",
-            xticklabels=predicted_labels,
-            yticklabels=source_labels,
-            ax=ax,
-        )
-        ax.set_xlabel("Predicted Training Class")
-        ax.set_ylabel("Unseen Object")
-        ax.set_title(f"Confusion Matrix — {test_set_title} ({model_types[i]})")
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-
-        save_path = f"{plots_path}/confusion_matrix_{test_set_name}_{model_types[i]}.png"
-        os.makedirs(plots_path, exist_ok=True)
         fig.savefig(save_path, bbox_inches="tight", dpi=300)
         print(f"Saved confusion matrix for {model_types[i]} at {save_path}")
