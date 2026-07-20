@@ -5,10 +5,29 @@ Author: Gemma McLean
 Date: April 2026
 """
 
+import random
+import numpy as np
+import torch
 from torch.utils.data import DataLoader
 from data.dataset import TouchExDataset
 from data.validate import validate_data_config
 import data.utils as utils
+
+
+def seed_worker(worker_id):
+    """
+    Seed Python and NumPy random number generators in a DataLoader worker.
+
+    Args:
+        worker_id (int): The ID of the DataLoader worker.
+    """
+
+    # Get the initial seed for the worker
+    worker_seed = torch.initial_seed() % 2**32
+
+    # Use it to seed Python's random module and NumPy's random module
+    random.seed(worker_seed)
+    np.random.seed(worker_seed)
 
 
 def get_dataloaders(data_config):
@@ -98,13 +117,15 @@ def get_dataloaders(data_config):
         for split, df_split in split_dfs.items()
     }
 
-    # Create a DataLoader for each dataset split, using the specified settings
+    # Create a DataLoader for each dataset split using seeded generators
     dataloaders = {
         split: DataLoader(
             datasets[split],
             batch_size=data_config["batch_size"],
             shuffle=data_config["shuffle_map"].get(split, False),
             num_workers=data_config["num_workers"],
+            worker_init_fn=seed_worker,
+            generator=torch.Generator().manual_seed(data_config["random_state"]),
         )
         for split in split_dfs
     }

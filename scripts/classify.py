@@ -12,11 +12,13 @@ from models.experiments import classify
 
 # Target label for classification
 # Choose from 'object', 'region', 'object_region', 'force_level', or 'motion'
-TARGET_LABEL = "force_level"
+TARGET_LABEL = "object"
 # Experiment name for tracking results
 EXPERIMENT_NAME = "resnet18_quick"
 # Set random seed for reproducibility
-SEED = 146
+SEED = 129
+# Set deterministic behavior for PyTorch
+DETERMINISTIC = True
 # Model types to compare
 # Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'sparsh, 'anytouch'
 MODEL_TYPES = ["resnet18"]
@@ -28,9 +30,6 @@ DATA_CONFIG_OVERRIDES = {}
 
 # Values here override keys in configs/default_train_config.json.
 TRAIN_CONFIG_OVERRIDES = {
-    # "optimizer": "adamw",
-    "weight_decay": 0.02,
-    "learning_rate": 0.0002,
     "num_epochs": 1,
 }
 
@@ -41,6 +40,7 @@ classify(
     target_label=TARGET_LABEL,
     experiment_name=EXPERIMENT_NAME,
     seed=SEED,
+    deterministic=DETERMINISTIC,
     data_config_overrides=DATA_CONFIG_OVERRIDES,
     train_config_overrides=TRAIN_CONFIG_OVERRIDES,
 )

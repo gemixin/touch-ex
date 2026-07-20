@@ -8,12 +8,11 @@ Date: July 2026
 import json
 import os
 import pandas as pd
-import torch
 from data.builder import get_dataloaders
 from models.baseline import BaselineCNNModel
 from models.pretrained import PretrainedModel
 from models.train_eval import eval_classifier, train_classifier
-from models.torch_functions import get_device
+from models.torch_functions import get_device, set_random_seed
 import models.visualise as mv
 
 
@@ -32,6 +31,7 @@ def classify(
     target_label,
     experiment_name,
     seed,
+    deterministic=True,
     data_config_overrides=None,
     train_config_overrides=None,
     data_config_path="configs/default_data_config.json",
@@ -45,6 +45,8 @@ def classify(
         target_label (str): The target label for classification.
         experiment_name (str): A name for the experiment, used for saving results.
         seed (int): Random seed for reproducibility.
+        deterministic (bool, optional): Whether to require deterministic PyTorch
+            algorithms. Defaults to True.
         data_config_overrides (dict, optional): A dictionary containing overrides for the
             default data configuration. Defaults to None.
         train_config_overrides (dict, optional): A dictionary containing overrides for the
@@ -73,6 +75,7 @@ def classify(
         model_types=model_types,
         target_label=target_label,
         seed=seed,
+        deterministic=deterministic,
         data_config_overrides=data_config_overrides or {},
         train_config_overrides=train_config_overrides or {},
         data_config_path=data_config_path,
@@ -93,6 +96,7 @@ def prepare_experiment(
     model_types,
     target_label,
     seed,
+    deterministic,
     data_config_overrides,
     train_config_overrides,
     data_config_path,
@@ -105,6 +109,7 @@ def prepare_experiment(
         model_types (list): A list of model types to be used in the experiment.
         target_label (str): The target label for classification.
         seed (int): Random seed for reproducibility.
+        deterministic (bool): Whether to require deterministic PyTorch algorithms.
         data_config_overrides (dict): A dictionary containing overrides for the default
             data configuration.
         train_config_overrides (dict): A dictionary containing overrides for the default
@@ -119,6 +124,9 @@ def prepare_experiment(
 
     # --- Setup --- #
 
+    # Set random seeds and deterministic CUDA behavior
+    set_random_seed(seed, deterministic=deterministic)
+
     # Get device
     device = get_device()
 
@@ -129,10 +137,6 @@ def prepare_experiment(
     # Paths for checkpoints, results, and configuration files
     checkpoints_path = f"checkpoints/{folder_name}"
     results_path = f"results/{folder_name}"
-
-    # Set torch random seed
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
 
     # --- Get experiment number --- #
 
