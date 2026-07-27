@@ -10,7 +10,7 @@ class PretrainedModel(nn.Module):
     Date: April 2026
     """
 
-    def __init__(self, model_type, num_classes):
+    def __init__(self, model_type, num_classes, freeze_backbone=False):
         """
         Initialise the PretrainedModel.
 
@@ -18,9 +18,12 @@ class PretrainedModel(nn.Module):
             model_type (str): The type of the pretrained model to use. Options are
                 'resnet18', 'efficientnet_b0', 'vit_b_16', 'sparsh', 'anytouch'.
             num_classes (int): The number of classes to classify.
+            freeze_backbone (bool, optional): Whether to train only the classifier.
+                Defaults to False.
         """
 
         super(PretrainedModel, self).__init__()
+        self.freeze_backbone = freeze_backbone
 
         # Depending on the model_type, load the appropriate pretrained model and modify
         # it to output features instead of class predictions
@@ -48,6 +51,28 @@ class PretrainedModel(nn.Module):
 
         # Set the classifier
         self.classifier = nn.Linear(self.feature_dim, num_classes)
+
+        # Freeze pretrained backbone parameters when training only the classifier
+        if self.freeze_backbone:
+            for parameter in self.backbone.parameters():
+                parameter.requires_grad = False
+
+    def train(self, mode=True):
+        """
+        Set training mode while keeping a frozen backbone in evaluation mode.
+
+        Args:
+            mode (bool): If True, sets the model to training mode. If False, sets
+                the model to evaluation mode.
+
+        Returns:
+            self: The model instance.
+        """
+
+        super().train(mode)
+        if self.freeze_backbone:
+            self.backbone.eval()
+        return self
 
     def forward(self, x, return_features=False):
         """

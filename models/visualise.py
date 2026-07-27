@@ -135,7 +135,7 @@ def plot_tsne_features(
 
     # Save the plots
     plt.tight_layout()
-    save_path = f"{plots_path}/tsne_test_{model_type}.png"
+    save_path = f"{plots_path}/tsne_test.png"
     os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
     fig.savefig(save_path, bbox_inches="tight", dpi=300)
     plt.close(fig)
@@ -153,61 +153,52 @@ def plot_tsne_features(
         labels={"x": "t-SNE Component 1", "y": "t-SNE Component 2", "color": "Label"},
         title=f"t-SNE Features — Test ({model_type})",
     )
-    interactive_path = f"{plots_path}/tsne_test_{model_type}_interactive.html"
+    interactive_path = f"{plots_path}/tsne_test_interactive.html"
     interactive_fig.write_html(interactive_path)
     print(f"Saved interactive t-SNE features at {interactive_path}")
 
 
-def plot_training_curves(histories, model_types, plots_path):
+def plot_training_curves(history, model_type, plots_path):
     """
-    Plot training and validation loss and accuracy curves for each model.
+    Plot training and validation loss and accuracy curves for one model.
 
     Args:
-        histories (list): A list of training histories for each model.
-        model_types (list): A list of model type names corresponding to each history.
+        history (list): Training history for the model.
+        model_type (str): The model name, used in the plot title and filename.
         plots_path (str): The folder path where the plots will be saved.
     """
 
-    # Loop through each model and plot curves
-    for i in range(len(model_types)):
-        # Get the history for the current model
-        history = histories[i]
+    # Create a figure with 2 subplots
+    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
 
-        # Create a figure with 2 subplots
-        fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+    # Extract epochs, training and validation losses from the history
+    epochs = [h["epoch"] for h in history]
+    train_losses = [h["train_loss"] for h in history]
+    val_losses = [h["val_loss"] for h in history]
 
-        # Extract epochs, training and validation losses from the history
-        epochs = [h["epoch"] for h in history]
-        train_losses = [h["train_loss"] for h in history]
-        val_losses = [h["val_loss"] for h in history]
+    # Plot training and validation loss curves
+    axs[0].plot(epochs, train_losses, label="Train Loss")
+    axs[0].plot(epochs, val_losses, label="Val Loss")
+    axs[0].set_title(f"Loss Curves for {model_type}", fontsize=14, fontweight="bold")
+    axs[0].legend()
 
-        # Plot training and validation loss curves
-        axs[0].plot(epochs, train_losses, label="Train Loss")
-        axs[0].plot(epochs, val_losses, label="Val Loss")
-        axs[0].set_title(
-            f"Loss Curves for {model_types[i]}", fontsize=14, fontweight="bold"
-        )
-        axs[0].legend()
+    # Extract training and validation accuracies from the history
+    train_accs = [h["train_acc"] for h in history]
+    val_accs = [h["val_acc"] for h in history]
 
-        # Extract training and validation accuracies from the history
-        train_accs = [h["train_acc"] for h in history]
-        val_accs = [h["val_acc"] for h in history]
+    # Plot training and validation accuracy curves
+    axs[1].plot(epochs, train_accs, label="Train Acc")
+    axs[1].plot(epochs, val_accs, label="Val Acc")
+    axs[1].set_title(f"Accuracy Curves for {model_type}", fontsize=14, fontweight="bold")
+    axs[1].legend()
 
-        # Plot training and validation accuracy curves
-        axs[1].plot(epochs, train_accs, label="Train Acc")
-        axs[1].plot(epochs, val_accs, label="Val Acc")
-        axs[1].set_title(
-            f"Accuracy Curves for {model_types[i]}", fontsize=14, fontweight="bold"
-        )
-        axs[1].legend()
-
-        # Save the plots
-        plt.tight_layout()
-        save_path = f"{plots_path}/curves_{model_types[i]}.png"
-        os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
-        fig.savefig(save_path)
-        plt.close(fig)
-        print(f"Saved training curves for {model_types[i]} at {save_path}")
+    # Save the plot
+    plt.tight_layout()
+    save_path = f"{plots_path}/curves.png"
+    os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
+    fig.savefig(save_path)
+    plt.close(fig)
+    print(f"Saved training curves for {model_type} at {save_path}")
 
 
 def plot_model_comparison(results, model_types, plots_path, test_set_name="test"):
@@ -246,9 +237,9 @@ def plot_model_comparison(results, model_types, plots_path, test_set_name="test"
     print(f"Saved model comparison at {save_path}")
 
 
-def plot_confusion_matrices(
+def plot_confusion_matrix(
     results,
-    model_types,
+    model_type,
     row_labels,
     column_labels,
     plots_path,
@@ -257,11 +248,11 @@ def plot_confusion_matrices(
     rotate_x_labels=True,
 ):
     """
-    Plot confusion matrices for each model.
+    Plot a confusion matrix for one model.
 
     Args:
-        results (list): A list of result dictionaries for each model.
-        model_types (list): A list of model type names corresponding to each result.
+        results (dict): Evaluation results for the model.
+        model_type (str): The model name, used in the plot title and filename.
         row_labels (list): Class names for the matrix rows.
         column_labels (list): Class names for the matrix columns.
         plots_path (str): The folder path where the plots will be saved.
@@ -275,52 +266,50 @@ def plot_confusion_matrices(
     # Set Seaborn style for confusion matrix plots (no grid)
     sns.set_style("white")
 
-    # Loop through each model and plot confusion matrix
-    for i in range(len(model_types)):
-        # Create confusion matrix
-        cm = np.zeros((len(row_labels), len(column_labels)), dtype=int)
-        # Count each true-label and predicted-label pair
-        for true_index, predicted_index in zip(results[i]["y_true"], results[i]["y_pred"]):
-            cm[true_index, predicted_index] += 1
+    # Create confusion matrix
+    cm = np.zeros((len(row_labels), len(column_labels)), dtype=int)
+    # Count each true-label and predicted-label pair
+    for true_index, predicted_index in zip(results["y_true"], results["y_pred"]):
+        cm[true_index, predicted_index] += 1
 
-        # Size standard matrices according to their number of class labels
-        if cross_space:
-            figure_size = (max(12, len(column_labels)), 8)
-        else:
-            figure_size = (
-                max(12, len(column_labels) * 0.6),
-                max(12, len(row_labels) * 0.45),
-            )
-        fig, ax = plt.subplots(figsize=figure_size)
-
-        # Create confusion matrix display
-        sns.heatmap(
-            cm,
-            cmap="Blues",
-            annot=True,
-            fmt="d",
-            xticklabels=column_labels,
-            yticklabels=row_labels,
-            ax=ax,
+    # Size standard matrices according to their number of class labels
+    if cross_space:
+        figure_size = (max(12, len(column_labels)), 8)
+    else:
+        figure_size = (
+            max(12, len(column_labels) * 0.6),
+            max(12, len(row_labels) * 0.45),
         )
+    fig, ax = plt.subplots(figsize=figure_size)
 
-        # Set axis labels and title based on whether the confusion matrix is cross-space
-        if cross_space:
-            ax.set_xlabel("Predicted Training Class")
-            ax.set_ylabel("Unseen Source Class")
-        else:
-            ax.set_xlabel("Predicted Class")
-            ax.set_ylabel("True Class")
+    # Create confusion matrix display
+    sns.heatmap(
+        cm,
+        cmap="Blues",
+        annot=True,
+        fmt="d",
+        xticklabels=column_labels,
+        yticklabels=row_labels,
+        ax=ax,
+    )
 
-        # Rotate x-axis labels for better readability
-        if rotate_x_labels:
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=60, ha="right")
-        test_set_title = TEST_SET_TITLES[test_set_name]
-        ax.set_title(f"Confusion Matrix — {test_set_title} ({model_types[i]})")
+    # Set axis labels and title based on whether the confusion matrix is cross-space
+    if cross_space:
+        ax.set_xlabel("Predicted Training Class")
+        ax.set_ylabel("Unseen Source Class")
+    else:
+        ax.set_xlabel("Predicted Class")
+        ax.set_ylabel("True Class")
 
-        # Save plot
-        save_path = f"{plots_path}/confusion_matrix_{test_set_name}_{model_types[i]}.png"
-        os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
-        fig.savefig(save_path, bbox_inches="tight", dpi=300)
-        plt.close(fig)
-        print(f"Saved confusion matrix for {model_types[i]} at {save_path}")
+    # Rotate x-axis labels for better readability
+    if rotate_x_labels:
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=60, ha="right")
+    test_set_title = TEST_SET_TITLES[test_set_name]
+    ax.set_title(f"Confusion Matrix — {test_set_title} ({model_type})")
+
+    # Save plot
+    save_path = f"{plots_path}/confusion_matrix_{test_set_name}.png"
+    os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
+    fig.savefig(save_path, bbox_inches="tight", dpi=300)
+    plt.close(fig)
+    print(f"Saved confusion matrix for {model_type} at {save_path}")

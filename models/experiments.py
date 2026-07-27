@@ -32,6 +32,7 @@ def classify(
     seed,
     experiment_name,
     deterministic=True,
+    freeze_backbone=False,
     data_config_overrides=None,
     train_config_overrides=None,
     plot_tsne=True,
@@ -49,6 +50,8 @@ def classify(
         experiment_name (str): A name for the experiment, used for saving results.
         deterministic (bool, optional): Whether to require deterministic PyTorch
             algorithms. Defaults to True.
+        freeze_backbone (bool, optional): Whether to freeze pretrained model backbones.
+            Baseline models are always trained end-to-end. Defaults to False.
         data_config_overrides (dict, optional): A dictionary containing overrides for the
             default data configuration. Defaults to None.
         train_config_overrides (dict, optional): A dictionary containing overrides for the
@@ -80,6 +83,7 @@ def classify(
         target_label=target_label,
         seed=seed,
         deterministic=deterministic,
+        freeze_backbone=freeze_backbone,
         data_config_overrides=data_config_overrides or {},
         train_config_overrides=train_config_overrides or {},
         plot_tsne=plot_tsne,
@@ -103,6 +107,7 @@ def prepare_experiment(
     target_label,
     seed,
     deterministic,
+    freeze_backbone,
     data_config_overrides,
     train_config_overrides,
     plot_tsne,
@@ -118,6 +123,7 @@ def prepare_experiment(
         target_label (str): The target label for classification.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
+        freeze_backbone (bool): Whether to freeze pretrained model backbones.
         data_config_overrides (dict): A dictionary containing overrides for the default
             data configuration.
         train_config_overrides (dict): A dictionary containing overrides for the default
@@ -210,16 +216,19 @@ def prepare_experiment(
     # Set model title in the model config for each model type
     for config, model_type in zip(train_configs, model_types):
         config["model_title"] = model_type
+        config["freeze_backbone"] = model_type != "baseline" and freeze_backbone
 
     # Return the experiment context as a dictionary
     return {
         "data_configs": data_configs,
         "dataloaders": dataloaders,
+        "deterministic": deterministic,
         "device": device,
         "existing_results_df": existing_results_df,
         "experiment_number": experiment_number,
         "experiments_df_path": experiments_df_path,
         "model_types": model_types,
+        "freeze_backbones": [config["freeze_backbone"] for config in train_configs],
         "plot_tsne": plot_tsne,
         "tsne_max_samples": tsne_max_samples,
         "target_label": target_label,
@@ -260,6 +269,7 @@ def train_models(experiment):
             model = PretrainedModel(
                 model_type=experiment["model_types"][i],
                 num_classes=num_train_classes,
+                freeze_backbone=experiment["freeze_backbones"][i],
             )
 
         # Train the model and save the history
@@ -362,6 +372,9 @@ def save_experiment_results(experiment, experiment_name):
         {
             "experiment_number": experiment["experiment_number"],
             "experiment_name": experiment_name,
+            "seed": experiment["seed"],
+            "deterministic": experiment["deterministic"],
+            "freeze_backbone": experiment["freeze_backbones"],
             "train_config": experiment["train_configs"],
             "data_config": experiment["data_configs"],
             "model_type": experiment["model_types"],
@@ -461,11 +474,13 @@ def generate_experiment_plots(experiment):
     # --- Training plots --- #
 
     # Plot training curves for each model
-    mv.plot_training_curves(
-        histories=experiment["histories"],
-        model_types=experiment["model_types"],
-        plots_path=plots_path,
-    )
+    for history, model_type in zip(experiment["histories"], experiment["model_types"]):
+        model_plots_path = os.path.join(plots_path, model_type)
+        mv.plot_training_curves(
+            history=history,
+            model_type=model_type,
+            plots_path=model_plots_path,
+        )
 
     # --- Standard test set plots --- #
 
@@ -479,15 +494,17 @@ def generate_experiment_plots(experiment):
         )
 
     # Plot confusion matrices for each model
-    mv.plot_confusion_matrices(
-        results=experiment["test_results"],
-        model_types=experiment["model_types"],
-        row_labels=experiment["train_labels"],
-        column_labels=experiment["train_labels"],
-        plots_path=plots_path,
-        test_set_name="test",
-        rotate_x_labels=experiment["target_label"] != "force_level",
-    )
+    for results, model_type in zip(experiment["test_results"], experiment["model_types"]):
+        model_plots_path = os.path.join(plots_path, model_type)
+        mv.plot_confusion_matrix(
+            results=results,
+            model_type=model_type,
+            row_labels=experiment["train_labels"],
+            column_labels=experiment["train_labels"],
+            plots_path=model_plots_path,
+            test_set_name="test",
+            rotate_x_labels=experiment["target_label"] != "force_level",
+        )
 
     # --- Unseen matched test set plots --- #
 
@@ -510,16 +527,20 @@ def generate_experiment_plots(experiment):
         else experiment["train_labels"]
     )
     # Plot confusion matrices for each model
-    mv.plot_confusion_matrices(
-        results=experiment["test_unseen_matched_results"],
-        model_types=experiment["model_types"],
-        row_labels=matched_row_labels,
-        column_labels=experiment["train_labels"],
-        plots_path=plots_path,
-        test_set_name="test_unseen_matched",
-        cross_space=cross_space,
-        rotate_x_labels=experiment["target_label"] != "force_level",
-    )
+    for results, model_type in zip(
+        experiment["test_unseen_matched_results"], experiment["model_types"]
+    ):
+        model_plots_path = os.path.join(plots_path, model_type)
+        mv.plot_confusion_matrix(
+            results=results,
+            model_type=model_type,
+            row_labels=matched_row_labels,
+            column_labels=experiment["train_labels"],
+            plots_path=model_plots_path,
+            test_set_name="test_unseen_matched",
+            cross_space=cross_space,
+            rotate_x_labels=experiment["target_label"] != "force_level",
+        )
 
     # --- Unseen related test set plots --- #
 
@@ -539,16 +560,20 @@ def generate_experiment_plots(experiment):
         else experiment["train_labels"]
     )
     # Plot confusion matrices for each model
-    mv.plot_confusion_matrices(
-        results=experiment["test_unseen_related_results"],
-        model_types=experiment["model_types"],
-        row_labels=related_row_labels,
-        column_labels=experiment["train_labels"],
-        plots_path=plots_path,
-        test_set_name="test_unseen_related",
-        cross_space=cross_space,
-        rotate_x_labels=experiment["target_label"] != "force_level",
-    )
+    for results, model_type in zip(
+        experiment["test_unseen_related_results"], experiment["model_types"]
+    ):
+        model_plots_path = os.path.join(plots_path, model_type)
+        mv.plot_confusion_matrix(
+            results=results,
+            model_type=model_type,
+            row_labels=related_row_labels,
+            column_labels=experiment["train_labels"],
+            plots_path=model_plots_path,
+            test_set_name="test_unseen_related",
+            cross_space=cross_space,
+            rotate_x_labels=experiment["target_label"] != "force_level",
+        )
 
     # --- t-SNE feature plots ---
 
@@ -557,6 +582,7 @@ def generate_experiment_plots(experiment):
         for model, model_type, dataloaders in zip(
             experiment["models"], experiment["model_types"], experiment["dataloaders"]
         ):
+            model_plots_path = os.path.join(plots_path, model_type)
             # Use true test labels to show how held-out samples group in feature space
             mv.plot_tsne_features(
                 model=model,
@@ -566,6 +592,6 @@ def generate_experiment_plots(experiment):
                 label_names=experiment["train_labels"],
                 model_type=model_type,
                 device=experiment["device"],
-                plots_path=plots_path,
+                plots_path=model_plots_path,
                 max_samples=experiment["tsne_max_samples"],
             )

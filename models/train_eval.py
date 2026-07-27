@@ -194,18 +194,23 @@ def get_optimizer(model, train_config):
     else:
         raise ValueError(f"Unsupported optimizer type: {train_config['optimizer']}")
 
+    # Optimise only parameters that are not frozen
+    trainable_parameters = (
+        parameter for parameter in model.parameters() if parameter.requires_grad
+    )
+
     # Return the optimizer with the appropriate parameters based on the config
     # If using SGD, include momentum
     if optimizer == optim.SGD:
         return optimizer(
-            model.parameters(),
+            trainable_parameters,
             lr=train_config["learning_rate"],
             momentum=train_config["momentum"],
             weight_decay=train_config["weight_decay"],
         )
     else:
         return optimizer(
-            model.parameters(),
+            trainable_parameters,
             lr=train_config["learning_rate"],
             weight_decay=train_config["weight_decay"],
         )
