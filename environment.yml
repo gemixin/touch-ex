@@ -11,6 +11,7 @@ dependencies:
   - numpy
   - pandas
   - matplotlib
+  - plotly
   - seaborn
   - datasets>=2.19
   - pyarrow>=15

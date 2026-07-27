@@ -22,6 +22,10 @@ DETERMINISTIC = True
 # Model types to compare
 # Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'sparsh, 'anytouch'
 MODEL_TYPES = ["resnet18"]
+# Set to False to skip t-SNE feature plots.
+PLOT_TSNE = True
+# Maximum number of class-balanced samples used in each t-SNE plot.
+TSNE_MAX_SAMPLES = 2_000
 
 # --- Config overrides --- #
 
@@ -43,4 +47,6 @@ classify(
     deterministic=DETERMINISTIC,
     data_config_overrides=DATA_CONFIG_OVERRIDES,
     train_config_overrides=TRAIN_CONFIG_OVERRIDES,
+    plot_tsne=PLOT_TSNE,
+    tsne_max_samples=TSNE_MAX_SAMPLES,
 )

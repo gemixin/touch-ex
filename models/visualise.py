@@ -1,7 +1,6 @@
 """
 A module containing functions for plotting and saving training and evaluation results for
-Pytorch models, and performing dimensionality reduction (PCA, t-SNE) for visualising
-feature representations.
+Pytorch models, including t-SNE visualisations of feature representations.
 
 Author: Gemma McLean
 Date: April 2026
@@ -11,6 +10,9 @@ import os
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import plotly.express as px
+import torch
+from sklearn.manifold import TSNE
 
 # Set default Seaborn styles
 sns.set_style("darkgrid")
@@ -22,6 +24,138 @@ TEST_SET_TITLES = {
     "test_unseen_matched": "Unseen Matched Objects",
     "test_unseen_related": "Unseen Related Objects",
 }
+
+
+def plot_tsne_features(
+    model,
+    dataloader,
+    target_label,
+    seed,
+    label_names,
+    model_type,
+    device,
+    plots_path,
+    max_samples=4_000,
+):
+    """
+    Extract model features from the test set and save a labelled 2-D t-SNE plot.
+
+    Args:
+        model (torch.nn.Module): The trained model used to extract features.
+        dataloader (torch.utils.data.DataLoader): DataLoader for the test set.
+        target_label (str): The label key used to colour points in the plot.
+        seed (int): Random seed used for sampling and t-SNE initialisation.
+        label_names (list): Ordered class names corresponding to encoded label indices.
+        model_type (str): The model name, used in the plot title and filename.
+        device (torch.device): The device on which to run feature extraction.
+        plots_path (str): The folder path where the t-SNE plot will be saved.
+        max_samples (int): Maximum number of class-balanced samples used for t-SNE.
+    """
+
+    print(f"Starting t-SNE features for {model_type}...")
+
+    # Create lists to collect feature vectors and labels from every batch
+    all_features = []
+    all_labels = []
+    # Set the model to evaluation mode before extracting features
+    model.eval()
+
+    # Extract the features before the classification layer without computing gradients
+    with torch.no_grad():
+        for batch in dataloader:
+            features = model(batch["image"].to(device), return_features=True)
+            all_features.append(features.cpu().numpy())
+            all_labels.append(batch[target_label].numpy())
+
+    # Combine the feature vectors and labels collected from every test batch
+    features = np.concatenate(all_features)
+    labels = np.concatenate(all_labels)
+
+    # Use every test sample when the split is within the configured t-SNE sample limit
+    if len(features) > max_samples:
+        # Use a fixed random generator so the sampled test frames are reproducible
+        rng = np.random.default_rng(seed)
+        unique_labels = np.unique(labels)
+        # Allocate an equal initial number of samples to every class
+        samples_per_label = max_samples // len(unique_labels)
+        selected_indices = []
+
+        # Sample from each class without replacement, taking all examples from rare classes
+        for label_index in unique_labels:
+            label_indices = np.where(labels == label_index)[0]
+            selected_indices.extend(
+                rng.choice(
+                    label_indices,
+                    size=min(samples_per_label, len(label_indices)),
+                    replace=False,
+                )
+            )
+
+        # Fill any unused places with randomly selected examples from the remaining data
+        remaining = max_samples - len(selected_indices)
+        if remaining:
+            available_indices = np.setdiff1d(np.arange(len(features)), selected_indices)
+            selected_indices.extend(
+                rng.choice(available_indices, size=remaining, replace=False)
+            )
+
+        # Keep only the selected feature vectors and their matching labels for t-SNE
+        features = features[selected_indices]
+        labels = labels[selected_indices]
+
+    # Perform t-SNE dimensionality reduction to 2D
+    embedding = TSNE(
+        n_components=2,
+        perplexity=min(30, len(features) - 1),
+        init="pca",
+        learning_rate="auto",
+        random_state=seed,
+    ).fit_transform(features)
+
+    # Create a scatter plot with one colour and legend entry per class
+    fig, ax = plt.subplots(figsize=(10, 8))
+    unique_labels = np.unique(labels)
+    colours = sns.color_palette("husl", len(unique_labels)).as_hex()
+    for label_index, colour in zip(unique_labels, colours):
+        points = labels == label_index
+        ax.scatter(
+            embedding[points, 0],
+            embedding[points, 1],
+            s=15,
+            alpha=0.7,
+            color=colour,
+            label=label_names[label_index],
+        )
+
+    # Set axis labels, title, and legend
+    ax.set_title(f"t-SNE Features — Test ({model_type})")
+    ax.set_xlabel("t-SNE Component 1")
+    ax.set_ylabel("t-SNE Component 2")
+    ax.legend(title="Label", bbox_to_anchor=(1.02, 1), loc="upper left")
+
+    # Save the plots
+    plt.tight_layout()
+    save_path = f"{plots_path}/tsne_test_{model_type}.png"
+    os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
+    fig.savefig(save_path, bbox_inches="tight", dpi=300)
+    plt.close(fig)
+    print(f"Saved t-SNE features for {model_type} at {save_path}")
+
+    # Save an interactive version of the same embedding with hoverable class labels
+    interactive_fig = px.scatter(
+        x=embedding[:, 0],
+        y=embedding[:, 1],
+        color=[label_names[label_index] for label_index in labels],
+        color_discrete_map={
+            label_names[label_index]: colour
+            for label_index, colour in zip(unique_labels, colours)
+        },
+        labels={"x": "t-SNE Component 1", "y": "t-SNE Component 2", "color": "Label"},
+        title=f"t-SNE Features — Test ({model_type})",
+    )
+    interactive_path = f"{plots_path}/tsne_test_{model_type}_interactive.html"
+    interactive_fig.write_html(interactive_path)
+    print(f"Saved interactive t-SNE features at {interactive_path}")
 
 
 def plot_training_curves(histories, model_types, plots_path):
@@ -71,13 +205,14 @@ def plot_training_curves(histories, model_types, plots_path):
         plt.tight_layout()
         save_path = f"{plots_path}/curves_{model_types[i]}.png"
         os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
-        plt.savefig(save_path)
+        fig.savefig(save_path)
+        plt.close(fig)
         print(f"Saved training curves for {model_types[i]} at {save_path}")
 
 
 def plot_model_comparison(results, model_types, plots_path, test_set_name="test"):
     """
-    Plot a comparison of test accuracy, test loss and weighted F1 average for each model.
+    Plot a comparison of test accuracy and weighted F1 average for each model.
 
     Args:
         results (list): A list of result dictionaries for each model.
@@ -86,8 +221,8 @@ def plot_model_comparison(results, model_types, plots_path, test_set_name="test"
         test_set_name (str): Name of the evaluated test set, used in plot titles and paths.
     """
 
-    # Create a figure with 3 subplots
-    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+    # Create a figure with 2 subplots
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
     colors = sns.color_palette("hls", len(model_types))
 
     test_set_title = TEST_SET_TITLES[test_set_name]
@@ -97,21 +232,17 @@ def plot_model_comparison(results, model_types, plots_path, test_set_name="test"
     axs[0].set_title(f"{test_set_title} Accuracy", fontsize=14, fontweight="bold")
     axs[0].set_ylabel("Accuracy")
 
-    # Plot test loss for each model
-    axs[1].bar(model_types, [result["test_loss"] for result in results], color=colors)
-    axs[1].set_title(f"{test_set_title} Loss", fontsize=14, fontweight="bold")
-    axs[1].set_ylabel("Loss")
-
     # Plot weighted F1 average for each model
-    axs[2].bar(model_types, [result["weighted_f1_avg"] for result in results], color=colors)
-    axs[2].set_title(f"{test_set_title} Weighted F1", fontsize=14, fontweight="bold")
-    axs[2].set_ylabel("F1 Score")
+    axs[1].bar(model_types, [result["weighted_f1_avg"] for result in results], color=colors)
+    axs[1].set_title(f"{test_set_title} Weighted F1", fontsize=14, fontweight="bold")
+    axs[1].set_ylabel("F1 Score")
 
     # Save plot
     plt.tight_layout()
     save_path = f"{plots_path}/model_comparison_{test_set_name}.png"
     os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
-    plt.savefig(save_path)
+    fig.savefig(save_path)
+    plt.close(fig)
     print(f"Saved model comparison at {save_path}")
 
 
@@ -191,4 +322,5 @@ def plot_confusion_matrices(
         save_path = f"{plots_path}/confusion_matrix_{test_set_name}_{model_types[i]}.png"
         os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
         fig.savefig(save_path, bbox_inches="tight", dpi=300)
+        plt.close(fig)
         print(f"Saved confusion matrix for {model_types[i]} at {save_path}")

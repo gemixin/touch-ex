@@ -29,11 +29,13 @@ UNSEEN_EVALUATION_TARGETS = {
 def classify(
     model_types,
     target_label,
-    experiment_name,
     seed,
+    experiment_name,
     deterministic=True,
     data_config_overrides=None,
     train_config_overrides=None,
+    plot_tsne=True,
+    tsne_max_samples=2_000,
     data_config_path="configs/default_data_config.json",
     train_config_path="configs/default_train_config.json",
 ):
@@ -43,14 +45,16 @@ def classify(
     Args:
         model_types (list): A list of model types to be used in the experiment.
         target_label (str): The target label for classification.
-        experiment_name (str): A name for the experiment, used for saving results.
         seed (int): Random seed for reproducibility.
+        experiment_name (str): A name for the experiment, used for saving results.
         deterministic (bool, optional): Whether to require deterministic PyTorch
             algorithms. Defaults to True.
         data_config_overrides (dict, optional): A dictionary containing overrides for the
             default data configuration. Defaults to None.
         train_config_overrides (dict, optional): A dictionary containing overrides for the
             default training configuration. Defaults to None.
+        plot_tsne (bool, optional): Whether to generate t-SNE plots. Defaults to True.
+        tsne_max_samples (int, optional): Maximum samples per t-SNE plot. Defaults to 2,000.
         data_config_path (str, optional): Path to the default data configuration JSON file.
             Defaults to "configs/default_data_config.json".
         train_config_path (str, optional): Path to the default training configuration JSON
@@ -78,6 +82,8 @@ def classify(
         deterministic=deterministic,
         data_config_overrides=data_config_overrides or {},
         train_config_overrides=train_config_overrides or {},
+        plot_tsne=plot_tsne,
+        tsne_max_samples=tsne_max_samples,
         data_config_path=data_config_path,
         train_config_path=train_config_path,
     )
@@ -99,6 +105,8 @@ def prepare_experiment(
     deterministic,
     data_config_overrides,
     train_config_overrides,
+    plot_tsne,
+    tsne_max_samples,
     data_config_path,
     train_config_path,
 ):
@@ -114,6 +122,8 @@ def prepare_experiment(
             data configuration.
         train_config_overrides (dict): A dictionary containing overrides for the default
             training configuration.
+        plot_tsne (bool): Whether to generate t-SNE plots.
+        tsne_max_samples (int): Maximum samples per t-SNE plot.
         data_config_path (str): Path to the default data configuration JSON file.
         train_config_path (str): Path to the default training configuration JSON file.
 
@@ -210,8 +220,11 @@ def prepare_experiment(
         "experiment_number": experiment_number,
         "experiments_df_path": experiments_df_path,
         "model_types": model_types,
-        "results_path": results_path,
+        "plot_tsne": plot_tsne,
+        "tsne_max_samples": tsne_max_samples,
         "target_label": target_label,
+        "seed": seed,
+        "results_path": results_path,
         "train_labels": train_labels,
         "test_unseen_matched_labels": test_unseen_matched_labels,
         "test_unseen_related_labels": test_unseen_related_labels,
@@ -510,7 +523,7 @@ def generate_experiment_plots(experiment):
 
     # --- Unseen related test set plots --- #
 
-    # Plot related unseen test results.
+    # If there are multiple models, plot the model comparison
     if len(experiment["model_types"]) > 1:
         mv.plot_model_comparison(
             results=experiment["test_unseen_related_results"],
@@ -536,3 +549,23 @@ def generate_experiment_plots(experiment):
         cross_space=cross_space,
         rotate_x_labels=experiment["target_label"] != "force_level",
     )
+
+    # --- t-SNE feature plots ---
+
+    # If t-SNE feature plots are enabled, generate a test-set plot for each model
+    if experiment["plot_tsne"]:
+        for model, model_type, dataloaders in zip(
+            experiment["models"], experiment["model_types"], experiment["dataloaders"]
+        ):
+            # Use true test labels to show how held-out samples group in feature space
+            mv.plot_tsne_features(
+                model=model,
+                dataloader=dataloaders["test"],
+                target_label=experiment["target_label"],
+                seed=experiment["seed"],
+                label_names=experiment["train_labels"],
+                model_type=model_type,
+                device=experiment["device"],
+                plots_path=plots_path,
+                max_samples=experiment["tsne_max_samples"],
+            )
