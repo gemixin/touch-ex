@@ -64,7 +64,10 @@ class PretrainedModel(nn.Module):
             raise ValueError(f"Invalid model type: {model_type}.")
 
         # Set the classifier
-        self.classifier = nn.Linear(self.feature_dim, num_classes)
+        self.classifier = nn.Sequential(
+            nn.Dropout(p=0.2),
+            nn.Linear(self.feature_dim, num_classes),
+        )
 
         # Freeze pretrained backbone parameters when training only the classifier
         if self.freeze_backbone:

@@ -1,6 +1,4 @@
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class BaselineCNNModel(nn.Module):
@@ -21,21 +19,51 @@ class BaselineCNNModel(nn.Module):
 
         super(BaselineCNNModel, self).__init__()
 
-        # Input: 3 x 224 x 224
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1)
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-        # Output after pool: 16 x 112 x 112
+        # Extract increasingly abstract spatial features from the input image
+        self.features = nn.Sequential(
+            self._conv_block(3, 32),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self._conv_block(32, 64),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self._conv_block(64, 128),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self._conv_block(128, 256),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self._conv_block(256, 512),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
 
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
-        # Output after pool: 32 x 56 x 56
+        # Reduce the final feature maps to one feature vector per image
+        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.feature_dim = 512
 
-        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
-        # Output after pool: 64 x 28 x 28
-        self.feature_dim = 64 * 28 * 28
+        # Classify the pooled features
+        self.classifier = nn.Sequential(
+            nn.Dropout(p=0.2),
+            nn.Linear(self.feature_dim, num_classes),
+        )
 
-        # Fully connected layers for classification
-        self.fc1 = nn.Linear(self.feature_dim, 512)
-        self.classifier = nn.Linear(512, num_classes)
+    @staticmethod
+    def _conv_block(in_channels, out_channels):
+        """
+        Create a two-layer convolutional feature-extraction block.
+
+        Args:
+            in_channels (int): Number of input channels.
+            out_channels (int): Number of output channels.
+
+        Returns:
+            nn.Sequential: A sequential container of the convolutional block.
+        """
+
+        return nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+        )
 
     def forward(self, x, return_features=False):
         """
@@ -52,19 +80,13 @@ class BaselineCNNModel(nn.Module):
                 returns the features before the classifier (batch_size, feature_dim).
         """
 
-        # Pass through convolutional layers with ReLU and pooling
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = self.pool(F.relu(self.conv3(x)))
-
-        # Flatten the tensor for the fully connected layer
-        features = torch.flatten(x, 1)
+        # Extract and pool convolutional features
+        x = self.features(x)
+        features = self.global_pool(x).flatten(1)
 
         # If return_features is True, return the features before the classifier
         if return_features:
             return features
 
-        # Otherwise, pass through the fully connected layers for classification
-        x = F.relu(self.fc1(features))
-        x = self.classifier(x)
-        return x
+        # Otherwise, pass through the classifier for classification
+        return self.classifier(features)

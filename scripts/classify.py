@@ -13,14 +13,15 @@ from models.experiments import classify
 # Model types to compare
 # Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or
 # 't3_tiny'
-MODEL_TYPES = ["t3_tiny"]
+MODEL_TYPES = ["deit_tiny"]
 
 # Target label for classification
 # Choose from 'object', 'region', 'object_region', 'force_level', or 'motion'
 TARGET_LABEL = "object"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "finetuned_comparison"
+# EXPERIMENT_NAME = "finetuned_comparison"
+EXPERIMENT_NAME = "quick_deit_test"
 
 # Randomisation settings
 SEED = 129
@@ -42,7 +43,7 @@ TSNE_MAX_SAMPLES = 5_000
 
 # Paths for files and directories
 DATA_CONFIG_PATH = "configs/default_data_config.json"
-TRAIN_CONFIG_PATH = "configs/default_train_config.json"
+TRAIN_CONFIG_PATH = "configs/finetuned_train_config.json"
 RESULTS_DIR = "results"
 CHECKPOINT_DIR = "checkpoints"
 
