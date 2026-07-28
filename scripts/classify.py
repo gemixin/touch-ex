@@ -11,7 +11,8 @@ from models.experiments import classify
 # --- Configurable parameters --- #
 
 # Model types to compare
-# Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', or 't3_tiny'
+# Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or
+# 't3_tiny'
 MODEL_TYPES = ["t3_tiny"]
 
 # Target label for classification
@@ -19,7 +20,7 @@ MODEL_TYPES = ["t3_tiny"]
 TARGET_LABEL = "object"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "quick_test"
+EXPERIMENT_NAME = "finetuned_comparison"
 
 # Randomisation settings
 SEED = 129

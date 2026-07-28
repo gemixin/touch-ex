@@ -1,6 +1,11 @@
 import torch.nn as nn
+import timm
 from torchvision import models
 from models.t3 import T3TinyBackbone
+
+
+# Pretrained deit model checkpoint path
+DEIT_TINY_CHECKPOINT = "timm/deit_tiny_patch16_224.fb_in1k"
 
 
 class PretrainedModel(nn.Module):
@@ -17,7 +22,7 @@ class PretrainedModel(nn.Module):
 
         Args:
             model_type (str): The type of the pretrained model to use. Options are
-                'resnet18', 'efficientnet_b0', 'vit_b_16', or 't3_tiny'.
+                'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or 't3_tiny'.
             num_classes (int): The number of classes to classify.
             freeze_backbone (bool, optional): Whether to train only the classifier.
                 Defaults to False.
@@ -31,21 +36,25 @@ class PretrainedModel(nn.Module):
         if model_type == "resnet18":
             self.backbone = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
             self.feature_dim = self.backbone.fc.in_features
-            self.backbone.fc = nn.Identity()  # Remove the original fully connected layer
+            self.backbone.fc = nn.Identity()
 
         elif model_type == "efficientnet_b0":
             self.backbone = models.efficientnet_b0(
                 weights=models.EfficientNet_B0_Weights.DEFAULT
             )
             self.feature_dim = self.backbone.classifier[1].in_features
-            self.backbone.classifier[1] = (
-                nn.Identity()
-            )  # Remove the original fully connected layer
+            self.backbone.classifier[1] = nn.Identity()
 
         elif model_type == "vit_b_16":
             self.backbone = models.vit_b_16(weights=models.ViT_B_16_Weights.DEFAULT)
             self.feature_dim = self.backbone.heads.head.in_features
-            self.backbone.heads = nn.Identity()  # Remove the original fully connected layer
+            self.backbone.heads = nn.Identity()
+
+        elif model_type == "deit_tiny":
+            self.backbone = timm.create_model(
+                DEIT_TINY_CHECKPOINT, pretrained=True, num_classes=0
+            )
+            self.feature_dim = self.backbone.num_features
 
         elif model_type == "t3_tiny":
             self.backbone = T3TinyBackbone()

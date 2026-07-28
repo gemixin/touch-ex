@@ -10,7 +10,7 @@ import os
 import pandas as pd
 from data.builder import get_dataloaders
 from models.baseline import BaselineCNNModel
-from models.pretrained import PretrainedModel
+from models.pretrained import DEIT_TINY_CHECKPOINT, PretrainedModel
 from models.t3 import T3_REPOSITORY, T3_REVISION
 from models.train_eval import eval_classifier, train_classifier
 from models.torch_functions import get_device, set_random_seed
@@ -248,7 +248,13 @@ def prepare_experiment(
         "experiments_df_path": experiments_df_path,
         "model_types": model_types,
         "pretrained_checkpoints": [
-            f"{T3_REPOSITORY}@{T3_REVISION}" if model_type == "t3_tiny" else None
+            (
+                f"{T3_REPOSITORY}@{T3_REVISION}"
+                if model_type == "t3_tiny"
+                else DEIT_TINY_CHECKPOINT
+                if model_type == "deit_tiny"
+                else None
+            )
             for model_type in model_types
         ],
         "freeze_backbones": freeze_backbones,
