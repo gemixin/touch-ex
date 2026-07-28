@@ -1,6 +1,9 @@
 {
 	"optimizer": "adamw",
 	"learning_rate": 0.0002,
+	"warmup_epochs": 1,
+	"warmup_start_factor": 0.1,
+	"min_learning_rate": 0.00001,
 	"momentum": 0.9,
 	"weight_decay": 0.02,
 	"num_epochs": 10,

@@ -5,6 +5,7 @@ Author: Gemma McLean
 Date: April 2026
 """
 
+import math
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -41,6 +42,7 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
     model = model.to(device)
     # Get the optimizer and criterion from the config
     optimizer = get_optimizer(model, train_config)
+    scheduler = get_lr_scheduler(optimizer, train_config, len(train_loader))
     # Criterion is cross-entropy loss for classification
     criterion = nn.CrossEntropyLoss().to(device)
 
@@ -81,6 +83,7 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
+            scheduler.step()
 
             # Update overall training loss
             train_loss += loss.item()
@@ -132,6 +135,7 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
             "train_acc": train_acc,
             "val_loss": val_loss,
             "val_acc": val_acc,
+            "learning_rate": optimizer.param_groups[0]["lr"],
         }
         history.append(metrics)
 
@@ -214,6 +218,51 @@ def get_optimizer(model, train_config):
             lr=train_config["learning_rate"],
             weight_decay=train_config["weight_decay"],
         )
+
+
+def get_lr_scheduler(optimizer, train_config, steps_per_epoch):
+    """
+    Create a batch-level linear warmup and cosine learning-rate decay scheduler.
+
+    Args:
+        optimizer (torch.optim.Optimizer): Optimizer whose learning rate is scheduled.
+        train_config (dict): Configuration dictionary containing scheduler settings.
+        steps_per_epoch (int): Number of training batches in each epoch.
+
+    Returns:
+        torch.optim.lr_scheduler.LambdaLR: The configured learning-rate scheduler.
+    """
+
+    # Calculate the number of warmup steps and total steps for the scheduler
+    warmup_steps = train_config["warmup_epochs"] * steps_per_epoch
+    total_steps = train_config["num_epochs"] * steps_per_epoch
+    min_lr_factor = train_config["min_learning_rate"] / train_config["learning_rate"]
+    warmup_start_factor = train_config["warmup_start_factor"]
+
+    def lr_lambda(step):
+        """
+        Compute the learning rate factor for the given step.
+
+        Args:
+            step (int): The current training step.
+
+        Returns:
+            float: The learning rate factor to apply to the optimizer's base learning rate.
+        """
+
+        # Increase linearly from the warmup start factor to the configured rate
+        if step < warmup_steps:
+            return warmup_start_factor + (1 - warmup_start_factor) * step / max(
+                1, warmup_steps
+            )
+
+        # Decay from the configured rate to the minimum rate using a cosine curve
+        decay_progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
+        cosine_decay = 0.5 * (1 + math.cos(math.pi * min(1, decay_progress)))
+        return min_lr_factor + (1 - min_lr_factor) * cosine_decay
+
+    # Return the LambdaLR scheduler that applies the lr_lambda function to the optimizer
+    return optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
 
 def eval_classifier(

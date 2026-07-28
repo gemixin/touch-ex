@@ -22,27 +22,24 @@ def seed_worker(worker_id):
         worker_id (int): The ID of the DataLoader worker.
     """
 
-    # Get the initial seed for the worker
     worker_seed = torch.initial_seed() % 2**32
-
-    # Use it to seed Python's random module and NumPy's random module
     random.seed(worker_seed)
     np.random.seed(worker_seed)
 
 
-def get_dataloaders(data_config):
+def get_datasets(data_config):
     """
     Load the Touch-Ex dataset and split the main train split into train/val/test sets.
     Split the unseen test data into two sets: matched unseen objects and related unseen
-    objects. Create a TouchExDataset for each split and return a dictionary of DataLoaders,
-    along with the class-label lists.
+    objects. Create a TouchExDataset for each split and return them with the class-label
+    lists.
 
     Args:
         data_config (dict): A dictionary containing configuration parameters for loading and
             preparing the dataset.
 
     Returns:
-        tuple: A tuple containing the DataLoaders dictionary and the class-label lists
+        tuple: A tuple containing the Datasets dictionary and the class-label lists
             dictionary.
     """
 
@@ -94,7 +91,7 @@ def get_dataloaders(data_config):
         "test_unseen_related": test_unseen_related_df,
     }
 
-    # Get class-label lists from the training, matched, and related unseen sets.
+    # Get class-label lists from the training, matched, and related unseen sets
     label_lists = {
         "train": utils.get_label_lists(train_df),
         "test_unseen_matched": utils.get_label_lists(test_unseen_matched_df),
@@ -117,6 +114,23 @@ def get_dataloaders(data_config):
         for split, df_split in split_dfs.items()
     }
 
+    return datasets, label_lists
+
+
+def create_dataloaders(datasets, data_config):
+    """
+    Create a fresh dictionary of seeded DataLoaders from prepared datasets.
+
+    Args:
+        datasets (dict): A dictionary of TouchExDataset objects keyed by split name.
+        data_config (dict): A dictionary containing DataLoader settings.
+
+    Returns:
+        dict: A dictionary of DataLoaders keyed by split name.
+    """
+
+    validate_data_config(data_config)
+
     # Create a DataLoader for each dataset split using seeded generators
     dataloaders = {
         split: DataLoader(
@@ -127,8 +141,25 @@ def get_dataloaders(data_config):
             worker_init_fn=seed_worker,
             generator=torch.Generator().manual_seed(data_config["random_state"]),
         )
-        for split in split_dfs
+        for split in datasets
     }
 
-    # Return the DataLoaders and class-label lists
-    return dataloaders, label_lists
+    return dataloaders
+
+
+def get_dataloaders(data_config):
+    """
+    Build the Touch-Ex datasets and DataLoaders from a data configuration.
+
+    This wrapper preserves the original public interface used by notebooks.
+
+    Args:
+        data_config (dict): A dictionary containing dataset and DataLoader settings.
+
+    Returns:
+        tuple: A tuple containing the DataLoaders dictionary and the class-label lists
+            dictionary.
+    """
+
+    datasets, label_lists = get_datasets(data_config)
+    return create_dataloaders(datasets, data_config), label_lists

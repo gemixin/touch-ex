@@ -145,6 +145,9 @@ def validate_train_config(train_config):
     required_keys = [
         "optimizer",
         "learning_rate",
+        "warmup_epochs",
+        "warmup_start_factor",
+        "min_learning_rate",
         "momentum",
         "weight_decay",
         "num_epochs",
@@ -172,6 +175,39 @@ def validate_train_config(train_config):
     ):
         raise ValueError("learning_rate must be a number greater than 0.")
 
+    # Validate num_epochs
+    if type(train_config["num_epochs"]) is not int or train_config["num_epochs"] < 1:
+        raise ValueError("num_epochs must be an integer greater than or equal to 1.")
+
+    # Validate warmup_epochs
+    if (
+        type(train_config["warmup_epochs"]) is not int
+        or train_config["warmup_epochs"] < 0
+        or train_config["warmup_epochs"] > train_config["num_epochs"]
+    ):
+        raise ValueError(
+            "warmup_epochs must be an integer between 0 and num_epochs."
+        )
+
+    # Validate warmup_start_factor
+    if (
+        type(train_config["warmup_start_factor"]) not in [int, float]
+        or not 0 < train_config["warmup_start_factor"] <= 1
+    ):
+        raise ValueError(
+            "warmup_start_factor must be a number greater than 0 and at most 1."
+        )
+
+    # Validate min_learning_rate
+    if (
+        type(train_config["min_learning_rate"]) not in [int, float]
+        or not 0 < train_config["min_learning_rate"] <= train_config["learning_rate"]
+    ):
+        raise ValueError(
+            "min_learning_rate must be a number greater than 0 and no greater than "
+            "learning_rate."
+        )
+
     # Validate momentum
     if (
         type(train_config["momentum"]) not in [int, float]
@@ -185,10 +221,6 @@ def validate_train_config(train_config):
         or train_config["weight_decay"] < 0
     ):
         raise ValueError("weight_decay must be a number greater than or equal to 0.")
-
-    # Validate num_epochs
-    if type(train_config["num_epochs"]) is not int or train_config["num_epochs"] < 1:
-        raise ValueError("num_epochs must be an integer greater than or equal to 1.")
 
     # Validate checkpoint_dir
     checkpoint_dir = train_config["checkpoint_dir"]

@@ -8,7 +8,7 @@ Date: July 2026
 import json
 import os
 import pandas as pd
-from data.builder import get_dataloaders
+from data.builder import create_dataloaders, get_datasets
 from models.baseline import BaselineCNNModel
 from models.pretrained import DEIT_TINY_CHECKPOINT, PretrainedModel
 from models.t3 import T3_REPOSITORY, T3_REVISION
@@ -40,6 +40,7 @@ def classify(
     tsne_max_samples,
     data_config_path,
     train_config_path,
+    baseline_train_config_path,
     results_dir,
     checkpoint_dir,
 ):
@@ -63,6 +64,8 @@ def classify(
             samples should be used.
         data_config_path (str): Path to the default data configuration JSON file.
         train_config_path (str): Path to the default training configuration JSON file.
+        baseline_train_config_path (str): Path to the training configuration JSON file
+            used for baseline models.
         results_dir (str): Root directory for experiment results.
         checkpoint_dir (str): Root directory for model checkpoints.
 
@@ -79,12 +82,17 @@ def classify(
         raise ValueError(
             "target_label must be 'object', 'object_region', 'force_level', or 'motion'."
         )
+
     # Check that the configuration files exist
     if not os.path.isfile(data_config_path):
         raise FileNotFoundError(f"Data configuration file not found: {data_config_path}")
     if not os.path.isfile(train_config_path):
         raise FileNotFoundError(
             f"Training configuration file not found: {train_config_path}"
+        )
+    if not os.path.isfile(baseline_train_config_path):
+        raise FileNotFoundError(
+            f"Baseline training configuration file not found: {baseline_train_config_path}"
         )
 
     # Prepare the experiment context
@@ -100,6 +108,7 @@ def classify(
         tsne_max_samples=tsne_max_samples,
         data_config_path=data_config_path,
         train_config_path=train_config_path,
+        baseline_train_config_path=baseline_train_config_path,
         results_dir=results_dir,
         checkpoint_dir=checkpoint_dir,
     )
@@ -126,6 +135,7 @@ def prepare_experiment(
     tsne_max_samples,
     data_config_path,
     train_config_path,
+    baseline_train_config_path,
     results_dir,
     checkpoint_dir,
 ):
@@ -147,6 +157,8 @@ def prepare_experiment(
             samples should be used.
         data_config_path (str): Path to the default data configuration JSON file.
         train_config_path (str): Path to the default training configuration JSON file.
+        baseline_train_config_path (str): Path to the training configuration JSON file
+            used for baseline models.
         results_dir (str): Root directory for experiment results.
         checkpoint_dir (str): Root directory for model checkpoints.
 
@@ -202,16 +214,14 @@ def prepare_experiment(
     # Create a copy of the data config for each model type
     data_configs = [data_config.copy() for _ in model_types]
 
-    # Get (dataloaders, label_lists) tuples for each model type using the data configs
-    data = [get_dataloaders(config) for config in data_configs]
-    # Get dataloaders and class-label lists from the data tuples
-    dataloaders = [item[0] for item in data]
-    label_lists = [item[1] for item in data]
+    # Prepare shared datasets once, then give each model fresh seeded DataLoaders
+    datasets, label_lists = get_datasets(data_config)
+    dataloaders = [create_dataloaders(datasets, config) for config in data_configs]
 
     # Extract relevant class-label lists for target label
-    train_labels = label_lists[0]["train"][target_label]
-    test_unseen_matched_labels = list(label_lists[0]["test_unseen_matched"][target_label])
-    test_unseen_related_labels = list(label_lists[0]["test_unseen_related"][target_label])
+    train_labels = label_lists["train"][target_label]
+    test_unseen_matched_labels = list(label_lists["test_unseen_matched"][target_label])
+    test_unseen_related_labels = list(label_lists["test_unseen_related"][target_label])
 
     # --- Prepare models --- #
 
@@ -219,22 +229,30 @@ def prepare_experiment(
     with open(train_config_path, "r", encoding="utf-8") as file:
         train_config = json.load(file)
 
-    # Update default train config with custom settings
-    train_config.update(train_config_overrides)
-    # Set checkpoint directory
-    # Use a new folder for each experiment number within the target label folder
-    train_config["checkpoint_dir"] = os.path.join(
-        checkpoints_path, str(experiment_number).zfill(3)
-    )
+    # Get baseline train config from json file
+    with open(baseline_train_config_path, "r", encoding="utf-8") as file:
+        baseline_train_config = json.load(file)
 
-    # Create a copy of the model config for each model type
-    train_configs = [train_config.copy() for _ in model_types]
+    # Update train configs with custom settings
+    train_config.update(train_config_overrides)
+    baseline_train_config.update(train_config_overrides)
+
+    # Create a model-specific training config for each model type
+    train_configs = [
+        (baseline_train_config if model_type == "baseline" else train_config).copy()
+        for model_type in model_types
+    ]
+
+    # Determine whether to freeze the backbone for each model type
     freeze_backbones = [
         model_type != "baseline" and freeze_backbone for model_type in model_types
     ]
 
-    # Set model title in the model config for each model type
+    # Set checkpoint directory and model title for each model config
     for config, model_type in zip(train_configs, model_types):
+        config["checkpoint_dir"] = os.path.join(
+            checkpoints_path, str(experiment_number).zfill(3)
+        )
         config["model_title"] = model_type
 
     # Return the experiment context as a dictionary

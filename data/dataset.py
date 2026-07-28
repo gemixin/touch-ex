@@ -72,13 +72,13 @@ class TouchExDataset(Dataset):
                 for label, class_list in label_lists["train"].items()
             }
 
-        # Encode categorical string labels using derived label-to-index dictionaries.
+        # Encode categorical string labels using derived label-to-index dictionaries
         # ["object", "region", "object_region", "force_level", "motion"]
-        # Store the encoded class indices in the dataframe.
+        # Store the encoded class indices in the dataframe
         for label in self.label2idx.keys():
             mapping = self.label2idx[label]
             # Force level and motion retain their existing labels across splits, but must
-            # use training-space indices for unseen evaluation.
+            # use training-space indices for unseen evaluation
             if self.test_unseen and label in {"force_level", "motion"}:
                 mapping = train_label2idx[label]
             # Map the string labels to class indices, filling any unmapped values with -1
@@ -87,7 +87,7 @@ class TouchExDataset(Dataset):
             self.df[f"{label}_class"] = encoded
 
         # If this is an unseen test split, also encode the expected labels using
-        # the corresponding training-set label spaces.
+        # the corresponding training-set label spaces
         if self.test_unseen:
             # Define the expected label targets for the unseen test splits
             self.expected_label_targets = {
