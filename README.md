@@ -53,11 +53,14 @@ conda env create -f environment.yml
 conda activate touch-ex
 ```
 
-## Citation
-
-If you use DIGIT or this repo in your research, please cite:
+## Citations
 
 **DIGIT: A Novel Design for a Low-Cost Compact High-Resolution Tactile Sensor with Application to In-Hand Manipulation**  
 Mike Lambeta, Po-Wei Chou, Stephen Tian, Brian Yang, Benjamin Maloon, Victoria Rose Most, Dave Stroud, Raymond Santos, Ahmad Byagowi, Gregg Kammerer, Dinesh Jayaraman, Roberto Calandra  
 _IEEE Robotics and Automation Letters (RA-L), vol. 5, no. 3, pp. 3838–3845, 2020_  
 [https://doi.org/10.1109/LRA.2020.2977257](https://doi.org/10.1109/LRA.2020.2977257)
+
+**Transferable Tactile Transformers for Representation Learning Across Diverse Sensors and Tasks**
+Jialiang Zhao, Yuxiang Ma, Lirui Wang, Edward Adelson
+_Proceedings of The 8th Conference on Robot Learning, Proceedings of Machine Learning Research, vol. 270, pp. 3766–3779, 2025_
+[https://proceedings.mlr.press/v270/zhao25c.html](https://proceedings.mlr.press/v270/zhao25c.html)

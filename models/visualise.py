@@ -35,7 +35,7 @@ def plot_tsne_features(
     model_type,
     device,
     plots_path,
-    max_samples=4_000,
+    max_samples=-1,
 ):
     """
     Extract model features from the test set and save a labelled 2-D t-SNE plot.
@@ -50,6 +50,7 @@ def plot_tsne_features(
         device (torch.device): The device on which to run feature extraction.
         plots_path (str): The folder path where the t-SNE plot will be saved.
         max_samples (int): Maximum number of class-balanced samples used for t-SNE.
+            Defaults to -1 (use all test samples).
     """
 
     print(f"Starting t-SNE features for {model_type}...")
@@ -72,7 +73,8 @@ def plot_tsne_features(
     labels = np.concatenate(all_labels)
 
     # Use every test sample when the split is within the configured t-SNE sample limit
-    if len(features) > max_samples:
+    # or if max_samples is set to -1
+    if len(features) > max_samples and max_samples > 0:
         # Use a fixed random generator so the sampled test frames are reproducible
         rng = np.random.default_rng(seed)
         unique_labels = np.unique(labels)
@@ -201,7 +203,7 @@ def plot_training_curves(history, model_type, plots_path):
     print(f"Saved training curves for {model_type} at {save_path}")
 
 
-def plot_model_comparison(results, model_types, plots_path, test_set_name="test"):
+def plot_model_comparison(results, model_types, plots_path, test_set_name):
     """
     Plot a comparison of test accuracy and weighted F1 average for each model.
 

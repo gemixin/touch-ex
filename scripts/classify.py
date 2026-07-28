@@ -10,35 +10,41 @@ from models.experiments import classify
 
 # --- Configurable parameters --- #
 
+# Model types to compare
+# Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', or 't3_tiny'
+MODEL_TYPES = ["t3_tiny"]
+
 # Target label for classification
 # Choose from 'object', 'region', 'object_region', 'force_level', or 'motion'
 TARGET_LABEL = "object"
+
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_quick"
-# Set random seed for reproducibility
+EXPERIMENT_NAME = "quick_test"
+
+# Randomisation settings
 SEED = 129
-# Set deterministic behavior for PyTorch
 DETERMINISTIC = True
+
 # Set to True to train only the classifier of pretrained models
 # Baseline models are always trained end-to-end
-FREEZE_BACKBONE = False
-# Model types to compare
-# Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'sparsh, 'anytouch'
-MODEL_TYPES = ["resnet18"]
-# Set to False to skip t-SNE feature plots.
-PLOT_TSNE = True
-# Maximum number of class-balanced samples used in each t-SNE plot.
-TSNE_MAX_SAMPLES = 5_000
+FREEZE_BACKBONE = True
 
-# --- Config overrides --- #
-
-# Values here override keys in configs/default_data_config.json.
+# Values here override keys in provided data_config and train_config files
 DATA_CONFIG_OVERRIDES = {}
-
-# Values here override keys in configs/default_train_config.json.
 TRAIN_CONFIG_OVERRIDES = {
     "num_epochs": 1,
 }
+
+# t-SNE feature plot settings
+PLOT_TSNE = True
+TSNE_MAX_SAMPLES = 5_000
+
+# Paths for files and directories
+DATA_CONFIG_PATH = "configs/default_data_config.json"
+TRAIN_CONFIG_PATH = "configs/default_train_config.json"
+RESULTS_DIR = "results"
+CHECKPOINT_DIR = "checkpoints"
+
 
 # --- Train and evaluate models --- #
 
@@ -53,4 +59,8 @@ classify(
     train_config_overrides=TRAIN_CONFIG_OVERRIDES,
     plot_tsne=PLOT_TSNE,
     tsne_max_samples=TSNE_MAX_SAMPLES,
+    data_config_path=DATA_CONFIG_PATH,
+    train_config_path=TRAIN_CONFIG_PATH,
+    results_dir=RESULTS_DIR,
+    checkpoint_dir=CHECKPOINT_DIR,
 )

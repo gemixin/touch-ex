@@ -11,6 +11,7 @@ import pandas as pd
 from data.builder import get_dataloaders
 from models.baseline import BaselineCNNModel
 from models.pretrained import PretrainedModel
+from models.t3 import T3_REPOSITORY, T3_REVISION
 from models.train_eval import eval_classifier, train_classifier
 from models.torch_functions import get_device, set_random_seed
 import models.visualise as mv
@@ -29,16 +30,18 @@ UNSEEN_EVALUATION_TARGETS = {
 def classify(
     model_types,
     target_label,
-    seed,
     experiment_name,
-    deterministic=True,
-    freeze_backbone=False,
-    data_config_overrides=None,
-    train_config_overrides=None,
-    plot_tsne=True,
-    tsne_max_samples=2_000,
-    data_config_path="configs/default_data_config.json",
-    train_config_path="configs/default_train_config.json",
+    seed,
+    deterministic,
+    freeze_backbone,
+    data_config_overrides,
+    train_config_overrides,
+    plot_tsne,
+    tsne_max_samples,
+    data_config_path,
+    train_config_path,
+    results_dir,
+    checkpoint_dir,
 ):
     """
     Prepare, train, evaluate, save, and plot a classification experiment.
@@ -46,22 +49,22 @@ def classify(
     Args:
         model_types (list): A list of model types to be used in the experiment.
         target_label (str): The target label for classification.
-        seed (int): Random seed for reproducibility.
         experiment_name (str): A name for the experiment, used for saving results.
-        deterministic (bool, optional): Whether to require deterministic PyTorch
-            algorithms. Defaults to True.
-        freeze_backbone (bool, optional): Whether to freeze pretrained model backbones.
-            Baseline models are always trained end-to-end. Defaults to False.
-        data_config_overrides (dict, optional): A dictionary containing overrides for the
-            default data configuration. Defaults to None.
-        train_config_overrides (dict, optional): A dictionary containing overrides for the
-            default training configuration. Defaults to None.
-        plot_tsne (bool, optional): Whether to generate t-SNE plots. Defaults to True.
-        tsne_max_samples (int, optional): Maximum samples per t-SNE plot. Defaults to 2,000.
-        data_config_path (str, optional): Path to the default data configuration JSON file.
-            Defaults to "configs/default_data_config.json".
-        train_config_path (str, optional): Path to the default training configuration JSON
-            file. Defaults to "configs/default_train_config.json".
+        seed (int): Random seed for reproducibility.
+        deterministic (bool): Whether to require deterministic PyTorch algorithms.
+        freeze_backbone (bool): Whether to freeze pretrained model backbones. Baseline
+            models are always trained end-to-end.
+        data_config_overrides (dict): A dictionary containing overrides for the default data
+            configuration.
+        train_config_overrides (dict): A dictionary containing overrides for the default
+            training configuration.
+        plot_tsne (bool): Whether to generate t-SNE plots.
+        tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all test
+            samples should be used.
+        data_config_path (str): Path to the default data configuration JSON file.
+        train_config_path (str): Path to the default training configuration JSON file.
+        results_dir (str): Root directory for experiment results.
+        checkpoint_dir (str): Root directory for model checkpoints.
 
     Returns:
         tuple: A tuple containing the trained models, training histories, and evaluation
@@ -76,6 +79,13 @@ def classify(
         raise ValueError(
             "target_label must be 'object', 'object_region', 'force_level', or 'motion'."
         )
+    # Check that the configuration files exist
+    if not os.path.isfile(data_config_path):
+        raise FileNotFoundError(f"Data configuration file not found: {data_config_path}")
+    if not os.path.isfile(train_config_path):
+        raise FileNotFoundError(
+            f"Training configuration file not found: {train_config_path}"
+        )
 
     # Prepare the experiment context
     experiment = prepare_experiment(
@@ -84,12 +94,14 @@ def classify(
         seed=seed,
         deterministic=deterministic,
         freeze_backbone=freeze_backbone,
-        data_config_overrides=data_config_overrides or {},
-        train_config_overrides=train_config_overrides or {},
+        data_config_overrides=data_config_overrides,
+        train_config_overrides=train_config_overrides,
         plot_tsne=plot_tsne,
         tsne_max_samples=tsne_max_samples,
         data_config_path=data_config_path,
         train_config_path=train_config_path,
+        results_dir=results_dir,
+        checkpoint_dir=checkpoint_dir,
     )
 
     # Train, evaluate, save, and plot the experiment
@@ -114,6 +126,8 @@ def prepare_experiment(
     tsne_max_samples,
     data_config_path,
     train_config_path,
+    results_dir,
+    checkpoint_dir,
 ):
     """
     Load configurations and prepare the shared experiment context.
@@ -129,9 +143,12 @@ def prepare_experiment(
         train_config_overrides (dict): A dictionary containing overrides for the default
             training configuration.
         plot_tsne (bool): Whether to generate t-SNE plots.
-        tsne_max_samples (int): Maximum samples per t-SNE plot.
+        tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all test
+            samples should be used.
         data_config_path (str): Path to the default data configuration JSON file.
         train_config_path (str): Path to the default training configuration JSON file.
+        results_dir (str): Root directory for experiment results.
+        checkpoint_dir (str): Root directory for model checkpoints.
 
     Returns:
         dict: A dictionary containing the prepared experiment context, including
@@ -151,8 +168,8 @@ def prepare_experiment(
     folder_name = f"{target_label}_classify"
 
     # Paths for checkpoints, results, and configuration files
-    checkpoints_path = f"checkpoints/{folder_name}"
-    results_path = f"results/{folder_name}"
+    checkpoints_path = os.path.join(checkpoint_dir, folder_name)
+    results_path = os.path.join(results_dir, folder_name)
 
     # --- Get experiment number --- #
 
@@ -212,11 +229,13 @@ def prepare_experiment(
 
     # Create a copy of the model config for each model type
     train_configs = [train_config.copy() for _ in model_types]
+    freeze_backbones = [
+        model_type != "baseline" and freeze_backbone for model_type in model_types
+    ]
 
     # Set model title in the model config for each model type
     for config, model_type in zip(train_configs, model_types):
         config["model_title"] = model_type
-        config["freeze_backbone"] = model_type != "baseline" and freeze_backbone
 
     # Return the experiment context as a dictionary
     return {
@@ -228,7 +247,11 @@ def prepare_experiment(
         "experiment_number": experiment_number,
         "experiments_df_path": experiments_df_path,
         "model_types": model_types,
-        "freeze_backbones": [config["freeze_backbone"] for config in train_configs],
+        "pretrained_checkpoints": [
+            f"{T3_REPOSITORY}@{T3_REVISION}" if model_type == "t3_tiny" else None
+            for model_type in model_types
+        ],
+        "freeze_backbones": freeze_backbones,
         "plot_tsne": plot_tsne,
         "tsne_max_samples": tsne_max_samples,
         "target_label": target_label,
@@ -375,6 +398,7 @@ def save_experiment_results(experiment, experiment_name):
             "seed": experiment["seed"],
             "deterministic": experiment["deterministic"],
             "freeze_backbone": experiment["freeze_backbones"],
+            "pretrained_checkpoint": experiment["pretrained_checkpoints"],
             "train_config": experiment["train_configs"],
             "data_config": experiment["data_configs"],
             "model_type": experiment["model_types"],

@@ -1,5 +1,6 @@
 import torch.nn as nn
 from torchvision import models
+from models.t3 import T3TinyBackbone
 
 
 class PretrainedModel(nn.Module):
@@ -16,7 +17,7 @@ class PretrainedModel(nn.Module):
 
         Args:
             model_type (str): The type of the pretrained model to use. Options are
-                'resnet18', 'efficientnet_b0', 'vit_b_16', 'sparsh', 'anytouch'.
+                'resnet18', 'efficientnet_b0', 'vit_b_16', or 't3_tiny'.
             num_classes (int): The number of classes to classify.
             freeze_backbone (bool, optional): Whether to train only the classifier.
                 Defaults to False.
@@ -45,6 +46,10 @@ class PretrainedModel(nn.Module):
             self.backbone = models.vit_b_16(weights=models.ViT_B_16_Weights.DEFAULT)
             self.feature_dim = self.backbone.heads.head.in_features
             self.backbone.heads = nn.Identity()  # Remove the original fully connected layer
+
+        elif model_type == "t3_tiny":
+            self.backbone = T3TinyBackbone()
+            self.feature_dim = self.backbone.feature_dim
 
         else:
             raise ValueError(f"Invalid model type: {model_type}.")
@@ -80,7 +85,7 @@ class PretrainedModel(nn.Module):
 
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, 3, 224, 224)
-                return_features (bool): If True, return the features before the classifier
+            return_features (bool): If True, return the features before the classifier
                 instead of the final output.
 
         Returns:
