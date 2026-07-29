@@ -153,6 +153,7 @@ class T3Encoder(nn.Module):
         """
 
         # Apply the patch embedding, add the class token and positional embedding
+        x = self.patch_embed(x)
         cls_tokens = self.cls_token.expand(x.shape[0], -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
         x = x + self.pos_embed

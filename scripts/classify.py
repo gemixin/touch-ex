@@ -13,7 +13,7 @@ from models.experiments import classify
 # Model types to compare
 # Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or
 # 't3_tiny'
-MODEL_TYPES = ["baseline"]
+MODEL_TYPES = ["baseline", "resnet18", "efficientnet_b0", "deit_tiny", "t3_tiny"]
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', or 'motion'
@@ -21,11 +21,11 @@ TARGET_LABEL = "object"
 
 # Experiment name for tracking results
 # EXPERIMENT_NAME = "finetuned_comparison"
-EXPERIMENT_NAME = "quick_baseline_test"
+EXPERIMENT_NAME = "quick_plot_test"
 
 # Randomisation settings
 SEED = 129
-DETERMINISTIC = True
+DETERMINISTIC = False
 
 # Set to True to train only the classifier of pretrained models
 # Baseline models are always trained end-to-end
@@ -39,7 +39,7 @@ TRAIN_CONFIG_OVERRIDES = {
 
 # t-SNE feature plot settings
 PLOT_TSNE = True
-TSNE_MAX_SAMPLES = 5_000
+TSNE_MAX_SAMPLES = -1
 
 # Paths for files and directories
 DATA_CONFIG_PATH = "configs/default_data_config.json"

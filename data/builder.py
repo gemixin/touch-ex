@@ -1,5 +1,5 @@
 """
-A module containing the builder function for loading and preparing the Touch-Ex dataset.
+A module containing functions to build the Touch-Ex datasets and DataLoaders.
 
 Author: Gemma McLean
 Date: April 2026
@@ -43,31 +43,26 @@ def get_datasets(data_config):
             dictionary.
     """
 
-    # Validate the data configuration
+    # If the data_config is invalid, raise an error before proceeding
     validate_data_config(data_config)
 
     # Load the HuggingFace dataset splits into DataFrames
     dataframes = utils.load_touch_ex_dataset()
-
     train_source_df = dataframes["train"]  # Main training split for train/val/test
     test_unseen_df = dataframes["test_unseen"]  # Separate test split with unseen labels
 
     # Add new columns to test_unseen_df for expected labels
     test_unseen_df = utils.add_expected_labels(test_unseen_df)
 
-    # Filter dataframes if needed
-    # If a specific force level is specified in the data_config
+    # Filter dataframes by force if specified in the data_config
     if data_config["filtered_force_level"]:
-        # Get the force level string value
         force_val = data_config["filtered_force_level"]
-        # Filter the train and test_unseen DataFrames by the specified force level
         train_source_df = utils.filter_by_force_level(train_source_df, force_val)
         test_unseen_df = utils.filter_by_force_level(test_unseen_df, force_val)
-    # If a specific motion type is specified in the data_config
+
+    # Filter dataframes by motion if specified in the data_config
     if data_config["filtered_motion"]:
-        # Get the motion type string value
         motion_val = data_config["filtered_motion"]
-        # Filter the train and test_unseen DataFrames by the specified motion type
         train_source_df = utils.filter_by_motion(train_source_df, motion_val)
         test_unseen_df = utils.filter_by_motion(test_unseen_df, motion_val)
 
@@ -91,7 +86,7 @@ def get_datasets(data_config):
         "test_unseen_related": test_unseen_related_df,
     }
 
-    # Get class-label lists from the training, matched, and related unseen sets
+    # Get class-label lists
     label_lists = {
         "train": utils.get_label_lists(train_df),
         "test_unseen_matched": utils.get_label_lists(test_unseen_matched_df),
@@ -129,6 +124,7 @@ def create_dataloaders(datasets, data_config):
         dict: A dictionary of DataLoaders keyed by split name.
     """
 
+    # If the data_config is invalid, raise an error before proceeding
     validate_data_config(data_config)
 
     # Create a DataLoader for each dataset split using seeded generators
@@ -149,9 +145,8 @@ def create_dataloaders(datasets, data_config):
 
 def get_dataloaders(data_config):
     """
-    Build the Touch-Ex datasets and DataLoaders from a data configuration.
-
-    This wrapper preserves the original public interface used by notebooks.
+    Build the Touch-Ex datasets and DataLoaders from a data configuration using a single
+    function call.
 
     Args:
         data_config (dict): A dictionary containing dataset and DataLoader settings.

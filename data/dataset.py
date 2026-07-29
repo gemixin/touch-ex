@@ -18,7 +18,7 @@ class TouchExDataset(Dataset):
         self, dataframe, split, label_lists, transform_name, norm_stats=None, bg_path=None
     ):
         """
-        Initialise the TouchExDataset object.
+        Initialises the TouchExDataset with the provided parameters.
 
         Args:
             dataframe (pd.DataFrame): The input DataFrame containing the dataset.
@@ -32,16 +32,10 @@ class TouchExDataset(Dataset):
                 Defaults to None, meaning no background subtraction will be applied.
         """
 
-        # Initialise with the provided dataset dataframe
+        # Assign the provided parameters to instance variables
         self.df = dataframe.reset_index(drop=True)
-
-        # Store the split name
         self.split = split
-
-        # Store the name of the transform to apply to the images
         self.transform_name = transform_name
-
-        # Store the normalisation stats (mean and std)
         self.norm_stats = norm_stats
 
         # Determine if this is an unseen test split based on the split name
@@ -186,5 +180,4 @@ class TouchExDataset(Dataset):
                 )
 
         # Return a dictionary containing everything
-        # This makes it easy to swap out task heads later
         return features

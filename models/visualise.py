@@ -16,7 +16,7 @@ from sklearn.manifold import TSNE
 
 # Set default Seaborn styles
 sns.set_style("darkgrid")
-sns.set_palette("hls")
+sns.set_palette("deep")
 
 # Define a mapping of test set names to their corresponding titles for plots
 TEST_SET_TITLES = {
@@ -24,6 +24,21 @@ TEST_SET_TITLES = {
     "test_unseen_matched": "Unseen Matched Objects",
     "test_unseen_related": "Unseen Related Objects",
 }
+
+MODEL_DISPLAY_NAMES = {
+    "baseline": "Baseline CNN",
+    "resnet18": "ResNet-18",
+    "efficientnet_b0": "EfficientNet-B0",
+    "vit_b_16": "ViT-B/16",
+    "deit_tiny": "DeiT-Tiny",
+    "t3_tiny": "T3-Tiny",
+}
+
+
+def get_model_display_name(model_type):
+    """Return a readable model name for plot labels and titles."""
+
+    return MODEL_DISPLAY_NAMES.get(model_type, model_type)
 
 
 def plot_tsne_features(
@@ -54,6 +69,7 @@ def plot_tsne_features(
     """
 
     print(f"Starting t-SNE features for {model_type}...")
+    display_name = get_model_display_name(model_type)
 
     # Create lists to collect feature vectors and labels from every batch
     all_features = []
@@ -130,7 +146,7 @@ def plot_tsne_features(
         )
 
     # Set axis labels, title, and legend
-    ax.set_title(f"t-SNE Features — Test ({model_type})")
+    ax.set_title(f"t-SNE Features — Test ({display_name})")
     ax.set_xlabel("t-SNE Component 1")
     ax.set_ylabel("t-SNE Component 2")
     ax.legend(title="Label", bbox_to_anchor=(1.02, 1), loc="upper left")
@@ -153,7 +169,7 @@ def plot_tsne_features(
             for label_index, colour in zip(unique_labels, colours)
         },
         labels={"x": "t-SNE Component 1", "y": "t-SNE Component 2", "color": "Label"},
-        title=f"t-SNE Features — Test ({model_type})",
+        title=f"t-SNE Features — Test ({display_name})",
     )
     interactive_path = f"{plots_path}/tsne_test_interactive.html"
     interactive_fig.write_html(interactive_path)
@@ -171,6 +187,7 @@ def plot_training_curves(history, model_type, plots_path):
     """
 
     # Create a figure with 2 subplots
+    display_name = get_model_display_name(model_type)
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))
 
     # Extract epochs, training and validation losses from the history
@@ -181,7 +198,7 @@ def plot_training_curves(history, model_type, plots_path):
     # Plot training and validation loss curves
     axs[0].plot(epochs, train_losses, label="Train Loss")
     axs[0].plot(epochs, val_losses, label="Val Loss")
-    axs[0].set_title(f"Loss Curves for {model_type}", fontsize=14, fontweight="bold")
+    axs[0].set_title(f"Loss Curves for {display_name}", fontsize=14, fontweight="bold")
     axs[0].legend()
 
     # Extract training and validation accuracies from the history
@@ -191,7 +208,7 @@ def plot_training_curves(history, model_type, plots_path):
     # Plot training and validation accuracy curves
     axs[1].plot(epochs, train_accs, label="Train Acc")
     axs[1].plot(epochs, val_accs, label="Val Acc")
-    axs[1].set_title(f"Accuracy Curves for {model_type}", fontsize=14, fontweight="bold")
+    axs[1].set_title(f"Accuracy Curves for {display_name}", fontsize=14, fontweight="bold")
     axs[1].legend()
 
     # Save the plot
@@ -215,18 +232,21 @@ def plot_model_comparison(results, model_types, plots_path, test_set_name):
     """
 
     # Create a figure with 2 subplots
-    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
-    colors = sns.color_palette("hls", len(model_types))
+    fig, axs = plt.subplots(1, 2, figsize=(14, 5))
+    colors = sns.color_palette("deep", len(model_types))
+    display_names = [get_model_display_name(model_type) for model_type in model_types]
 
     test_set_title = TEST_SET_TITLES[test_set_name]
 
     # Plot test accuracy for each model
-    axs[0].bar(model_types, [result["test_acc"] for result in results], color=colors)
+    axs[0].bar(display_names, [result["test_acc"] for result in results], color=colors)
     axs[0].set_title(f"{test_set_title} Accuracy", fontsize=14, fontweight="bold")
     axs[0].set_ylabel("Accuracy")
 
     # Plot weighted F1 average for each model
-    axs[1].bar(model_types, [result["weighted_f1_avg"] for result in results], color=colors)
+    axs[1].bar(
+        display_names, [result["weighted_f1_avg"] for result in results], color=colors
+    )
     axs[1].set_title(f"{test_set_title} Weighted F1", fontsize=14, fontweight="bold")
     axs[1].set_ylabel("F1 Score")
 
@@ -264,6 +284,8 @@ def plot_confusion_matrix(
         rotate_x_labels (bool, optional): Whether to rotate x-axis labels.
             Defaults to True.
     """
+
+    display_name = get_model_display_name(model_type)
 
     # Set Seaborn style for confusion matrix plots (no grid)
     sns.set_style("white")
@@ -307,7 +329,7 @@ def plot_confusion_matrix(
     if rotate_x_labels:
         ax.set_xticklabels(ax.get_xticklabels(), rotation=60, ha="right")
     test_set_title = TEST_SET_TITLES[test_set_name]
-    ax.set_title(f"Confusion Matrix — {test_set_title} ({model_type})")
+    ax.set_title(f"Confusion Matrix — {test_set_title} ({display_name})")
 
     # Save plot
     save_path = f"{plots_path}/confusion_matrix_{test_set_name}.png"
