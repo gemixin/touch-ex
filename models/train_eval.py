@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.metrics import f1_score
-from tqdm.auto import tqdm
+from tqdm import tqdm
 import os
 from data.validate import validate_train_config
 
