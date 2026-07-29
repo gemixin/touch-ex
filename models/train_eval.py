@@ -32,7 +32,7 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
         list: Training history.
     """
 
-    # Validate the training configuration
+    # If the train config is invalid, raise an error before proceeding
     validate_train_config(train_config)
 
     # Get the title of the model from the config for logging and checkpointing
@@ -46,11 +46,9 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
     # Criterion is cross-entropy loss for classification
     criterion = nn.CrossEntropyLoss().to(device)
 
-    # If checkpointing is enabled (checkpoint_dir in the config is not None)
+    # If checkpointing is enabled, get path
     if train_config["checkpoint_dir"]:
-        # Create the checkpoint directory if it doesn't exist
         os.makedirs(train_config["checkpoint_dir"], exist_ok=True)
-        # Get the path to save the model checkpoint based on the model title
         checkpoint_path = os.path.join(train_config["checkpoint_dir"], f"{model_title}.pth")
 
     # Track the best validation accuracy for checkpointing
@@ -148,13 +146,11 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
 
         # -- Checkpointing -- #
 
-        # If checkpointing is enabled (checkpoint_dir in the config is not None)
+        # If checkpointing is enabled
         if train_config["checkpoint_dir"]:
             # If this is the best validation accuracy so far, save the model checkpoint
             if val_acc > best_val_acc:
-                # Update the best validation accuracy
                 best_val_acc = val_acc
-                # Save the model checkpoint to the specified path
                 torch.save(
                     {
                         "epoch": epoch + 1,
@@ -165,14 +161,13 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
                     checkpoint_path,
                 )
 
-    # If checkpointing is enabled (checkpoint_dir in the config is not None)
+    # After training is complete, if checkpointing is enabled, load the best checkpoint
     if train_config["checkpoint_dir"]:
-        # Load the best model checkpoint
         checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint["model_state_dict"])
         print(f"Loaded best model checkpoint from epoch {checkpoint['epoch']}.")
 
-    # After training is complete, return the trained model and the history of metrics
+    # Return the trained model and the history of metrics
     return model, history
 
 
@@ -292,7 +287,6 @@ def eval_classifier(
             labels, and predicted labels.
     """
 
-    # Move model to the specified device
     model = model.to(device)
     # Criterion is cross-entropy loss for classification
     criterion = nn.CrossEntropyLoss().to(device)

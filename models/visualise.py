@@ -25,6 +25,7 @@ TEST_SET_TITLES = {
     "test_unseen_related": "Unseen Related Objects",
 }
 
+# Define a mapping of model types to their corresponding display names for plots
 MODEL_DISPLAY_NAMES = {
     "baseline": "Baseline CNN",
     "resnet18": "ResNet-18",
@@ -36,7 +37,15 @@ MODEL_DISPLAY_NAMES = {
 
 
 def get_model_display_name(model_type):
-    """Return a readable model name for plot labels and titles."""
+    """
+    Return a readable model name for plot labels and titles.
+
+    Args:
+        model_type (str): The model type name.
+
+    Returns:
+        str: A readable model name for plot labels and titles.
+    """
 
     return MODEL_DISPLAY_NAMES.get(model_type, model_type)
 

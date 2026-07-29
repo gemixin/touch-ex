@@ -43,7 +43,7 @@ def get_datasets(data_config):
             dictionary.
     """
 
-    # If the data_config is invalid, raise an error before proceeding
+    # If the data config is invalid, raise an error before proceeding
     validate_data_config(data_config)
 
     # Load the HuggingFace dataset splits into DataFrames
@@ -124,7 +124,7 @@ def create_dataloaders(datasets, data_config):
         dict: A dictionary of DataLoaders keyed by split name.
     """
 
-    # If the data_config is invalid, raise an error before proceeding
+    # If the data config is invalid, raise an error before proceeding
     validate_data_config(data_config)
 
     # Create a DataLoader for each dataset split using seeded generators

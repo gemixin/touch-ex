@@ -15,7 +15,7 @@ from torchvision import transforms
 import json
 from data.transforms import get_transform
 
-# Columns in the dataset that we can use as labels for classification tasks
+# Columns in the dataset that can be used as labels for classification tasks
 LABEL_COLS = ["object", "region", "object_region", "force_level", "motion"]
 
 # Mappings for expected object labels in the unseen test split
@@ -100,9 +100,8 @@ def add_expected_labels(df):
         pd.DataFrame: A copy of the input DataFrame with expected label columns added.
     """
 
-    # Create a copy of the input DataFrame
-    updated_df = df.copy()
     # Map the original labels to the expected labels using the predefined mappings
+    updated_df = df.copy()
     updated_df["expected_object"] = updated_df["object"].map(EXPECTED_OBJECTS)
     updated_df["expected_object_region"] = updated_df["object_region"].map(
         EXPECTED_OBJECT_REGIONS
@@ -122,7 +121,6 @@ def filter_by_force_level(df, force_level):
         pd.DataFrame: A filtered DataFrame containing only rows with the given force level.
     """
 
-    # Filter the DataFrame based on the given force level
     filtered_df = df[df["force_level"] == force_level]
     return filtered_df
 
@@ -139,7 +137,6 @@ def filter_by_motion(df, motion):
         pd.DataFrame: A filtered DataFrame containing only rows with the given motion.
     """
 
-    # Filter the DataFrame based on the specified motion
     filtered_df = df[df["motion"] == motion]
     return filtered_df
 
@@ -257,7 +254,6 @@ def process_tactile_image(img_data, transform_name, bg_tensor=None):
     resize = get_transform(transform_name)
     img_tensor = resize(img_tensor)
 
-    # Return the processed image tensor
     return img_tensor
 
 
@@ -269,10 +265,8 @@ def get_imagenet_norm_stats():
         tuple: A tuple containing the mean and standard deviation as torch tensors.
     """
 
-    # ImageNet mean and std values for normalisation
     imagenet_mean = [0.485, 0.456, 0.406]
     imagenet_std = [0.229, 0.224, 0.225]
-    # Return the stats as torch tensors
     return torch.tensor(imagenet_mean), torch.tensor(imagenet_std)
 
 
@@ -322,10 +316,7 @@ def calculate_dataset_norm_stats(df, data_config, use_cache=True):
     if cache is None:
         print("Calculating normalisation stats...")
 
-        # Get transform name from the norm config
         transform_name = norm_config.get("transform_name")
-
-        # Get background path from norm config
         bg_path = norm_config.get("bg_path")
 
         # Load and preprocess the background image if a path is provided
@@ -369,7 +360,6 @@ def calculate_dataset_norm_stats(df, data_config, use_cache=True):
             path.write_text(json.dumps(data, indent=2))
             print("Normalisation stats calculated and saved to cache.")
 
-        # Return the stats as tensors
         return mean, std
 
     # If the cache is found and valid, load the stats from the cache

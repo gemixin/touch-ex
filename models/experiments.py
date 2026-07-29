@@ -169,10 +169,7 @@ def prepare_experiment(
 
     # --- Setup --- #
 
-    # Set random seeds and deterministic CUDA behavior
     set_random_seed(seed, deterministic=deterministic)
-
-    # Get device
     device = get_device()
 
     # Folder name for saving results and checkpoints
@@ -201,11 +198,11 @@ def prepare_experiment(
 
     # --- Load and prepare the dataset --- #
 
-    # Get default data config from json file
+    # Get data config from json file
     with open(data_config_path, "r", encoding="utf-8") as file:
         data_config = json.load(file)
 
-    # Update default data config with custom settings
+    # Update data config with custom settings
     data_config.update(data_config_overrides)
     # Set the stratify label and random state
     data_config["stratify_label"] = target_label
@@ -225,7 +222,7 @@ def prepare_experiment(
 
     # --- Prepare models --- #
 
-    # Get default train config from json file
+    # Get train config from json file
     with open(train_config_path, "r", encoding="utf-8") as file:
         train_config = json.load(file)
 
