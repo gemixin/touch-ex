@@ -106,16 +106,45 @@ This includes training curves, confusion matrices for the standard and unseen te
 
 ## Citations
 
-If you use Touch-Ex, please cite DIGIT:
+If you use Touch-Ex in your research, please cite:
 
-**DIGIT: A Novel Design for a Low-Cost Compact High-Resolution Tactile Sensor with Application to In-Hand Manipulation**
-Mike Lambeta, Po-Wei Chou, Stephen Tian, Brian Yang, Benjamin Maloon, Victoria Rose Most, Dave Stroud, Raymond Santos, Ahmad Byagowi, Gregg Kammerer, Dinesh Jayaraman, Roberto Calandra
-_IEEE Robotics and Automation Letters (RA-L), vol. 5, no. 3, pp. 3838–3845, 2020_
-[https://doi.org/10.1109/LRA.2020.2977257](https://doi.org/10.1109/LRA.2020.2977257)
+```
+@dataset{mclean2026touchex,
+  author = {McLean, Gemma and Hao, Zhou Daniel},
+  title = {Touch-Ex: A Region-Level, Force-Annotated Visuo-Tactile Dataset},
+  year = {2026}
+}
+```
+
+Touch-Ex was collected using the DIGIT vision-based tactile sensor. If you use this dataset in your research, please additionally cite the original DIGIT paper:
+
+```
+@article{lambeta2020digit,
+  title = {DIGIT: A Novel Design for a Low-Cost Compact High-Resolution Tactile Sensor with Application to In-Hand Manipulation},
+  author = {Lambeta, Mike and Chou, Po-Wei and Tian, Stephen and Yang, Brian and Maloon, Benjamin and Most, Victoria Rose and Stroud, Dave and Santos, Raymond and Byagowi, Ahmad and Kammerer, Gregg and Jayaraman, Dinesh and Calandra, Roberto},
+  journal = {IEEE Robotics and Automation Letters},
+  volume = {5},
+  number = {3},
+  pages = {3838--3845},
+  year = {2020},
+  doi = {10.1109/LRA.2020.2977257}
+}
+```
 
 If you use the T3-Tiny encoder, also cite:
 
-**Transferable Tactile Transformers for Representation Learning Across Diverse Sensors and Tasks**
-Jialiang Zhao, Yuxiang Ma, Lirui Wang, Edward Adelson
-_Proceedings of The 8th Conference on Robot Learning, Proceedings of Machine Learning Research, vol. 270, pp. 3766–3779, 2025_
-[https://proceedings.mlr.press/v270/zhao25c.html](https://proceedings.mlr.press/v270/zhao25c.html)
+```
+@InProceedings{pmlr-v270-zhao25c,
+  title = {Transferable Tactile Transformers for Representation Learning Across Diverse Sensors and Tasks},
+  author = {Zhao, Jialiang and Ma, Yuxiang and Wang, Lirui and Adelson, Edward},
+  booktitle = {Proceedings of The 8th Conference on Robot Learning},
+  pages = {3766--3779},
+  year = {2025},
+  editor = {Agrawal, Pulkit and Kroemer, Oliver and Burgard, Wolfram},
+  volume = {270},
+  series = {Proceedings of Machine Learning Research},
+  month = {06--09 Nov},
+  publisher = {PMLR},
+  url = {https://proceedings.mlr.press/v270/zhao25c.html}
+}
+```
