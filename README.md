@@ -9,8 +9,6 @@ Touch-Ex provides a reproducible classification pipeline for the [Touch-Ex datas
 - `models/` contains model definitions, training, evaluation, and visualisation code
 - `notebooks/` contains exploratory and configuration notebooks
 - `scripts/` contains runnable experiment entry points
-- `results/` stores experiment metrics and plots
-- `checkpoints/` stores the best validation checkpoint for each experiment/model
 
 ## Installation
 
