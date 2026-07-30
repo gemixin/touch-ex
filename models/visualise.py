@@ -25,29 +25,36 @@ TEST_SET_TITLES = {
     "test_unseen_related": "Unseen Related Objects",
 }
 
-# Define a mapping of model types to their corresponding display names for plots
-MODEL_DISPLAY_NAMES = {
+# Define custom display names for model types and runs in plots
+DISPLAY_NAMES = {
     "baseline": "Baseline CNN",
     "resnet18": "ResNet-18",
     "efficientnet_b0": "EfficientNet-B0",
     "vit_b_16": "ViT-B/16",
     "deit_tiny": "DeiT-Tiny",
     "t3_tiny": "T3-Tiny",
+    "all_data": "All data",
+    "force_level_1": "Force Level 1",
+    "force_level_2": "Force Level 2",
+    "force_level_3": "Force Level 3",
+    "sliding": "Sliding",
+    "rotation": "Rotation",
 }
 
 
-def get_model_display_name(model_type):
+def get_display_name(model_type):
     """
-    Return a readable model name for plot labels and titles.
+    Return a readable name for plot labels and titles. Known model types and runs use
+    DISPLAY_NAMES. Other identifiers are returned unchanged.
 
     Args:
-        model_type (str): The model type name.
+        model_type (str): The model type or run name.
 
     Returns:
-        str: A readable model name for plot labels and titles.
+        str: A readable model or run name for plot labels and titles.
     """
 
-    return MODEL_DISPLAY_NAMES.get(model_type, model_type)
+    return DISPLAY_NAMES.get(model_type, model_type)
 
 
 def plot_tsne_features(
@@ -78,7 +85,7 @@ def plot_tsne_features(
     """
 
     print(f"Starting t-SNE features for {model_type}...")
-    display_name = get_model_display_name(model_type)
+    display_name = get_display_name(model_type)
 
     # Create lists to collect feature vectors and labels from every batch
     all_features = []
@@ -196,7 +203,7 @@ def plot_training_curves(history, model_type, plots_path):
     """
 
     # Create a figure with 2 subplots
-    display_name = get_model_display_name(model_type)
+    display_name = get_display_name(model_type)
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))
 
     # Extract epochs, training and validation losses from the history
@@ -243,7 +250,7 @@ def plot_model_comparison(results, model_types, plots_path, test_set_name):
     # Create a figure with 2 subplots
     fig, axs = plt.subplots(1, 2, figsize=(14, 5))
     colors = sns.color_palette("deep", len(model_types))
-    display_names = [get_model_display_name(model_type) for model_type in model_types]
+    display_names = [get_display_name(model_type) for model_type in model_types]
 
     test_set_title = TEST_SET_TITLES[test_set_name]
 
@@ -294,7 +301,7 @@ def plot_confusion_matrix(
             Defaults to True.
     """
 
-    display_name = get_model_display_name(model_type)
+    display_name = get_display_name(model_type)
 
     # Set Seaborn style for confusion matrix plots (no grid)
     sns.set_style("white")

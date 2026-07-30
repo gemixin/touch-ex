@@ -45,7 +45,7 @@ def classify(
     checkpoint_dir,
 ):
     """
-    Prepare, train, evaluate, save, and plot a classification experiment.
+    Train and compare one or more models across one data configuration.
 
     Args:
         model_types (list): A list of model types to be used in the experiment.
@@ -55,8 +55,8 @@ def classify(
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
         freeze_backbone (bool): Whether to freeze pretrained model backbones. Baseline
             models are always trained end-to-end.
-        data_config_overrides (dict): A dictionary containing overrides for the default data
-            configuration.
+        data_config_overrides (dict): A dictionary containing overrides for the
+            default data configuration, applied to every model.
         train_config_overrides (dict): A dictionary containing overrides for the default
             training configuration.
         plot_tsne (bool): Whether to generate t-SNE plots.
@@ -98,11 +98,121 @@ def classify(
     # Prepare the experiment context
     experiment = prepare_experiment(
         model_types=model_types,
+        run_names=model_types,
         target_label=target_label,
         seed=seed,
         deterministic=deterministic,
         freeze_backbone=freeze_backbone,
-        data_config_overrides=data_config_overrides,
+        data_config_overrides_list=[data_config_overrides] * len(model_types),
+        train_config_overrides=train_config_overrides,
+        plot_tsne=plot_tsne,
+        tsne_max_samples=tsne_max_samples,
+        data_config_path=data_config_path,
+        train_config_path=train_config_path,
+        baseline_train_config_path=baseline_train_config_path,
+        results_dir=results_dir,
+        checkpoint_dir=checkpoint_dir,
+    )
+
+    # Train, evaluate, save, and plot the experiment
+    train_models(experiment)
+    evaluate_models(experiment)
+    save_experiment_results(experiment, experiment_name)
+    generate_experiment_plots(experiment)
+
+    # Return the outputs as a tuple of (models, histories, test_results)
+    return experiment["models"], experiment["histories"], experiment["test_results"]
+
+
+def classify_ablation(
+    model_type,
+    data_config_overrides,
+    shared_data_config_overrides,
+    target_label,
+    experiment_name,
+    seed,
+    deterministic,
+    freeze_backbone,
+    train_config_overrides,
+    plot_tsne,
+    tsne_max_samples,
+    data_config_path,
+    train_config_path,
+    baseline_train_config_path,
+    results_dir,
+    checkpoint_dir,
+):
+    """
+    Train and compare one model across several data configurations.
+
+    Args:
+        model_type (str): The model type to use for every data configuration.
+        data_config_overrides (dict): A dictionary mapping run names to dictionaries
+            containing overrides for the default data configuration, applied to the
+            corresponding run.
+        shared_data_config_overrides (dict): A dictionary containing overrides for the
+            default data configuration, applied to every run. Run-specific overrides take
+            precedence.
+        target_label (str): The target label for classification.
+        experiment_name (str): A name for the experiment, used for saving results.
+        seed (int): Random seed for reproducibility.
+        deterministic (bool): Whether to require deterministic PyTorch algorithms.
+        freeze_backbone (bool): Whether to freeze pretrained model backbones. Baseline
+            models are always trained end-to-end.
+        train_config_overrides (dict): A dictionary containing overrides for the default
+            training configuration.
+        plot_tsne (bool): Whether to generate t-SNE plots.
+        tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all test
+            samples should be used.
+        data_config_path (str): Path to the default data configuration JSON file.
+        train_config_path (str): Path to the default training configuration JSON file.
+        baseline_train_config_path (str): Path to the training configuration JSON file
+            used for baseline models.
+        results_dir (str): Root directory for experiment results.
+        checkpoint_dir (str): Root directory for model checkpoints.
+
+    Returns:
+        tuple: A tuple containing the trained models, training histories, and evaluation
+            results.
+    """
+
+    # Check that at least one data configuration is provided
+    if not data_config_overrides:
+        raise ValueError("data_config_overrides must contain at least one named run.")
+    # Check that target_label is valid
+    if target_label not in ["object", "object_region"]:
+        raise ValueError("target_label must be 'object' or 'object_region'.")
+
+    # Check that the configuration files exist
+    if not os.path.isfile(data_config_path):
+        raise FileNotFoundError(f"Data configuration file not found: {data_config_path}")
+    if not os.path.isfile(train_config_path):
+        raise FileNotFoundError(
+            f"Training configuration file not found: {train_config_path}"
+        )
+    if not os.path.isfile(baseline_train_config_path):
+        raise FileNotFoundError(
+            f"Baseline training configuration file not found: {baseline_train_config_path}"
+        )
+
+    # Assign run names based on the keys of the data_config_overrides dictionary
+    run_names = list(data_config_overrides)
+
+    # Apply shared settings to every run without changing the input dictionaries
+    combined_data_config_overrides = [
+        {**shared_data_config_overrides, **run_overrides}
+        for run_overrides in data_config_overrides.values()
+    ]
+
+    # Prepare the experiment context
+    experiment = prepare_experiment(
+        model_types=[model_type] * len(run_names),
+        run_names=run_names,
+        target_label=target_label,
+        seed=seed,
+        deterministic=deterministic,
+        freeze_backbone=freeze_backbone,
+        data_config_overrides_list=combined_data_config_overrides,
         train_config_overrides=train_config_overrides,
         plot_tsne=plot_tsne,
         tsne_max_samples=tsne_max_samples,
@@ -125,11 +235,12 @@ def classify(
 
 def prepare_experiment(
     model_types,
+    run_names,
     target_label,
     seed,
     deterministic,
     freeze_backbone,
-    data_config_overrides,
+    data_config_overrides_list,
     train_config_overrides,
     plot_tsne,
     tsne_max_samples,
@@ -144,12 +255,12 @@ def prepare_experiment(
 
     Args:
         model_types (list): A list of model types to be used in the experiment.
+        run_names (list): Names used for checkpoints and plot labels for each run.
         target_label (str): The target label for classification.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
         freeze_backbone (bool): Whether to freeze pretrained model backbones.
-        data_config_overrides (dict): A dictionary containing overrides for the default
-            data configuration.
+        data_config_overrides_list (list): Data configuration overrides for each run.
         train_config_overrides (dict): A dictionary containing overrides for the default
             training configuration.
         plot_tsne (bool): Whether to generate t-SNE plots.
@@ -200,25 +311,39 @@ def prepare_experiment(
 
     # Get data config from json file
     with open(data_config_path, "r", encoding="utf-8") as file:
-        data_config = json.load(file)
+        default_data_config = json.load(file)
 
-    # Update data config with custom settings
-    data_config.update(data_config_overrides)
-    # Set the stratify label and random state
-    data_config["stratify_label"] = target_label
-    data_config["random_state"] = seed
+    data_configs = []
+    dataloaders = []
+    train_labels = []
+    test_unseen_matched_labels = []
+    test_unseen_related_labels = []
+    prepared_datasets = {}
 
-    # Create a copy of the data config for each model type
-    data_configs = [data_config.copy() for _ in model_types]
+    # Build one complete data configuration for each model or ablation run
+    for data_config_overrides in data_config_overrides_list:
+        data_config = default_data_config.copy()
+        data_config.update(data_config_overrides)
+        data_config["stratify_label"] = target_label
+        data_config["random_state"] = seed
+        data_configs.append(data_config)
 
-    # Prepare shared datasets once, then give each model fresh seeded DataLoaders
-    datasets, label_lists = get_datasets(data_config)
-    dataloaders = [create_dataloaders(datasets, config) for config in data_configs]
+        # Reuse datasets when runs have identical data configurations
+        config_key = json.dumps(data_config, sort_keys=True, default=str)
+        if config_key not in prepared_datasets:
+            prepared_datasets[config_key] = get_datasets(data_config)
+        datasets, label_lists = prepared_datasets[config_key]
+        # Create fresh seeded loaders so each run has an independent shuffle sequence
+        dataloaders.append(create_dataloaders(datasets, data_config))
 
-    # Extract relevant class-label lists for target label
-    train_labels = label_lists["train"][target_label]
-    test_unseen_matched_labels = list(label_lists["test_unseen_matched"][target_label])
-    test_unseen_related_labels = list(label_lists["test_unseen_related"][target_label])
+        # Preserve each run's label spaces for evaluation results and plots
+        train_labels.append(label_lists["train"][target_label])
+        test_unseen_matched_labels.append(
+            list(label_lists["test_unseen_matched"][target_label])
+        )
+        test_unseen_related_labels.append(
+            list(label_lists["test_unseen_related"][target_label])
+        )
 
     # --- Prepare models --- #
 
@@ -246,11 +371,11 @@ def prepare_experiment(
     ]
 
     # Set checkpoint directory and model title for each model config
-    for config, model_type in zip(train_configs, model_types):
+    for config, run_name in zip(train_configs, run_names):
         config["checkpoint_dir"] = os.path.join(
             checkpoints_path, str(experiment_number).zfill(3)
         )
-        config["model_title"] = model_type
+        config["model_title"] = run_name
 
     # Return the experiment context as a dictionary
     return {
@@ -262,6 +387,7 @@ def prepare_experiment(
         "experiment_number": experiment_number,
         "experiments_df_path": experiments_df_path,
         "model_types": model_types,
+        "run_names": run_names,
         "pretrained_checkpoints": [
             (
                 f"{T3_REPOSITORY}@{T3_REVISION}"
@@ -301,11 +427,9 @@ def train_models(experiment):
     experiment["models"] = []
     experiment["histories"] = []
 
-    # Get the number of training classes for the target label
-    num_train_classes = len(experiment["train_labels"])
-
     # Loop through each model type
     for i in range(len(experiment["dataloaders"])):
+        num_train_classes = len(experiment["train_labels"][i])
         # Create the model based on the model type
         if experiment["model_types"][i] == "baseline":
             model = BaselineCNNModel(num_classes=num_train_classes)
@@ -351,7 +475,7 @@ def evaluate_models(experiment):
         # Evaluate the current model on the standard test set
         result = eval_classifier(
             model=experiment["models"][i],
-            model_title=experiment["model_types"][i],
+            model_title=experiment["run_names"][i],
             device=experiment["device"],
             test_loader=experiment["dataloaders"][i]["test"],
             target_label=experiment["target_label"],
@@ -374,7 +498,7 @@ def evaluate_models(experiment):
         # Evaluate the current model on the test_unseen_matched set
         result = eval_classifier(
             model=experiment["models"][i],
-            model_title=experiment["model_types"][i],
+            model_title=experiment["run_names"][i],
             device=experiment["device"],
             test_loader=experiment["dataloaders"][i]["test_unseen_matched"],
             target_label=unseen_evaluation["target_label"],
@@ -388,7 +512,7 @@ def evaluate_models(experiment):
         # Evaluate the current model on the test_unseen_related set
         result = eval_classifier(
             model=experiment["models"][i],
-            model_title=experiment["model_types"][i],
+            model_title=experiment["run_names"][i],
             device=experiment["device"],
             test_loader=experiment["dataloaders"][i]["test_unseen_related"],
             target_label=unseen_evaluation["target_label"],
@@ -423,17 +547,9 @@ def save_experiment_results(experiment, experiment_name):
             "train_config": experiment["train_configs"],
             "data_config": experiment["data_configs"],
             "model_type": experiment["model_types"],
-            "train_labels": [
-                experiment["train_labels"] for _ in range(len(experiment["model_types"]))
-            ],
-            "test_unseen_matched_labels": [
-                experiment["test_unseen_matched_labels"]
-                for _ in range(len(experiment["model_types"]))
-            ],
-            "test_unseen_related_labels": [
-                experiment["test_unseen_related_labels"]
-                for _ in range(len(experiment["model_types"]))
-            ],
+            "train_labels": experiment["train_labels"],
+            "test_unseen_matched_labels": experiment["test_unseen_matched_labels"],
+            "test_unseen_related_labels": experiment["test_unseen_related_labels"],
             "history": experiment["histories"],
             "test_acc": [result["test_acc"] for result in experiment["test_results"]],
             "test_loss": [result["test_loss"] for result in experiment["test_results"]],
@@ -519,11 +635,11 @@ def generate_experiment_plots(experiment):
     # --- Training plots --- #
 
     # Plot training curves for each model
-    for history, model_type in zip(experiment["histories"], experiment["model_types"]):
-        model_plots_path = os.path.join(plots_path, model_type)
+    for history, run_name in zip(experiment["histories"], experiment["run_names"]):
+        model_plots_path = os.path.join(plots_path, run_name)
         mv.plot_training_curves(
             history=history,
-            model_type=model_type,
+            model_type=run_name,
             plots_path=model_plots_path,
         )
 
@@ -533,19 +649,21 @@ def generate_experiment_plots(experiment):
     if len(experiment["model_types"]) > 1:
         mv.plot_model_comparison(
             results=experiment["test_results"],
-            model_types=experiment["model_types"],
+            model_types=experiment["run_names"],
             plots_path=plots_path,
             test_set_name="test",
         )
 
     # Plot confusion matrices for each model
-    for results, model_type in zip(experiment["test_results"], experiment["model_types"]):
-        model_plots_path = os.path.join(plots_path, model_type)
+    for results, run_name, labels in zip(
+        experiment["test_results"], experiment["run_names"], experiment["train_labels"]
+    ):
+        model_plots_path = os.path.join(plots_path, run_name)
         mv.plot_confusion_matrix(
             results=results,
-            model_type=model_type,
-            row_labels=experiment["train_labels"],
-            column_labels=experiment["train_labels"],
+            model_type=run_name,
+            row_labels=labels,
+            column_labels=labels,
             plots_path=model_plots_path,
             test_set_name="test",
             rotate_x_labels=experiment["target_label"] != "force_level",
@@ -560,27 +678,25 @@ def generate_experiment_plots(experiment):
     if len(experiment["model_types"]) > 1:
         mv.plot_model_comparison(
             results=experiment["test_unseen_matched_results"],
-            model_types=experiment["model_types"],
+            model_types=experiment["run_names"],
             plots_path=plots_path,
             test_set_name="test_unseen_matched",
         )
     # Get the row labels for the confusion matrix based on whether the evaluation uses
     # different label spaces
-    matched_row_labels = (
-        experiment["test_unseen_matched_labels"]
-        if cross_space
-        else experiment["train_labels"]
-    )
     # Plot confusion matrices for each model
-    for results, model_type in zip(
-        experiment["test_unseen_matched_results"], experiment["model_types"]
+    for results, run_name, row_labels, column_labels in zip(
+        experiment["test_unseen_matched_results"],
+        experiment["run_names"],
+        experiment["test_unseen_matched_labels"],
+        experiment["train_labels"],
     ):
-        model_plots_path = os.path.join(plots_path, model_type)
+        model_plots_path = os.path.join(plots_path, run_name)
         mv.plot_confusion_matrix(
             results=results,
-            model_type=model_type,
-            row_labels=matched_row_labels,
-            column_labels=experiment["train_labels"],
+            model_type=run_name,
+            row_labels=row_labels if cross_space else column_labels,
+            column_labels=column_labels,
             plots_path=model_plots_path,
             test_set_name="test_unseen_matched",
             cross_space=cross_space,
@@ -593,27 +709,25 @@ def generate_experiment_plots(experiment):
     if len(experiment["model_types"]) > 1:
         mv.plot_model_comparison(
             results=experiment["test_unseen_related_results"],
-            model_types=experiment["model_types"],
+            model_types=experiment["run_names"],
             plots_path=plots_path,
             test_set_name="test_unseen_related",
         )
     # Get the row labels for the confusion matrix based on whether the evaluation uses
     # different label spaces
-    related_row_labels = (
-        experiment["test_unseen_related_labels"]
-        if cross_space
-        else experiment["train_labels"]
-    )
     # Plot confusion matrices for each model
-    for results, model_type in zip(
-        experiment["test_unseen_related_results"], experiment["model_types"]
+    for results, run_name, row_labels, column_labels in zip(
+        experiment["test_unseen_related_results"],
+        experiment["run_names"],
+        experiment["test_unseen_related_labels"],
+        experiment["train_labels"],
     ):
-        model_plots_path = os.path.join(plots_path, model_type)
+        model_plots_path = os.path.join(plots_path, run_name)
         mv.plot_confusion_matrix(
             results=results,
-            model_type=model_type,
-            row_labels=related_row_labels,
-            column_labels=experiment["train_labels"],
+            model_type=run_name,
+            row_labels=row_labels if cross_space else column_labels,
+            column_labels=column_labels,
             plots_path=model_plots_path,
             test_set_name="test_unseen_related",
             cross_space=cross_space,
@@ -624,18 +738,21 @@ def generate_experiment_plots(experiment):
 
     # If t-SNE feature plots are enabled, generate a test-set plot for each model
     if experiment["plot_tsne"]:
-        for model, model_type, dataloaders in zip(
-            experiment["models"], experiment["model_types"], experiment["dataloaders"]
+        for model, run_name, dataloaders, labels in zip(
+            experiment["models"],
+            experiment["run_names"],
+            experiment["dataloaders"],
+            experiment["train_labels"],
         ):
-            model_plots_path = os.path.join(plots_path, model_type)
+            model_plots_path = os.path.join(plots_path, run_name)
             # Use true test labels to show how held-out samples group in feature space
             mv.plot_tsne_features(
                 model=model,
                 dataloader=dataloaders["test"],
                 target_label=experiment["target_label"],
                 seed=experiment["seed"],
-                label_names=experiment["train_labels"],
-                model_type=model_type,
+                label_names=labels,
+                model_type=run_name,
                 device=experiment["device"],
                 plots_path=model_plots_path,
                 max_samples=experiment["tsne_max_samples"],

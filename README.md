@@ -64,6 +64,14 @@ Available model types are:
 
 For pretrained models, `FREEZE_BACKBONE=True` retains the pretrained backbone and trains only the classifier. With `False`, the entire model is fine-tuned. The baseline is always trained end-to-end.
 
+## Running data ablations
+
+[`scripts/ablate.py`](scripts/ablate.py) runs one selected model over several named data filters and compares the conditions in the resulting plots. Its default conditions are all data, force levels 1–3, sliding, and rotation. Each result row keeps the same `model_type`; the applied filter is recorded in its saved `data_config`.
+
+```bash
+python3 -m scripts.ablate
+```
+
 ## Configurations
 
 `default_data_config.json` controls splitting, preprocessing, normalisation, and DataLoader settings. The experiment seed and target label are applied automatically so that they are recorded consistently.
