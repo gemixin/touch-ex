@@ -224,7 +224,7 @@ def plot_training_curves(history, model_type, plots_path):
     plt.tight_layout()
     save_path = f"{plots_path}/curves.png"
     os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
-    fig.savefig(save_path)
+    fig.savefig(save_path, dpi=300)
     plt.close(fig)
     print(f"Saved training curves for {model_type} at {save_path}")
 
@@ -263,7 +263,7 @@ def plot_model_comparison(results, model_types, plots_path, test_set_name):
     plt.tight_layout()
     save_path = f"{plots_path}/model_comparison_{test_set_name}.png"
     os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
-    fig.savefig(save_path)
+    fig.savefig(save_path, dpi=300)
     plt.close(fig)
     print(f"Saved model comparison at {save_path}")
 
