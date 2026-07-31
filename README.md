@@ -134,17 +134,11 @@ Touch-Ex was collected using the DIGIT vision-based tactile sensor. If you use t
 If you use the T3-Tiny encoder, also cite:
 
 ```
-@InProceedings{pmlr-v270-zhao25c,
-  title = {Transferable Tactile Transformers for Representation Learning Across Diverse Sensors and Tasks},
-  author = {Zhao, Jialiang and Ma, Yuxiang and Wang, Lirui and Adelson, Edward},
-  booktitle = {Proceedings of The 8th Conference on Robot Learning},
-  pages = {3766--3779},
-  year = {2025},
-  editor = {Agrawal, Pulkit and Kroemer, Oliver and Burgard, Wolfram},
-  volume = {270},
-  series = {Proceedings of Machine Learning Research},
-  month = {06--09 Nov},
-  publisher = {PMLR},
-  url = {https://proceedings.mlr.press/v270/zhao25c.html}
+@article{zhao2024transferable,
+      title={Transferable Tactile Transformers for Representation Learning Across Diverse Sensors and Tasks}, 
+      author={Jialiang Zhao and Yuxiang Ma and Lirui Wang and Edward H. Adelson},
+      year={2024},
+      eprint={2406.13640},
+      archivePrefix={arXiv},
 }
 ```
