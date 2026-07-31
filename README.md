@@ -135,10 +135,10 @@ If you use the T3-Tiny encoder, also cite:
 
 ```
 @article{zhao2024transferable,
-      title={Transferable Tactile Transformers for Representation Learning Across Diverse Sensors and Tasks}, 
-      author={Jialiang Zhao and Yuxiang Ma and Lirui Wang and Edward H. Adelson},
-      year={2024},
-      eprint={2406.13640},
-      archivePrefix={arXiv},
+  title={Transferable Tactile Transformers for Representation Learning Across Diverse Sensors and Tasks}, 
+  author={Jialiang Zhao and Yuxiang Ma and Lirui Wang and Edward H. Adelson},
+  year={2024},
+  eprint={2406.13640},
+  archivePrefix={arXiv},
 }
 ```
