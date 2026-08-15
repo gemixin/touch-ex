@@ -1,17 +1,17 @@
 """
-A script to compare the performance of a single model across force-level and motion data
-ablations. Results are saved in the results directory.
+A script to compare one model across every combination of named data and training
+configuration variants. Results are saved in the results directory.
 
 Author: Gemma McLean
 Date: July 2026
 """
 
-from models.experiments import classify_ablation
+from models.experiments import classify_sweep
 
 
 # --- Configurable parameters --- #
 
-# Chosen model type for ablation experiments
+# Chosen model type for sweep experiments
 # Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or
 # 't3_tiny'
 MODEL_TYPE = "resnet18"
@@ -21,7 +21,7 @@ MODEL_TYPE = "resnet18"
 TARGET_LABEL = "object"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_ablation"
+EXPERIMENT_NAME = "resnet18_normalisation_sweep"
 
 # Randomisation settings
 SEED = 129
@@ -31,22 +31,20 @@ DETERMINISTIC = True
 # Baseline models are always trained end-to-end
 FREEZE_BACKBONE = False
 
-# Each run trains the selected model using its corresponding data filter
-DATA_CONFIG_OVERRIDES = {
-    "all_data": {},
-    "force_level_1": {"filtered_force_level": "1"},
-    "force_level_2": {"filtered_force_level": "2"},
-    "force_level_3": {"filtered_force_level": "3"},
-    "sliding": {"filtered_motion": "sliding"},
-    "rotation": {"filtered_motion": "rotation"},
+# Each data variant is combined with every training variant below. Values override the
+# corresponding keys in DATA_CONFIG_PATH.
+DATA_CONFIG_VARIANTS = {
+    "dataset_norm": {"norm_type": "dataset"},
+    "imagenet_norm": {"norm_type": "imagenet"},
+    "no_norm": {"norm_type": None},
 }
 
-# Values here override keys in the data config for every ablation run
-# Run-specific values in DATA_CONFIG_OVERRIDES take precedence
-SHARED_DATA_CONFIG_OVERRIDES = {}
-
-# Values here override keys in provided train_config file
-TRAIN_CONFIG_OVERRIDES = {}
+# Each training variant is combined with every data variant above. Values override
+# keys in the chosen training config file. For example, adding
+# "lr_1e-4": {"learning_rate": 1e-4} creates a second run for every data variant.
+TRAIN_CONFIG_VARIANTS = {
+    "default": {"num_epochs": 2},
+}
 
 # t-SNE feature plot settings
 PLOT_TSNE = False
@@ -63,18 +61,17 @@ BASELINE_TRAIN_CONFIG_PATH = "configs/baseline_train_config.json"
 RESULTS_DIR = "results"
 CHECKPOINT_DIR = "checkpoints"
 
-# --- Train and evaluate ablations --- #
+# --- Train and evaluate the configuration sweep --- #
 
-classify_ablation(
+classify_sweep(
     model_type=MODEL_TYPE,
-    data_config_overrides=DATA_CONFIG_OVERRIDES,
-    shared_data_config_overrides=SHARED_DATA_CONFIG_OVERRIDES,
     target_label=TARGET_LABEL,
     experiment_name=EXPERIMENT_NAME,
     seed=SEED,
     deterministic=DETERMINISTIC,
     freeze_backbone=FREEZE_BACKBONE,
-    train_config_overrides=TRAIN_CONFIG_OVERRIDES,
+    data_config_variants=DATA_CONFIG_VARIANTS,
+    train_config_variants=TRAIN_CONFIG_VARIANTS,
     plot_tsne=PLOT_TSNE,
     tsne_max_samples=TSNE_MAX_SAMPLES,
     data_config_path=DATA_CONFIG_PATH,

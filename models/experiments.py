@@ -7,6 +7,7 @@ Date: July 2026
 
 import json
 import os
+from itertools import product
 import pandas as pd
 from data.builder import create_dataloaders, get_datasets
 from models.baseline import BaselineCNNModel
@@ -77,6 +78,7 @@ def classify(
     # Check that model_types is not empty
     if not model_types:
         raise ValueError("model_types must contain at least one model type.")
+
     # Check that target_label is valid
     if target_label not in UNSEEN_EVALUATION_TARGETS:
         raise ValueError(
@@ -104,7 +106,7 @@ def classify(
         deterministic=deterministic,
         freeze_backbone=freeze_backbone,
         data_config_overrides_list=[data_config_overrides] * len(model_types),
-        train_config_overrides=train_config_overrides,
+        train_config_overrides_list=[train_config_overrides] * len(model_types),
         plot_tsne=plot_tsne,
         tsne_max_samples=tsne_max_samples,
         data_config_path=data_config_path,
@@ -124,16 +126,15 @@ def classify(
     return experiment["models"], experiment["histories"], experiment["test_results"]
 
 
-def classify_ablation(
+def classify_sweep(
     model_type,
-    data_config_overrides,
-    shared_data_config_overrides,
     target_label,
     experiment_name,
     seed,
     deterministic,
     freeze_backbone,
-    train_config_overrides,
+    data_config_variants,
+    train_config_variants,
     plot_tsne,
     tsne_max_samples,
     data_config_path,
@@ -143,24 +144,20 @@ def classify_ablation(
     checkpoint_dir,
 ):
     """
-    Train and compare one model across several data configurations.
+    Train one model across every combination of data and training configurations.
 
     Args:
         model_type (str): The model type to use for every data configuration.
-        data_config_overrides (dict): A dictionary mapping run names to dictionaries
-            containing overrides for the default data configuration, applied to the
-            corresponding run.
-        shared_data_config_overrides (dict): A dictionary containing overrides for the
-            default data configuration, applied to every run. Run-specific overrides take
-            precedence.
         target_label (str): The target label for classification.
         experiment_name (str): A name for the experiment, used for saving results.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
         freeze_backbone (bool): Whether to freeze pretrained model backbones. Baseline
             models are always trained end-to-end.
-        train_config_overrides (dict): A dictionary containing overrides for the default
-            training configuration.
+        data_config_variants (dict): A dictionary mapping data-variant names to
+            dictionaries containing overrides for the default data configuration.
+        train_config_variants (dict): A dictionary mapping training-variant names to
+            dictionaries containing overrides for the default training configuration.
         plot_tsne (bool): Whether to generate t-SNE plots.
         tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all test
             samples should be used.
@@ -176,12 +173,21 @@ def classify_ablation(
             results.
     """
 
-    # Check that at least one data configuration is provided
-    if not data_config_overrides:
-        raise ValueError("data_config_overrides must contain at least one named run.")
+    # Check that at least one variant is provided for each configuration type
+    if not data_config_variants:
+        raise ValueError("data_config_variants must contain at least one named variant.")
+    if not train_config_variants:
+        raise ValueError("train_config_variants must contain at least one named variant.")
+    if not all(isinstance(overrides, dict) for overrides in data_config_variants.values()):
+        raise TypeError("Every data_config_variants value must be a dictionary.")
+    if not all(isinstance(overrides, dict) for overrides in train_config_variants.values()):
+        raise TypeError("Every train_config_variants value must be a dictionary.")
+
     # Check that target_label is valid
-    if target_label not in ["object", "object_region"]:
-        raise ValueError("target_label must be 'object' or 'object_region'.")
+    if target_label not in UNSEEN_EVALUATION_TARGETS:
+        raise ValueError(
+            "target_label must be 'object', 'object_region', 'force_level', or 'motion'."
+        )
 
     # Check that the configuration files exist
     if not os.path.isfile(data_config_path):
@@ -195,13 +201,21 @@ def classify_ablation(
             f"Baseline training configuration file not found: {baseline_train_config_path}"
         )
 
-    # Assign run names based on the keys of the data_config_overrides dictionary
-    run_names = list(data_config_overrides)
+    # Generate one run for every data/training variant pair
+    variant_pairs = list(
+        product(data_config_variants.items(), train_config_variants.items())
+    )
+    # Create run names by combining the data and training variant names
+    run_names = [
+        f"{data_name}__{train_name}" for (data_name, _), (train_name, _) in variant_pairs
+    ]
 
-    # Apply shared settings to every run without changing the input dictionaries
+    # Copy each variant's overrides so the input dictionaries remain unchanged
     combined_data_config_overrides = [
-        {**shared_data_config_overrides, **run_overrides}
-        for run_overrides in data_config_overrides.values()
+        data_overrides.copy() for (_, data_overrides), _ in variant_pairs
+    ]
+    combined_train_config_overrides = [
+        train_overrides.copy() for _, (_, train_overrides) in variant_pairs
     ]
 
     # Prepare the experiment context
@@ -213,7 +227,7 @@ def classify_ablation(
         deterministic=deterministic,
         freeze_backbone=freeze_backbone,
         data_config_overrides_list=combined_data_config_overrides,
-        train_config_overrides=train_config_overrides,
+        train_config_overrides_list=combined_train_config_overrides,
         plot_tsne=plot_tsne,
         tsne_max_samples=tsne_max_samples,
         data_config_path=data_config_path,
@@ -241,7 +255,7 @@ def prepare_experiment(
     deterministic,
     freeze_backbone,
     data_config_overrides_list,
-    train_config_overrides,
+    train_config_overrides_list,
     plot_tsne,
     tsne_max_samples,
     data_config_path,
@@ -261,8 +275,8 @@ def prepare_experiment(
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
         freeze_backbone (bool): Whether to freeze pretrained model backbones.
         data_config_overrides_list (list): Data configuration overrides for each run.
-        train_config_overrides (dict): A dictionary containing overrides for the default
-            training configuration.
+        train_config_overrides_list (list): Training configuration overrides for each
+            run.
         plot_tsne (bool): Whether to generate t-SNE plots.
         tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all test
             samples should be used.
@@ -320,8 +334,9 @@ def prepare_experiment(
     test_unseen_related_labels = []
     prepared_datasets = {}
 
-    # Build one complete data configuration for each model or ablation run
+    # Build one complete data configuration for each model or sweep run
     for data_config_overrides in data_config_overrides_list:
+        # Start with the default data config and apply the overrides for this run
         data_config = default_data_config.copy()
         data_config.update(data_config_overrides)
         data_config["stratify_label"] = target_label
@@ -355,22 +370,21 @@ def prepare_experiment(
     with open(baseline_train_config_path, "r", encoding="utf-8") as file:
         baseline_train_config = json.load(file)
 
-    # Update train configs with custom settings
-    train_config.update(train_config_overrides)
-    baseline_train_config.update(train_config_overrides)
-
-    # Create a model-specific training config for each model type
-    train_configs = [
-        (baseline_train_config if model_type == "baseline" else train_config).copy()
-        for model_type in model_types
-    ]
+    # Create a model-specific training config for each run and apply its overrides.
+    train_configs = []
+    for model_type, train_config_overrides in zip(model_types, train_config_overrides_list):
+        config = (
+            baseline_train_config if model_type == "baseline" else train_config
+        ).copy()
+        config.update(train_config_overrides)
+        train_configs.append(config)
 
     # Determine whether to freeze the backbone for each model type
     freeze_backbones = [
         model_type != "baseline" and freeze_backbone for model_type in model_types
     ]
 
-    # Set checkpoint directory and model title for each model config
+    # Set checkpoint directory and model title for each train config
     for config, run_name in zip(train_configs, run_names):
         config["checkpoint_dir"] = os.path.join(
             checkpoints_path, str(experiment_number).zfill(3)
@@ -540,6 +554,7 @@ def save_experiment_results(experiment, experiment_name):
         {
             "experiment_number": experiment["experiment_number"],
             "experiment_name": experiment_name,
+            "run_name": experiment["run_names"],
             "seed": experiment["seed"],
             "deterministic": experiment["deterministic"],
             "freeze_backbone": experiment["freeze_backbones"],
@@ -598,6 +613,7 @@ def save_experiment_results(experiment, experiment_name):
             ],
         }
     )
+    result_columns = list(experiment_df.columns)
 
     # If there is an existing experiments dataframe
     if experiment["existing_results_df"] is not None:
@@ -605,6 +621,7 @@ def save_experiment_results(experiment, experiment_name):
         experiment_df = pd.concat(
             [experiment["existing_results_df"], experiment_df], ignore_index=True
         )
+        experiment_df = experiment_df.reindex(columns=result_columns)
     # Otherwise
     else:
         # Create folder if it doesn't exist in the results directory

@@ -62,12 +62,17 @@ Available model types are:
 
 For pretrained models, `FREEZE_BACKBONE=True` retains the pretrained backbone and trains only the classifier. With `False`, the entire model is fine-tuned. The baseline is always trained end-to-end.
 
-## Running data ablations
+## Running configuration sweeps
 
-[`scripts/ablate.py`](scripts/ablate.py) runs one selected model over several named data filters and compares the conditions in the resulting plots. Its default conditions are all data, force levels 1–3, sliding, and rotation. Each result row keeps the same `model_type`; the applied filter is recorded in its saved `data_config`.
+[`scripts/classify_sweep.py`](scripts/classify_sweep.py) runs one selected model over every combination of named data and training configuration variants. Each result row keeps the same `model_type` and records its complete `data_config` and `train_config`.
+
+Add variants to `DATA_CONFIG_VARIANTS` and `TRAIN_CONFIG_VARIANTS` at the top of the
+script. For example, two data variants and two training variants produce four runs,
+named `<data_variant>__<train_variant>`. Each run applies the corresponding pair of
+variant dictionaries over the base JSON configuration files.
 
 ```bash
-python3 -m scripts.ablate
+python3 -m scripts.classify_sweep
 ```
 
 ## Configurations
