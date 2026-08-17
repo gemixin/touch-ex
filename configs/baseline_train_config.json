@@ -7,6 +7,8 @@
 	"momentum": 0.9,
 	"weight_decay": 0.02,
 	"num_epochs": 10,
+	"early_stopping_patience": null,
+	"early_stopping_min_delta": 0.0,
 	"checkpoint_dir": "checkpoints",
 	"model_title": "model"
 }

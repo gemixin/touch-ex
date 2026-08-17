@@ -151,6 +151,8 @@ def validate_train_config(train_config):
         "momentum",
         "weight_decay",
         "num_epochs",
+        "early_stopping_patience",
+        "early_stopping_min_delta",
         "checkpoint_dir",
         "model_title",
     ]
@@ -179,15 +181,28 @@ def validate_train_config(train_config):
     if type(train_config["num_epochs"]) is not int or train_config["num_epochs"] < 1:
         raise ValueError("num_epochs must be an integer greater than or equal to 1.")
 
+    # Validate early stopping settings
+    early_stopping_patience = train_config["early_stopping_patience"]
+    if early_stopping_patience is not None and (
+        type(early_stopping_patience) is not int or early_stopping_patience < 1
+    ):
+        raise ValueError("early_stopping_patience must be a positive integer or None.")
+
+    if (
+        type(train_config["early_stopping_min_delta"]) not in [int, float]
+        or train_config["early_stopping_min_delta"] < 0
+    ):
+        raise ValueError(
+            "early_stopping_min_delta must be a number greater than or equal to 0."
+        )
+
     # Validate warmup_epochs
     if (
         type(train_config["warmup_epochs"]) is not int
         or train_config["warmup_epochs"] < 0
         or train_config["warmup_epochs"] > train_config["num_epochs"]
     ):
-        raise ValueError(
-            "warmup_epochs must be an integer between 0 and num_epochs."
-        )
+        raise ValueError("warmup_epochs must be an integer between 0 and num_epochs.")
 
     # Validate warmup_start_factor
     if (

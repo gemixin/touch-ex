@@ -38,6 +38,8 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
     # Get the title of the model from the config for logging and checkpointing
     model_title = train_config["model_title"]
     num_epochs = train_config["num_epochs"]
+    early_stopping_patience = train_config["early_stopping_patience"]
+    early_stopping_min_delta = train_config["early_stopping_min_delta"]
     # Move model to the specified device
     model = model.to(device)
     # Get the optimizer and criterion from the config
@@ -52,7 +54,11 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
         checkpoint_path = os.path.join(train_config["checkpoint_dir"], f"{model_title}.pth")
 
     # Track the best validation accuracy for checkpointing
-    best_val_acc = 0.0
+    best_val_acc = float("-inf")
+    # Track meaningful validation improvements for early stopping separately so the
+    # checkpoint remains the best model even when its improvement is below min_delta
+    best_early_stopping_val_acc = float("-inf")
+    epochs_without_improvement = 0
     # List to store training history (loss and accuracy for each epoch)
     history = []
 
@@ -160,6 +166,26 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
                     },
                     checkpoint_path,
                 )
+
+        # -- Early stopping -- #
+
+        # If early stopping is enabled
+        if early_stopping_patience is not None:
+            # Reset the patience counter when validation accuracy improves by min_delta
+            if val_acc > best_early_stopping_val_acc + early_stopping_min_delta:
+                best_early_stopping_val_acc = val_acc
+                epochs_without_improvement = 0
+            # Otherwise, count this epoch toward the early-stopping patience limit
+            else:
+                epochs_without_improvement += 1
+                if epochs_without_improvement >= early_stopping_patience:
+                    tqdm.write(
+                        "Early stopping after "
+                        f"{epoch + 1} epochs: validation accuracy did not improve "
+                        f"by at least {early_stopping_min_delta} for "
+                        f"{early_stopping_patience} consecutive epochs."
+                    )
+                    break
 
     # After training is complete, if checkpointing is enabled, load the best checkpoint
     if train_config["checkpoint_dir"]:

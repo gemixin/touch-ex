@@ -85,7 +85,7 @@ Training uses three configurations:
 - `frozen_train_config.json` for pretrained models with frozen backbones
 - `baseline_train_config.json` for the baseline CNN
 
-Training configs define the optimiser, learning rate, linear warmup, cosine decay, weight decay, and epoch count. When a baseline is included in a multi-model experiment, it automatically receives its own training config while the pretrained models use the selected frozen or fine-tuned config.
+Training configs define the optimiser, learning rate, linear warmup, cosine decay, weight decay, and maximum epoch count. They can also enable early stopping using `early_stopping_patience`; set it to a positive number of consecutive non-improving validation epochs, or `null` to disable it. `early_stopping_min_delta` is the minimum validation-accuracy improvement (in percentage points) that resets patience. When a baseline is included in a multi-model experiment, it automatically receives its own training config while the pretrained models use the selected frozen or fine-tuned config.
 
 ## Outputs
 
