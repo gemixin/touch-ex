@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from PIL import Image
 from data.utils import process_tactile_image
+from data.transforms import get_color_jitter, get_train_augmentation
 
 
 class TouchExDataset(Dataset):
@@ -15,7 +16,14 @@ class TouchExDataset(Dataset):
     """
 
     def __init__(
-        self, dataframe, split, label_lists, transform_name, norm_stats=None, bg_path=None
+        self,
+        dataframe,
+        split,
+        label_lists,
+        transform_name,
+        train_augmentations,
+        norm_stats=None,
+        bg_path=None,
     ):
         """
         Initialises the TouchExDataset with the provided parameters.
@@ -26,6 +34,8 @@ class TouchExDataset(Dataset):
             label_lists (dict): A dictionary mapping each dataset split to its class-label
                 lists. Each split maps label names to ordered lists of class values.
             transform_name (str): The name of the transform to apply to the images.
+            train_augmentations (dict): Augmentations applied only when split is
+                'train'.
             norm_stats (dict, optional): A dictionary containing mean and std for
                 normalisation. Defaults to None, meaning no normalisation will be applied.
             bg_path (str, optional): Path to the background image for subtraction.
@@ -37,6 +47,14 @@ class TouchExDataset(Dataset):
         self.split = split
         self.transform_name = transform_name
         self.norm_stats = norm_stats
+        self.color_jitter = (
+            get_color_jitter(train_augmentations["color_jitter"])
+            if split == "train"
+            else None
+        )
+        self.train_augmentation = (
+            get_train_augmentation(train_augmentations) if split == "train" else None
+        )
 
         # Determine if this is an unseen test split based on the split name
         if self.split in ["test_unseen_matched", "test_unseen_related"]:
@@ -130,7 +148,16 @@ class TouchExDataset(Dataset):
         img_data = row["image"]
 
         # Process the image (including transform and optional background subtraction)
-        img_tensor = process_tactile_image(img_data, self.transform_name, self.bg_tensor)
+        img_tensor = process_tactile_image(
+            img_data,
+            self.transform_name,
+            self.bg_tensor,
+            color_jitter=self.color_jitter,
+        )
+
+        # Apply spatial augmentation after deterministic preprocessing on train data
+        if self.train_augmentation is not None:
+            img_tensor = self.train_augmentation(img_tensor)
 
         # Normalise if stats are provided
         if self.norm_stats is not None:

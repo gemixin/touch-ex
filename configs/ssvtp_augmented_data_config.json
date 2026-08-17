@@ -6,8 +6,13 @@
     "filtered_motion": null,
     "transform_name": "pad_224",
     "train_augmentations": {
-        "color_jitter": null,
-        "random_crop_padding": null
+        "color_jitter": {
+            "brightness": [0.9, 1.1],
+            "contrast": [0.9, 1.1],
+            "saturation": 0.2,
+            "hue": 0.05
+        },
+        "random_crop_padding": 16
     },
     "bg_path": "data/baseline.jpg",
     "norm_type": "dataset",

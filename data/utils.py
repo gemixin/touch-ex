@@ -221,7 +221,7 @@ def get_label_lists(df):
     return {label: df[label].unique().tolist() for label in LABEL_COLS}
 
 
-def process_tactile_image(img_data, transform_name, bg_tensor=None):
+def process_tactile_image(img_data, transform_name, bg_tensor=None, color_jitter=None):
     """
     Process a tactile image by loading it, optionally subtracting the background,
     and resizing it, before converting it to a tensor.
@@ -231,6 +231,8 @@ def process_tactile_image(img_data, transform_name, bg_tensor=None):
         transform_name (str): The name of the transform to apply.
         bg_tensor (torch.Tensor, optional): The background tensor to subtract from the
         image. Defaults to None, meaning no background subtraction will be applied.
+        color_jitter (torchvision.transforms.ColorJitter, optional): A transform applied
+            to the RGB source image before background subtraction. Defaults to None.
 
     Returns:
         torch.Tensor: The processed image tensor.
@@ -242,8 +244,10 @@ def process_tactile_image(img_data, transform_name, bg_tensor=None):
     else:
         img = Image.open(img_data["path"])
 
-    # Convert to RGB and then to tensor
+    # Convert to RGB and apply optional colour augmentation before tensor conversion
     img = img.convert("RGB")
+    if color_jitter is not None:
+        img = color_jitter(img)
     img_tensor = transforms.ToTensor()(img)
 
     # Optionally subtract the background image (if provided)

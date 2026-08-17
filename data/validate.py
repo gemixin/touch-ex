@@ -23,7 +23,7 @@ def validate_data_config(data_config):
     label_cols = ["object", "region", "object_region", "force_level", "motion"]
     motions = ["sliding", "rotation"]
     force_levels = ["1", "2", "3"]
-    transform_names = ["pad_224", "center_crop_224", "random_crop_224"]
+    transform_names = ["pad_224", "center_crop_224"]
     norm_types = ["dataset", "imagenet"]
 
     # Define the required keys
@@ -34,6 +34,7 @@ def validate_data_config(data_config):
         "filtered_force_level",
         "filtered_motion",
         "transform_name",
+        "train_augmentations",
         "bg_path",
         "norm_type",
         "norm_cache_path",
@@ -79,6 +80,64 @@ def validate_data_config(data_config):
     # Validate transform_name
     if data_config["transform_name"] not in transform_names:
         raise ValueError(f"transform_name must be one of: {transform_names}.")
+
+    # Validate training-only augmentation settings
+    train_augmentations = data_config["train_augmentations"]
+    if not isinstance(train_augmentations, dict):
+        raise ValueError("train_augmentations must be a dictionary.")
+
+    augmentation_keys = ["color_jitter", "random_crop_padding"]
+    for key in augmentation_keys:
+        if key not in train_augmentations:
+            raise ValueError(f"train_augmentations is missing required key: {key}.")
+
+    color_jitter = train_augmentations["color_jitter"]
+    if color_jitter is not None:
+        if not isinstance(color_jitter, dict):
+            raise ValueError(
+                "train_augmentations['color_jitter'] must be a dictionary or None."
+            )
+
+        color_jitter_keys = ["brightness", "contrast", "saturation", "hue"]
+        for key in color_jitter_keys:
+            if key not in color_jitter:
+                raise ValueError(
+                    f"train_augmentations['color_jitter'] is missing required key: {key}."
+                )
+
+        for key in ["brightness", "contrast"]:
+            value = color_jitter[key]
+            if (
+                not isinstance(value, list)
+                or len(value) != 2
+                or any(type(factor) not in [int, float] for factor in value)
+                or value[0] < 0
+                or value[1] < value[0]
+            ):
+                raise ValueError(
+                    "train_augmentations['color_jitter']["
+                    f"'{key}'] must be a two-value, non-negative increasing list."
+                )
+
+        saturation = color_jitter["saturation"]
+        if type(saturation) not in [int, float] or not 0 <= saturation <= 1:
+            raise ValueError(
+                "train_augmentations['color_jitter']['saturation'] must be between 0 and 1."
+            )
+
+        hue = color_jitter["hue"]
+        if type(hue) not in [int, float] or not 0 <= hue <= 0.5:
+            raise ValueError(
+                "train_augmentations['color_jitter']['hue'] must be between 0 and 0.5."
+            )
+
+    random_crop_padding = train_augmentations["random_crop_padding"]
+    if random_crop_padding is not None and (
+        type(random_crop_padding) is not int or random_crop_padding < 1
+    ):
+        raise ValueError(
+            "train_augmentations['random_crop_padding'] must be a positive integer or None."
+        )
 
     # Validate bg_path
     bg_path = data_config["bg_path"]

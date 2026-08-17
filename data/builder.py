@@ -102,6 +102,7 @@ def get_datasets(data_config):
             dataframe=df_split,
             label_lists=label_lists,
             transform_name=data_config["transform_name"],
+            train_augmentations=data_config["train_augmentations"],
             norm_stats=norm_stats,
             bg_path=data_config["bg_path"],
             split=split,

@@ -77,7 +77,7 @@ python3 -m scripts.classify_sweep
 
 ## Configurations
 
-`default_data_config.json` controls splitting, preprocessing, normalisation, and DataLoader settings. The experiment seed and target label are applied automatically so that they are recorded consistently.
+`default_data_config.json` controls splitting, preprocessing, normalisation, training-only augmentation, and DataLoader settings. The experiment seed and target label are applied automatically so that they are recorded consistently. `transform_name` is deterministic and applies to every split. `train_augmentations` applies only to the training split: ColorJitter runs on the source image before background subtraction, and random cropping runs after deterministic preprocessing but before normalisation. Validation and all test splits remain unaugmented. The default config disables augmentation. `ssvtp_augmented_data_config.json` enables ColorJitter (brightness and contrast 0.9–1.1, saturation 0.2, hue 0.05) and a 16-pixel reflection-padded random crop (using SSVTP settings).
 
 Training uses three configurations:
 
@@ -145,5 +145,19 @@ If you use the T3-Tiny encoder, also cite:
   year={2024},
   eprint={2406.13640},
   archivePrefix={arXiv},
+}
+```
+
+The ColorJitter settings were taken from SSVTP:
+
+```
+@misc{kerr2023selfsupervisedvisuotactilepretraininglocate,
+      title={Self-Supervised Visuo-Tactile Pretraining to Locate and Follow Garment Features}, 
+      author={Justin Kerr and Huang Huang and Albert Wilcox and Ryan Hoque and Jeffrey Ichnowski and Roberto Calandra and Ken Goldberg},
+      year={2023},
+      eprint={2209.13042},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO},
+      url={https://arxiv.org/abs/2209.13042}, 
 }
 ```
