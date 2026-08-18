@@ -23,7 +23,7 @@ def validate_data_config(data_config):
     label_cols = ["object", "region", "object_region", "force_level", "motion"]
     motions = ["sliding", "rotation"]
     force_levels = ["1", "2", "3"]
-    transform_names = ["pad_224", "center_crop_224", "random_resized_crop_224"]
+    transform_names = ["pad_224", "center_crop_224"]
     norm_types = ["dataset", "imagenet"]
 
     # Define the required keys
@@ -86,7 +86,11 @@ def validate_data_config(data_config):
     if not isinstance(train_augmentations, dict):
         raise ValueError("train_augmentations must be a dictionary.")
 
-    augmentation_keys = ["color_jitter"]
+    augmentation_keys = [
+        "color_jitter",
+        "horizontal_flip",
+        "random_resized_crop",
+    ]
     for key in augmentation_keys:
         if key not in train_augmentations:
             raise ValueError(f"train_augmentations is missing required key: {key}.")
@@ -131,7 +135,12 @@ def validate_data_config(data_config):
                 "train_augmentations['color_jitter']['hue'] must be between 0 and 0.5."
             )
 
-    horizontal_flip = train_augmentations.get("horizontal_flip")
+    if type(train_augmentations["random_resized_crop"]) is not bool:
+        raise ValueError(
+            "train_augmentations['random_resized_crop'] must be a boolean."
+        )
+
+    horizontal_flip = train_augmentations["horizontal_flip"]
     if horizontal_flip is not None and (
         type(horizontal_flip) not in [int, float] or not 0 <= horizontal_flip <= 1
     ):

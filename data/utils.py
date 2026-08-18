@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 import torch
 from torchvision import transforms
 import json
-from data.transforms import get_transform
+from data.transforms import get_random_resized_crop_224, get_transform
 
 # Columns in the dataset that can be used as labels for classification tasks
 LABEL_COLS = ["object", "region", "object_region", "force_level", "motion"]
@@ -221,7 +221,13 @@ def get_label_lists(df):
     return {label: df[label].unique().tolist() for label in LABEL_COLS}
 
 
-def process_tactile_image(img_data, transform_name, bg_tensor=None, color_jitter=None):
+def process_tactile_image(
+    img_data,
+    transform_name,
+    bg_tensor=None,
+    color_jitter=None,
+    random_resized_crop=False,
+):
     """
     Process a tactile image by loading it, optionally subtracting the background,
     and resizing it, before converting it to a tensor.
@@ -233,6 +239,8 @@ def process_tactile_image(img_data, transform_name, bg_tensor=None, color_jitter
         image. Defaults to None, meaning no background subtraction will be applied.
         color_jitter (torchvision.transforms.ColorJitter, optional): A transform applied
             to the RGB source image before background subtraction. Defaults to None.
+        random_resized_crop (bool): Whether to replace the deterministic transform with
+            a training-only random resized crop. Defaults to False.
 
     Returns:
         torch.Tensor: The processed image tensor.
@@ -254,8 +262,13 @@ def process_tactile_image(img_data, transform_name, bg_tensor=None, color_jitter
     if bg_tensor is not None:
         img_tensor = img_tensor - bg_tensor
 
-    # Resize the final image using provided transform name
-    resize = get_transform(transform_name)
+    # Apply the configured deterministic transform, unless this is a training sample
+    # explicitly configured to use random-resized-crop spatial augmentation.
+    resize = (
+        get_random_resized_crop_224()
+        if random_resized_crop
+        else get_transform(transform_name)
+    )
     img_tensor = resize(img_tensor)
 
     return img_tensor

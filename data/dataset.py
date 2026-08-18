@@ -52,8 +52,11 @@ class TouchExDataset(Dataset):
             if split == "train"
             else None
         )
+        self.random_resized_crop = (
+            train_augmentations["random_resized_crop"] if split == "train" else False
+        )
         self.horizontal_flip = (
-            get_horizontal_flip(train_augmentations.get("horizontal_flip"))
+            get_horizontal_flip(train_augmentations["horizontal_flip"])
             if split == "train"
             else None
         )
@@ -155,6 +158,7 @@ class TouchExDataset(Dataset):
             self.transform_name,
             self.bg_tensor,
             color_jitter=self.color_jitter,
+            random_resized_crop=self.random_resized_crop,
         )
 
         # Optionally flip the processed training image before normalisation

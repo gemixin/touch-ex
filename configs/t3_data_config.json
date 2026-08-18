@@ -4,13 +4,18 @@
     "stratify_label": "object",
     "filtered_force_level": null,
     "filtered_motion": null,
-    "transform_name": "pad_224",
+    "transform_name": "center_crop_224",
     "train_augmentations": {
-        "color_jitter": null,
-        "horizontal_flip": null,
-        "random_resized_crop": false
+        "color_jitter": {
+            "brightness": [0.6, 1.4],
+            "contrast": [0.6, 1.4],
+            "saturation": 0.5,
+            "hue": 0.3
+        },
+        "horizontal_flip": 0.5,
+        "random_resized_crop": true
     },
-    "bg_path": "data/baseline.jpg",
+    "bg_path": null,
     "norm_type": "dataset",
     "norm_cache_path": "configs/norm_cache.json",
     "batch_size": 32,

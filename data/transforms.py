@@ -15,7 +15,7 @@ def get_transform(transform_name):
 
     Args:
         transform_name (str): The name of the transform to retrieve. Options are
-        'pad_224', 'center_crop_224', or 'random_resized_crop_224'.
+        'pad_224' or 'center_crop_224'.
 
     Returns:
         torchvision.transforms.Compose: The composed transform corresponding to the
@@ -26,8 +26,6 @@ def get_transform(transform_name):
         return _pad_224()
     elif transform_name == "center_crop_224":
         return _center_crop_224()
-    elif transform_name == "random_resized_crop_224":
-        return _random_resized_crop_224()
     else:
         raise ValueError(f"Invalid transform name: {transform_name}.")
 
@@ -57,16 +55,16 @@ def _center_crop_224():
     return transforms.Compose([transforms.Resize(256), transforms.CenterCrop((224, 224))])
 
 
-def _random_resized_crop_224():
+def get_random_resized_crop_224():
     """
-    Randomly crop and resize an image to 224x224 using torchvision's default scale and
-    aspect-ratio ranges.
+    Get the training-only transform that randomly crops and resizes an image to 224x224
+    using torchvision's default scale and aspect-ratio ranges.
 
     Returns:
         torchvision.transforms.Compose: The composed random crop transform.
     """
 
-    return transforms.Compose([transforms.RandomResizedCrop((224, 224))])
+    return transforms.RandomResizedCrop((224, 224))
 
 
 def get_color_jitter(color_jitter):
