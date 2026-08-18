@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from PIL import Image
 from data.utils import process_tactile_image
-from data.transforms import get_color_jitter, get_train_augmentation
+from data.transforms import get_color_jitter, get_horizontal_flip
 
 
 class TouchExDataset(Dataset):
@@ -52,8 +52,10 @@ class TouchExDataset(Dataset):
             if split == "train"
             else None
         )
-        self.train_augmentation = (
-            get_train_augmentation(train_augmentations) if split == "train" else None
+        self.horizontal_flip = (
+            get_horizontal_flip(train_augmentations.get("horizontal_flip"))
+            if split == "train"
+            else None
         )
 
         # Determine if this is an unseen test split based on the split name
@@ -155,9 +157,9 @@ class TouchExDataset(Dataset):
             color_jitter=self.color_jitter,
         )
 
-        # Apply spatial augmentation after deterministic preprocessing on train data
-        if self.train_augmentation is not None:
-            img_tensor = self.train_augmentation(img_tensor)
+        # Optionally flip the processed training image before normalisation
+        if self.horizontal_flip is not None:
+            img_tensor = self.horizontal_flip(img_tensor)
 
         # Normalise if stats are provided
         if self.norm_stats is not None:

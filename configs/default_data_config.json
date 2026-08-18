@@ -7,7 +7,7 @@
     "transform_name": "pad_224",
     "train_augmentations": {
         "color_jitter": null,
-        "random_crop_padding": null
+        "horizontal_flip": null
     },
     "bg_path": "data/baseline.jpg",
     "norm_type": "dataset",

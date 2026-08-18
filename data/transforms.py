@@ -15,7 +15,7 @@ def get_transform(transform_name):
 
     Args:
         transform_name (str): The name of the transform to retrieve. Options are
-        'pad_224' or 'center_crop_224'.
+        'pad_224', 'center_crop_224', or 'random_resized_crop_224'.
 
     Returns:
         torchvision.transforms.Compose: The composed transform corresponding to the
@@ -26,6 +26,8 @@ def get_transform(transform_name):
         return _pad_224()
     elif transform_name == "center_crop_224":
         return _center_crop_224()
+    elif transform_name == "random_resized_crop_224":
+        return _random_resized_crop_224()
     else:
         raise ValueError(f"Invalid transform name: {transform_name}.")
 
@@ -55,6 +57,18 @@ def _center_crop_224():
     return transforms.Compose([transforms.Resize(256), transforms.CenterCrop((224, 224))])
 
 
+def _random_resized_crop_224():
+    """
+    Randomly crop and resize an image to 224x224 using torchvision's default scale and
+    aspect-ratio ranges.
+
+    Returns:
+        torchvision.transforms.Compose: The composed random crop transform.
+    """
+
+    return transforms.Compose([transforms.RandomResizedCrop((224, 224))])
+
+
 def get_color_jitter(color_jitter):
     """
     Build the optional ColorJitter transform applied to source training images.
@@ -72,28 +86,18 @@ def get_color_jitter(color_jitter):
     return transforms.ColorJitter(**color_jitter)
 
 
-def get_train_augmentation(train_augmentations):
+def get_horizontal_flip(horizontal_flip):
     """
-    Build spatial augmentation applied only to preprocessed training images.
+    Build the optional horizontal-flip transform applied to training images.
 
     Args:
-        train_augmentations (dict): Validated augmentation settings from the data
-            configuration.
+        horizontal_flip (float or None): Probability of flipping an image.
 
     Returns:
-        torchvision.transforms.Compose: The composed training augmentation transform.
+        torchvision.transforms.RandomHorizontalFlip or None: The configured transform.
     """
 
-    augmentation_steps = []
-    random_crop_padding = train_augmentations["random_crop_padding"]
+    if horizontal_flip is None:
+        return None
 
-    if random_crop_padding is not None:
-        augmentation_steps.append(
-            transforms.RandomCrop(
-                (224, 224),
-                padding=random_crop_padding,
-                padding_mode="reflect",
-            )
-        )
-
-    return transforms.Compose(augmentation_steps)
+    return transforms.RandomHorizontalFlip(p=horizontal_flip)

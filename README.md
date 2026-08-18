@@ -77,7 +77,7 @@ python3 -m scripts.classify_sweep
 
 ## Configurations
 
-`default_data_config.json` controls splitting, preprocessing, normalisation, training-only augmentation, and DataLoader settings. The experiment seed and target label are applied automatically so that they are recorded consistently. `transform_name` is deterministic and applies to every split. `train_augmentations` applies only to the training split: ColorJitter runs on the source image before background subtraction, and random cropping runs after deterministic preprocessing but before normalisation. Validation and all test splits remain unaugmented. The default config disables augmentation. `ssvtp_augmented_data_config.json` enables ColorJitter (brightness and contrast 0.9–1.1, saturation 0.2, hue 0.05) and a 16-pixel reflection-padded random crop (using SSVTP settings).
+`default_data_config.json` controls splitting, preprocessing, normalisation, training-only augmentation, and DataLoader settings. The experiment seed and target label are applied automatically so that they are recorded consistently. `transform_name` applies to every split. `train_augmentations` applies only to the training split: ColorJitter runs on the source image before background subtraction, while `horizontal_flip` controls postprocessing flips before normalisation (`null` disables it; values from 0 to 1 specify the probability). Validation and all test splits remain unaugmented. The default config disables augmentation. `ssvtp_color_jitter_settings.json` stores the SSVTP ColorJitter settings (brightness and contrast 0.9–1.1, saturation 0.2, hue 0.05) for reuse in a script.
 
 Training uses three configurations:
 
