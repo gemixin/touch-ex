@@ -205,10 +205,19 @@ def classify_sweep(
     variant_pairs = list(
         product(data_config_variants.items(), train_config_variants.items())
     )
-    # Create run names by combining the data and training variant names
-    run_names = [
-        f"{data_name}__{train_name}" for (data_name, _), (train_name, _) in variant_pairs
-    ]
+    # Name only the configuration dimension that varies. This keeps one-axis sweeps
+    # concise while retaining both names for full data/training grid sweeps.
+    if len(data_config_variants) == 1 and len(train_config_variants) == 1:
+        run_names = ["default"]
+    elif len(train_config_variants) == 1:
+        run_names = [data_name for (data_name, _), _ in variant_pairs]
+    elif len(data_config_variants) == 1:
+        run_names = [train_name for _, (train_name, _) in variant_pairs]
+    else:
+        run_names = [
+            f"{data_name}__{train_name}"
+            for (data_name, _), (train_name, _) in variant_pairs
+        ]
 
     # Copy each variant's overrides so the input dictionaries remain unchanged
     combined_data_config_overrides = [

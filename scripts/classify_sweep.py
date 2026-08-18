@@ -6,6 +6,8 @@ Author: Gemma McLean
 Date: July 2026
 """
 
+import json
+
 from models.experiments import classify_sweep
 
 
@@ -21,7 +23,7 @@ MODEL_TYPE = "resnet18"
 TARGET_LABEL = "object"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_normalisation_sweep"
+EXPERIMENT_NAME = "resnet18_aug_sweep"
 
 # Randomisation settings
 SEED = 129
@@ -31,19 +33,51 @@ DETERMINISTIC = True
 # Baseline models are always trained end-to-end
 FREEZE_BACKBONE = False
 
-# Each data variant is combined with every training variant below. Values override the
-# corresponding keys in DATA_CONFIG_PATH.
+# Load the SSVTP color jitter settings from the JSON file
+with open("configs/ssvtp_color_jitter_settings.json", "r", encoding="utf-8") as file:
+    ssvtp_color_jitter = json.load(file)["color_jitter"]
+
+# Each data variant is combined with every training variant below
+# Values override keys in the chosen data config file
 DATA_CONFIG_VARIANTS = {
-    "dataset_norm": {"norm_type": "dataset"},
-    "imagenet_norm": {"norm_type": "imagenet"},
-    "no_norm": {"norm_type": None},
+    "none": {
+        "transform_name": "center_crop_224",
+        "train_augmentations": {
+            "color_jitter": None,
+            "horizontal_flip": None,
+            "random_resized_crop": False,
+        },
+    },
+    "color_jitter": {
+        "transform_name": "center_crop_224",
+        "train_augmentations": {
+            "color_jitter": ssvtp_color_jitter,
+            "horizontal_flip": None,
+            "random_resized_crop": False,
+        },
+    },
+    "random_resized_crop": {
+        "transform_name": "center_crop_224",
+        "train_augmentations": {
+            "color_jitter": None,
+            "horizontal_flip": None,
+            "random_resized_crop": True,
+        },
+    },
+    "both": {
+        "transform_name": "center_crop_224",
+        "train_augmentations": {
+            "color_jitter": ssvtp_color_jitter,
+            "horizontal_flip": None,
+            "random_resized_crop": True,
+        },
+    },
 }
 
-# Each training variant is combined with every data variant above. Values override
-# keys in the chosen training config file. For example, adding
-# "lr_1e-4": {"learning_rate": 1e-4} creates a second run for every data variant.
+# Each training variant is combined with every data variant above
+# Values override keys in the chosen training config file
 TRAIN_CONFIG_VARIANTS = {
-    "default": {"num_epochs": 2},
+    "default": {},
 }
 
 # t-SNE feature plot settings
