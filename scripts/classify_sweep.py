@@ -22,7 +22,7 @@ MODEL_TYPE = "resnet18"
 TARGET_LABEL = "object"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_all_augs_bg_sweep"
+EXPERIMENT_NAME = "resnet18_pad_aug_sweep"
 
 # Randomisation settings
 SEED = 129
@@ -39,34 +39,40 @@ with open("configs/ssvtp_color_jitter_settings.json", "r", encoding="utf-8") as 
 # Each data variant is combined with every training variant below
 # Values override keys in the chosen data config file
 DATA_CONFIG_VARIANTS = {
-    "bg_subtraction_off": {
-        "transform_name": "center_crop_224",
+    "none": {
         "train_augmentations": {
-            "color_jitter": ssvtp_color_jitter,
-            "horizontal_flip": 0.5,
-            "random_resized_crop": True,
+            "color_jitter": None,
+            "horizontal_flip": None,
+            "random_resized_crop": False,
         },
-        "bg_path": None,
     },
-    "bg_subtraction_on": {
-        "transform_name": "center_crop_224",
+    "color_jitter": {
+        "train_augmentations": {
+            "color_jitter": ssvtp_color_jitter,
+            "horizontal_flip": None,
+            "random_resized_crop": False,
+        },
+    },
+    "flip": {
+        "train_augmentations": {
+            "color_jitter": None,
+            "horizontal_flip": 0.5,
+            "random_resized_crop": False,
+        },
+    },
+    "both": {
         "train_augmentations": {
             "color_jitter": ssvtp_color_jitter,
             "horizontal_flip": 0.5,
-            "random_resized_crop": True,
+            "random_resized_crop": False,
         },
-        "bg_path": "data/baseline.jpg",
     },
 }
 
 # Each training variant is combined with every data variant above
 # Values override keys in the chosen training config file
 TRAIN_CONFIG_VARIANTS = {
-    "default": {
-        "num_epochs": 25,
-        "early_stopping_patience": 5,
-        "early_stopping_min_delta": 0.1,
-    },
+    "default": {},
 }
 
 # t-SNE feature plot settings
