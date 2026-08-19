@@ -268,7 +268,7 @@ def plot_model_comparison(results, model_types, plots_path, test_set_name):
 
     # Save plot
     plt.tight_layout()
-    save_path = f"{plots_path}/model_comparison_{test_set_name}.png"
+    save_path = f"{plots_path}/comparison_{test_set_name}.png"
     os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
     fig.savefig(save_path, dpi=300)
     plt.close(fig)
