@@ -85,9 +85,7 @@ the same split and records it consistently.
 ### Data
 
 [`configs/default_data_config.json`](configs/default_data_config.json) is the standard
-starting point. [`configs/t3_data_config.json`](configs/t3_data_config.json) is the
-T3-oriented alternative: it uses centre-crop evaluation, no background subtraction,
-and training augmentation.
+starting point.
 
 | Setting | Purpose and accepted values |
 | --- | --- |
@@ -100,9 +98,9 @@ and training augmentation.
 | `batch_size`, `num_workers`, `shuffle_map` | DataLoader batch size, worker count, and per-split shuffling. |
 | `train_augmentations` | Training-only settings: `random_resized_crop` replaces `transform_name` with `RandomResizedCrop(224)` when `true`; `color_jitter` is a ColorJitter dictionary or `null` and runs before background subtraction; `horizontal_flip` is a probability from `0` to `1` or `null`, applied before normalisation. Validation and test data remain deterministic and unaugmented. |
 
-The default data config disables all augmentation. The reusable
-[`configs/ssvtp_color_jitter_settings.json`](configs/ssvtp_color_jitter_settings.json)
-contains the SSVTP ColorJitter values.
+The default data config disables all augmentation. Reusable ColorJitter settings are
+available for [SSVTP](configs/ssvtp_color_jitter_settings.json) and
+[T3](configs/t3_color_jitter_settings.json).
 
 ### Training
 

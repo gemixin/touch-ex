@@ -1,0 +1,8 @@
+{
+    "color_jitter": {
+        "brightness": [0.6, 1.4],
+        "contrast": [0.6, 1.4],
+        "saturation": 0.5,
+        "hue": 0.3
+    }
+}
