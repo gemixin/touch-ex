@@ -22,7 +22,7 @@ MODEL_TYPE = "resnet18"
 TARGET_LABEL = "object"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_color_jitter_sweep"
+EXPERIMENT_NAME = "resnet18_norm_sweep"
 
 # Randomisation settings
 SEED = 129
@@ -36,29 +36,35 @@ FREEZE_BACKBONE = False
 with open("configs/ssvtp_color_jitter_settings.json", "r", encoding="utf-8") as file:
     ssvtp_color_jitter = json.load(file)["color_jitter"]
 
-# Load the T3 color jitter settings from the JSON file
-with open("configs/t3_color_jitter_settings.json", "r", encoding="utf-8") as file:
-    t3_color_jitter = json.load(file)["color_jitter"]
-
-
 # Each data variant is combined with every training variant below
 # Values override keys in the chosen data config file
 DATA_CONFIG_VARIANTS = {
-    "ssvtp_settings": {
+    "no_norm": {
         "train_augmentations": {
             "color_jitter": ssvtp_color_jitter,
             "horizontal_flip": None,
             "random_resized_crop": False,
         },
         "num_workers": 8,
+        "norm_type": None,
     },
-    "t3_settings": {
+    "dataset_norm": {
         "train_augmentations": {
-            "color_jitter": t3_color_jitter,
+            "color_jitter": ssvtp_color_jitter,
             "horizontal_flip": None,
             "random_resized_crop": False,
         },
         "num_workers": 8,
+        "norm_type": "dataset",
+    },
+    "imagenet_norm": {
+        "train_augmentations": {
+            "color_jitter": ssvtp_color_jitter,
+            "horizontal_flip": None,
+            "random_resized_crop": False,
+        },
+        "num_workers": 8,
+        "norm_type": "imagenet",
     },
 }
 
