@@ -15,14 +15,14 @@ from models.experiments import classify_sweep
 # Chosen model type for sweep experiments
 # Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or
 # 't3_tiny'
-MODEL_TYPE = "resnet18"
+MODEL_TYPE = "t3_tiny"
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', or 'motion'
 TARGET_LABEL = "object"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_norm_sweep"
+EXPERIMENT_NAME = "t3_aug_sweep"
 
 # Randomisation settings
 SEED = 129
@@ -32,6 +32,10 @@ DETERMINISTIC = True
 # Baseline models are always trained end-to-end
 FREEZE_BACKBONE = False
 
+# Load the T3 color jitter settings from the JSON file
+with open("configs/t3_color_jitter_settings.json", "r", encoding="utf-8") as file:
+    t3_color_jitter = json.load(file)["color_jitter"]
+
 # Load the SSVTP color jitter settings from the JSON file
 with open("configs/ssvtp_color_jitter_settings.json", "r", encoding="utf-8") as file:
     ssvtp_color_jitter = json.load(file)["color_jitter"]
@@ -39,32 +43,32 @@ with open("configs/ssvtp_color_jitter_settings.json", "r", encoding="utf-8") as 
 # Each data variant is combined with every training variant below
 # Values override keys in the chosen data config file
 DATA_CONFIG_VARIANTS = {
-    "no_norm": {
+    "none": {
         "train_augmentations": {
-            "color_jitter": ssvtp_color_jitter,
+            "color_jitter": None,
             "horizontal_flip": None,
             "random_resized_crop": False,
         },
-        "num_workers": 8,
-        "norm_type": None,
+        "bg_path": None,
+        "transform_name": "center_crop_224",
     },
-    "dataset_norm": {
+    "ssvtp_all": {
         "train_augmentations": {
             "color_jitter": ssvtp_color_jitter,
-            "horizontal_flip": None,
-            "random_resized_crop": False,
+            "horizontal_flip": 0.5,
+            "random_resized_crop": True,
         },
-        "num_workers": 8,
-        "norm_type": "dataset",
+        "bg_path": None,
+        "transform_name": "center_crop_224",
     },
-    "imagenet_norm": {
+    "t3_all": {
         "train_augmentations": {
-            "color_jitter": ssvtp_color_jitter,
-            "horizontal_flip": None,
-            "random_resized_crop": False,
+            "color_jitter": t3_color_jitter,
+            "horizontal_flip": 0.5,
+            "random_resized_crop": True,
         },
-        "num_workers": 8,
-        "norm_type": "imagenet",
+        "bg_path": None,
+        "transform_name": "center_crop_224",
     },
 }
 

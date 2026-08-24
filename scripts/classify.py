@@ -14,7 +14,14 @@ from models.experiments import classify
 # Model types to compare
 # Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or
 # 't3_tiny'
-MODEL_TYPES = ["baseline", "resnet18", "efficientnet_b0", "deit_tiny", "t3_tiny"]
+MODEL_TYPES = [
+    "baseline",
+    "resnet18",
+    "efficientnet_b0",
+    "vit_b_16",
+    "deit_tiny",
+    "t3_tiny",
+]
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', or 'motion'
