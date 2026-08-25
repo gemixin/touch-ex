@@ -15,14 +15,14 @@ from models.experiments import classify_sweep
 # Chosen model type for sweep experiments
 # Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or
 # 't3_tiny'
-MODEL_TYPE = "t3_tiny"
+MODEL_TYPE = "resnet18"
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', or 'motion'
 TARGET_LABEL = "object"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "t3_aug_sweep"
+EXPERIMENT_NAME = "resnet18_candidate_seed_129_sweep"
 
 # Randomisation settings
 SEED = 129
@@ -32,10 +32,6 @@ DETERMINISTIC = True
 # Baseline models are always trained end-to-end
 FREEZE_BACKBONE = False
 
-# Load the T3 color jitter settings from the JSON file
-with open("configs/t3_color_jitter_settings.json", "r", encoding="utf-8") as file:
-    t3_color_jitter = json.load(file)["color_jitter"]
-
 # Load the SSVTP color jitter settings from the JSON file
 with open("configs/ssvtp_color_jitter_settings.json", "r", encoding="utf-8") as file:
     ssvtp_color_jitter = json.load(file)["color_jitter"]
@@ -43,43 +39,44 @@ with open("configs/ssvtp_color_jitter_settings.json", "r", encoding="utf-8") as 
 # Each data variant is combined with every training variant below
 # Values override keys in the chosen data config file
 DATA_CONFIG_VARIANTS = {
-    "none": {
-        "train_augmentations": {
-            "color_jitter": None,
-            "horizontal_flip": None,
-            "random_resized_crop": False,
-        },
-        "bg_path": None,
-        "transform_name": "center_crop_224",
-    },
-    "ssvtp_all": {
+    "crop_all": {
         "train_augmentations": {
             "color_jitter": ssvtp_color_jitter,
             "horizontal_flip": 0.5,
             "random_resized_crop": True,
         },
-        "bg_path": None,
         "transform_name": "center_crop_224",
     },
-    "t3_all": {
+    "pad_jitter": {
         "train_augmentations": {
-            "color_jitter": t3_color_jitter,
-            "horizontal_flip": 0.5,
-            "random_resized_crop": True,
+            "color_jitter": ssvtp_color_jitter,
+            "horizontal_flip": None,
+            "random_resized_crop": False,
         },
-        "bg_path": None,
-        "transform_name": "center_crop_224",
+        "transform_name": "pad_224",
+    },
+    "pad_flip_jitter": {
+        "train_augmentations": {
+            "color_jitter": ssvtp_color_jitter,
+            "horizontal_flip": 0.5,
+            "random_resized_crop": False,
+        },
+        "transform_name": "pad_224",
     },
 }
 
 # Each training variant is combined with every data variant above
 # Values override keys in the chosen training config file
 TRAIN_CONFIG_VARIANTS = {
-    "default": {},
+    "25ep_early_stopping": {
+        "num_epochs": 25,
+        "early_stopping_patience": 3,
+        "early_stopping_min_delta": 0.1,
+    },
 }
 
 # t-SNE feature plot settings
-PLOT_TSNE = False
+PLOT_TSNE = True
 TSNE_MAX_SAMPLES = -1
 
 # Paths for files and directories
@@ -90,7 +87,7 @@ TRAIN_CONFIG_PATH = (
     else "configs/finetuned_train_config.json"
 )
 BASELINE_TRAIN_CONFIG_PATH = "configs/baseline_train_config.json"
-RESULTS_DIR = "results"
+RESULTS_DIR = "/home/gemma/development/python/touch-ex-results/results"
 CHECKPOINT_DIR = "checkpoints"
 
 # --- Train and evaluate the configuration sweep --- #

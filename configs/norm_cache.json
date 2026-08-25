@@ -2,20 +2,20 @@
   "norm_config": {
     "random_state": 129,
     "split_size": 0.2,
-    "stratify_label": "object",
+    "stratify_label": "object_region",
     "filtered_force_level": null,
     "filtered_motion": null,
-    "transform_name": "pad_224",
+    "transform_name": "center_crop_224",
     "bg_path": null
   },
   "mean": [
-    0.29954323172569275,
-    0.30980736017227173,
-    0.2899303734302521
+    0.4299502968788147,
+    0.4616527259349823,
+    0.37466081976890564
   ],
   "std": [
-    0.2497074455022812,
-    0.21850813925266266,
-    0.2029675990343094
+    0.20807571709156036,
+    0.1569574624300003,
+    0.12227223068475723
   ]
 }

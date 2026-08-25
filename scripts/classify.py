@@ -54,7 +54,7 @@ TRAIN_CONFIG_PATH = (
     else "configs/finetuned_train_config.json"
 )
 BASELINE_TRAIN_CONFIG_PATH = "configs/baseline_train_config.json"
-RESULTS_DIR = "results"
+RESULTS_DIR = "/home/gemma/development/python/touch-ex-results/results"
 CHECKPOINT_DIR = "checkpoints"
 
 # --- Train and evaluate models --- #
