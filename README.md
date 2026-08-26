@@ -6,7 +6,8 @@ Touch-Ex provides a reproducible classification pipeline for the [Touch-Ex datas
 
 - `configs/` contains data, training, and normalisation-cache configurations
 - `data/` contains dataset loading, preprocessing, splitting, and validation code
-- `models/` contains model definitions, training, evaluation, and visualisation code
+- `ml/` contains experiment orchestration, training, evaluation, visualisation, and utilities
+- `models/` contains model architecture definitions
 - `notebooks/` contains exploratory and configuration notebooks
 - `scripts/` contains runnable experiment entry points
 
@@ -34,7 +35,7 @@ conda activate touch-ex
 
 The pipeline downloads the Touch-Ex dataset from Hugging Face when it is first used. A CUDA-enabled PyTorch installation is recommended for training.
 
-## Running an Experiment
+## Running a Classification Experiment
 
 Configure the constants at the top of [`scripts/classify.py`](scripts/classify.py), then run:
 
@@ -51,6 +52,30 @@ The main settings are:
 - `FREEZE_BACKBONE`: train only the task-specific head of pretrained models when `True`
 - `PLOT_TSNE` and `TSNE_MAX_SAMPLES`: test-set t-SNE plot settings; use `-1` to include every test example
 
+Available model types are:
+
+- `baseline`: a CNN trained from scratch
+- `resnet18`: ImageNet-pretrained ResNet-18
+- `efficientnet_b0`: ImageNet-pretrained EfficientNet-B0
+- `vit_b_16`: ImageNet-pretrained ViT-B/16
+- `deit_tiny`: ImageNet-pretrained DeiT-Tiny
+- `t3_tiny`: T3-Tiny tactile encoder pretrained on DIGIT data
+
+For pretrained models, `FREEZE_BACKBONE=True` retains the pretrained backbone and trains only the classifier. With `False`, the entire model is fine-tuned. The baseline is always trained end-to-end.
+
+### Running Classification Configuration Sweeps
+
+[`scripts/classify_sweep.py`](scripts/classify_sweep.py) runs one selected model over every combination of named data and training configuration variants. Each result row keeps the same `model_type` and records its complete `data_config` and `train_config`.
+
+Add variants to `DATA_CONFIG_VARIANTS` and `TRAIN_CONFIG_VARIANTS` at the top of the
+script. For example, two data variants and two training variants produce four runs,
+named `<data_variant>__<train_variant>`. Each run applies the corresponding pair of
+variant dictionaries over the base JSON configuration files.
+
+```bash
+python3 -m scripts.classify_sweep
+```
+
 ## Running a Regression Experiment
 
 Configure `REGRESSION_TARGET` in [`scripts/regress.py`](scripts/regress.py) as either
@@ -63,30 +88,6 @@ python3 -m scripts.regress
 The regression workflow uses an ImageNet-pretrained ResNet-18, optimises Huber loss on
 training-split-normalised targets, and reports MAE, RMSE, and R² in the original target
 units. Results are saved separately under `results/<target>_regress/`.
-
-Available model types are:
-
-- `baseline`: a CNN trained from scratch
-- `resnet18`: ImageNet-pretrained ResNet-18
-- `efficientnet_b0`: ImageNet-pretrained EfficientNet-B0
-- `vit_b_16`: ImageNet-pretrained ViT-B/16
-- `deit_tiny`: ImageNet-pretrained DeiT-Tiny
-- `t3_tiny`: T3-Tiny tactile encoder pretrained on DIGIT data
-
-For pretrained models, `FREEZE_BACKBONE=True` retains the pretrained backbone and trains only the classifier. With `False`, the entire model is fine-tuned. The baseline is always trained end-to-end.
-
-## Running Configuration Sweeps
-
-[`scripts/classify_sweep.py`](scripts/classify_sweep.py) runs one selected model over every combination of named data and training configuration variants. Each result row keeps the same `model_type` and records its complete `data_config` and `train_config`.
-
-Add variants to `DATA_CONFIG_VARIANTS` and `TRAIN_CONFIG_VARIANTS` at the top of the
-script. For example, two data variants and two training variants produce four runs,
-named `<data_variant>__<train_variant>`. Each run applies the corresponding pair of
-variant dictionaries over the base JSON configuration files.
-
-```bash
-python3 -m scripts.classify_sweep
-```
 
 ## Configurations
 
