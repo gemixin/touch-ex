@@ -6,7 +6,7 @@ Author: Gemma McLean
 Date: April 2026
 """
 
-from models.experiments import classify
+from ml.experiments import classify
 
 
 # --- Configurable parameters --- #

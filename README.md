@@ -51,6 +51,19 @@ The main settings are:
 - `FREEZE_BACKBONE`: train only the task-specific head of pretrained models when `True`
 - `PLOT_TSNE` and `TSNE_MAX_SAMPLES`: test-set t-SNE plot settings; use `-1` to include every test example
 
+## Running a Regression Experiment
+
+Configure `REGRESSION_TARGET` in [`scripts/regress.py`](scripts/regress.py) as either
+`force_n` or `fsr_voltage`, then run:
+
+```bash
+python3 -m scripts.regress
+```
+
+The regression workflow uses an ImageNet-pretrained ResNet-18, optimises Huber loss on
+training-split-normalised targets, and reports MAE, RMSE, and R² in the original target
+units. Results are saved separately under `results/<target>_regress/`.
+
 Available model types are:
 
 - `baseline`: a CNN trained from scratch

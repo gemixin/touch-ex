@@ -7,7 +7,7 @@ Date: July 2026
 """
 
 import json
-from models.experiments import classify_sweep
+from ml.experiments import classify_sweep
 
 
 # --- Configurable parameters --- #

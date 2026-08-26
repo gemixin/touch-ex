@@ -192,6 +192,74 @@ def plot_tsne_features(
     print(f"Saved interactive t-SNE features at {interactive_path}")
 
 
+def plot_regression_training_curves(history, plots_path, regression_target):
+    """
+    Plot and save training and validation loss and MAE curves for a regression experiment.
+
+    Args:
+        history (list): Regression training history.
+        plots_path (str): Directory in which to save the plot.
+        regression_target (str): Continuous target displayed in plot titles.
+    """
+
+    # Extract epoch, loss, and MAE values from the training history
+    epochs = [entry["epoch"] for entry in history]
+    fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+    axes[0].plot(epochs, [entry["train_loss"] for entry in history], label="Train")
+    axes[0].plot(epochs, [entry["val_loss"] for entry in history], label="Validation")
+    axes[0].set(title=f"Huber Loss — {regression_target}", xlabel="Epoch", ylabel="Loss")
+    axes[0].legend()
+    axes[1].plot(epochs, [entry["train_mae"] for entry in history], label="Train")
+    axes[1].plot(epochs, [entry["val_mae"] for entry in history], label="Validation")
+    axes[1].set(title=f"MAE — {regression_target}", xlabel="Epoch", ylabel="MAE")
+    axes[1].legend()
+    # Create the output directory and save the combined learning-curves figure
+    os.makedirs(plots_path, exist_ok=True)
+    fig.tight_layout()
+    fig.savefig(os.path.join(plots_path, "training_curves.png"), dpi=300)
+    plt.close(fig)
+
+
+def plot_regression_predictions(results, plots_path, regression_target, test_set_name):
+    """
+    Plot and save predicted-versus-true and residual plots in raw target units.
+
+    Args:
+        results (dict): Regression evaluation metrics and predictions.
+        plots_path (str): Directory in which to save the plot.
+        regression_target (str): Continuous target displayed on plot axes.
+        test_set_name (str): Name of the evaluated dataset split.
+    """
+
+    # Convert saved predictions and targets to NumPy arrays for plotting
+    y_true = np.asarray(results["y_true"])
+    y_pred = np.asarray(results["y_pred"])
+    minimum = min(y_true.min(), y_pred.min())
+    maximum = max(y_true.max(), y_pred.max())
+    # Plot predictions against true values alongside the corresponding residuals
+    fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+    axes[0].scatter(y_true, y_pred, alpha=0.65, s=18)
+    axes[0].plot([minimum, maximum], [minimum, maximum], "k--", label="Ideal")
+    axes[0].set(
+        title=f"Predicted vs True — {test_set_name}",
+        xlabel=f"True {regression_target}",
+        ylabel=f"Predicted {regression_target}",
+    )
+    axes[0].legend()
+    axes[1].scatter(y_true, y_pred - y_true, alpha=0.65, s=18)
+    axes[1].axhline(0, color="black", linestyle="--")
+    axes[1].set(
+        title=f"Residuals — {test_set_name}",
+        xlabel=f"True {regression_target}",
+        ylabel="Prediction error",
+    )
+    # Create the output directory and save the combined prediction figure
+    os.makedirs(plots_path, exist_ok=True)
+    fig.tight_layout()
+    fig.savefig(os.path.join(plots_path, f"{test_set_name}_predictions.png"), dpi=300)
+    plt.close(fig)
+
+
 def plot_training_curves(history, model_type, plots_path):
     """
     Plot training and validation loss and accuracy curves for one model.
