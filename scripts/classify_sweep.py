@@ -22,10 +22,10 @@ MODEL_TYPE = "resnet18"
 TARGET_LABEL = "object"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_candidate_seed_129_sweep"
+EXPERIMENT_NAME = "resnet18_candidate_seed_130_sweep"
 
 # Randomisation settings
-SEED = 129
+SEED = 130
 DETERMINISTIC = True
 
 # Set to True to train only the classifier of pretrained models
