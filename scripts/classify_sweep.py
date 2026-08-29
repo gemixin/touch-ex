@@ -15,18 +15,19 @@ from models.experiments import classify_sweep
 # Chosen model type for sweep experiments
 # Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or
 # 't3_tiny'
-MODEL_TYPE = "resnet18"
+MODEL_TYPE = "t3_tiny"
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', or 'motion'
 TARGET_LABEL = "object"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_candidate_seed_130_sweep"
+EXPERIMENT_NAME = "t3_extended_aug_sweep"
 
 # Randomisation settings
-SEED = 130
+SEED = 129
 DETERMINISTIC = True
+
 
 # Set to True to train only the classifier of pretrained models
 # Baseline models are always trained end-to-end
@@ -36,47 +37,55 @@ FREEZE_BACKBONE = False
 with open("configs/ssvtp_color_jitter_settings.json", "r", encoding="utf-8") as file:
     ssvtp_color_jitter = json.load(file)["color_jitter"]
 
+# Load the T3 color jitter settings from the JSON file
+with open("configs/t3_color_jitter_settings.json", "r", encoding="utf-8") as file:
+    t3_color_jitter = json.load(file)["color_jitter"]
+
 # Each data variant is combined with every training variant below
 # Values override keys in the chosen data config file
 DATA_CONFIG_VARIANTS = {
-    "crop_all": {
+    "none": {
+        "train_augmentations": {
+            "color_jitter": None,
+            "horizontal_flip": None,
+            "random_resized_crop": False,
+        },
+        "transform_name": "center_crop_224",
+        "bg_path": None,
+    },
+    "ssvtp_all": {
         "train_augmentations": {
             "color_jitter": ssvtp_color_jitter,
             "horizontal_flip": 0.5,
             "random_resized_crop": True,
         },
         "transform_name": "center_crop_224",
+        "bg_path": None,
     },
-    "pad_jitter": {
+    "t3_all": {
         "train_augmentations": {
-            "color_jitter": ssvtp_color_jitter,
-            "horizontal_flip": None,
-            "random_resized_crop": False,
-        },
-        "transform_name": "pad_224",
-    },
-    "pad_flip_jitter": {
-        "train_augmentations": {
-            "color_jitter": ssvtp_color_jitter,
+            "color_jitter": t3_color_jitter,
             "horizontal_flip": 0.5,
-            "random_resized_crop": False,
+            "random_resized_crop": True,
         },
-        "transform_name": "pad_224",
+        "transform_name": "center_crop_224",
+        "bg_path": None,
     },
 }
 
 # Each training variant is combined with every data variant above
 # Values override keys in the chosen training config file
 TRAIN_CONFIG_VARIANTS = {
-    "25ep_early_stopping": {
+    "25ep_early_stopping_lr5e-5": {
         "num_epochs": 25,
         "early_stopping_patience": 3,
         "early_stopping_min_delta": 0.1,
+        "learning_rate": 0.00005,
     },
 }
 
 # t-SNE feature plot settings
-PLOT_TSNE = True
+PLOT_TSNE = False
 TSNE_MAX_SAMPLES = -1
 
 # Paths for files and directories

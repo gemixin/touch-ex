@@ -1,21 +1,21 @@
 {
   "norm_config": {
-    "random_state": 130,
+    "random_state": 132,
     "split_size": 0.2,
     "stratify_label": "object",
     "filtered_force_level": null,
     "filtered_motion": null,
-    "transform_name": "pad_224",
+    "transform_name": "center_crop_224",
     "bg_path": "data/baseline.jpg"
   },
   "mean": [
-    0.0022420049645006657,
-    -0.006177873816341162,
-    0.0023849692661315203
+    0.0054971082136034966,
+    -0.01020513940602541,
+    0.0033675062004476786
   ],
   "std": [
-    0.03428313136100769,
-    0.026677444577217102,
-    0.02821386232972145
+    0.043760739266872406,
+    0.03659723326563835,
+    0.03585532680153847
   ]
 }
