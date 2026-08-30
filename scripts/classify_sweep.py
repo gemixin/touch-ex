@@ -19,10 +19,10 @@ MODEL_TYPE = "t3_tiny"
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', or 'motion'
-TARGET_LABEL = "object"
+TARGET_LABEL = "object_region"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "t3_extended_aug_sweep"
+EXPERIMENT_NAME = "t3_frozen_aug_sweep"
 
 # Randomisation settings
 SEED = 129
@@ -31,7 +31,7 @@ DETERMINISTIC = True
 
 # Set to True to train only the classifier of pretrained models
 # Baseline models are always trained end-to-end
-FREEZE_BACKBONE = False
+FREEZE_BACKBONE = True
 
 # Load the SSVTP color jitter settings from the JSON file
 with open("configs/ssvtp_color_jitter_settings.json", "r", encoding="utf-8") as file:
@@ -76,11 +76,10 @@ DATA_CONFIG_VARIANTS = {
 # Each training variant is combined with every data variant above
 # Values override keys in the chosen training config file
 TRAIN_CONFIG_VARIANTS = {
-    "25ep_early_stopping_lr5e-5": {
+    "25ep_early_stopping": {
         "num_epochs": 25,
         "early_stopping_patience": 3,
         "early_stopping_min_delta": 0.1,
-        "learning_rate": 0.00005,
     },
 }
 
@@ -101,6 +100,7 @@ CHECKPOINT_DIR = "checkpoints"
 
 # --- Train and evaluate the configuration sweep --- #
 
+print(f"Starting sweep for '{EXPERIMENT_NAME}' with target label '{TARGET_LABEL}'...")
 classify_sweep(
     model_type=MODEL_TYPE,
     target_label=TARGET_LABEL,
