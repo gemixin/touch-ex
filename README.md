@@ -87,7 +87,7 @@ python3 -m scripts.regress
 
 The regression workflow uses an ImageNet-pretrained ResNet-18, optimises Huber loss on
 training-split-normalised targets, and reports MAE, RMSE, and R² in the original target
-units. Results are saved separately under `results/<target>_regress/`.
+units.
 
 ## Configurations
 
@@ -99,7 +99,9 @@ the same split and records it consistently.
 ### Data
 
 [`configs/default_data_config.json`](configs/default_data_config.json) is the standard
-starting point.
+starting point. [`configs/pad_jitter_data_config.json`](configs/pad_jitter_data_config.json)
+is the selected configuration from the configuration experiments; it uses the same
+padding-based transform with mild training-only colour jitter.
 
 | Setting | Purpose and accepted values |
 | --- | --- |
@@ -132,13 +134,16 @@ schedule (`learning_rate`, `warmup_epochs`, `warmup_start_factor`, and
 the optimiser momentum. To enable early stopping, set
 `early_stopping_patience` to a positive number of consecutive non-improving validation
 epochs; leave it as `null` to train for every epoch. `early_stopping_min_delta` is the
-minimum validation-accuracy improvement, in percentage points, that resets patience.
+minimum improvement required to reset patience: validation-accuracy improvement (in
+percentage points) for classification, or validation-loss reduction for regression.
 When a baseline is part of a multi-model experiment, it automatically uses the
 baseline config while pretrained models use the selected frozen or fine-tuned config.
 
 ## Outputs
 
-Each run saves the best validation checkpoint for every model under:
+### Classification
+
+Each classification run saves the best validation checkpoint for every model under:
 
 ```text
 checkpoints/<target>_classify/<experiment_number>/
@@ -157,6 +162,30 @@ results/<target>_classify/plots/<experiment_number>/
 ```
 
 This includes training curves, confusion matrices for the standard and unseen test sets, comparison plots for multi-model runs, and optional static and interactive t-SNE plots for the standard test set.
+
+### Regression
+
+Each regression run saves its lowest-validation-loss checkpoint under:
+
+```text
+checkpoints/<target>_regress/<experiment_number>/resnet18_regressor.pth
+```
+
+Its metadata, configurations, target normalisation statistics, training history,
+predictions, and metrics for the standard and unseen test sets are appended to:
+
+```text
+results/<target>_regress/experiments.parquet
+```
+
+Regression plots are saved under:
+
+```text
+results/<target>_regress/plots/<experiment_number>/
+```
+
+They include loss and MAE curves, plus predicted-versus-true and residual plots for
+the standard, unseen-matched, and unseen-related test splits.
 
 ## Citations
 

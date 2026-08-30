@@ -5,8 +5,8 @@ Author: Gemma McLean
 Date: April 2026
 """
 
-import os
 import math
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -390,12 +390,11 @@ def get_target_normalizer(dataset, regression_target):
     if not np.isfinite(values).all():
         raise ValueError(f"{regression_target} contains non-finite values.")
 
+    # Calculate mean and standard deviation for normalisation
     mean = float(values.mean())
     std = float(values.std())
     if std == 0:
-        raise ValueError(
-            f"{regression_target} has zero variance in the training split."
-        )
+        raise ValueError(f"{regression_target} has zero variance in the training split.")
     return {"mean": mean, "std": std}
 
 
@@ -431,124 +430,143 @@ def train_regressor(
     train_config,
 ):
     """
-    Train a tactile regressor using Huber loss on normalised continuous targets.
+    Train the given regressor model.
 
     Args:
-        model (nn.Module): The regression model to train.
+        model (nn.Module): The model to train.
         device (torch.device): The device to use for training.
         train_loader (DataLoader): The training data loader.
         val_loader (DataLoader): The validation data loader.
-        regression_target (str): The batch key for the continuous target variable.
-        target_normalizer (dict): Training-split target mean and standard deviation.
+        regression_target (str): The label key for the continuous target variable.
+        target_normalizer (dict): The training-split target mean and standard deviation.
         train_config (dict): Configuration dictionary containing training settings.
 
     Returns:
-        tuple: The trained model and its training history.
+        nn.Module: The trained model.
+        list: Training history.
     """
 
-    # Validate settings before starting training
+    # If the train config is invalid, raise an error before proceeding
     validate_train_config(train_config)
-    # Get training and early-stopping settings from the configuration
+
+    # Get the title of the model from the config for logging and checkpointing
     model_title = train_config["model_title"]
     num_epochs = train_config["num_epochs"]
-    patience = train_config["early_stopping_patience"]
-    min_delta = train_config["early_stopping_min_delta"]
-    # Move the model to the selected device
+    early_stopping_patience = train_config["early_stopping_patience"]
+    early_stopping_min_delta = train_config["early_stopping_min_delta"]
+    # Move model to the specified device
     model = model.to(device)
-    # Create the optimiser, scheduler, and regression loss function
+    # Get the optimizer and criterion from the config
     optimizer = get_optimizer(model, train_config)
     scheduler = get_lr_scheduler(optimizer, train_config, len(train_loader))
+    # Criterion is Huber loss for regression
     criterion = nn.HuberLoss().to(device)
 
-    # If checkpointing is enabled, create the checkpoint path
-    checkpoint_path = None
+    # If checkpointing is enabled, get path
     if train_config["checkpoint_dir"]:
         os.makedirs(train_config["checkpoint_dir"], exist_ok=True)
-        checkpoint_path = os.path.join(
-            train_config["checkpoint_dir"], f"{model_title}.pth"
-        )
+        checkpoint_path = os.path.join(train_config["checkpoint_dir"], f"{model_title}.pth")
 
-    # Track the best validation loss for checkpointing and early stopping
+    # Track the best validation loss for checkpointing
     best_val_loss = float("inf")
-    best_early_stopping_loss = float("inf")
+    # Track meaningful validation improvements for early stopping separately so the
+    # checkpoint remains the best model even when its improvement is below min_delta
+    best_early_stopping_val_loss = float("inf")
     epochs_without_improvement = 0
+    # List to store training history (loss and metrics for each epoch)
     history = []
-    print(f"Starting regression training of {model_title} on device: {device}")
+
+    print(f"Starting training of {model_title} on device: {device}")
 
     for epoch in range(num_epochs):
         # -- Training Phase -- #
 
         model.train()
         train_loss = 0.0
-        train_true, train_pred = [], []
-        for batch in tqdm(
+        train_y_true, train_y_pred = [], []
+
+        # Iterate over training batches
+        for features in tqdm(
             train_loader,
             desc=f"Epoch {epoch + 1}/{num_epochs} - Train",
             leave=False,
+            total=len(train_loader),
         ):
-            images = batch["image"].to(device)
-            targets = batch[regression_target].to(device)
-            normalized_targets = _normalise_targets(targets, target_normalizer)
+            # Get images and targets from features and move to device
+            imgs = features["image"].to(device)
+            targets = features[regression_target].to(device)
+            normalised_targets = _normalise_targets(targets, target_normalizer)
 
+            # Perform forward pass, compute loss, and backpropagate
             optimizer.zero_grad()
-            predictions = model(images)
-            loss = criterion(predictions, normalized_targets)
+            outputs = model(imgs)
+            loss = criterion(outputs, normalised_targets)
             loss.backward()
             optimizer.step()
             scheduler.step()
 
+            # Update overall training loss
             train_loss += loss.item()
-            train_true.extend(targets.detach().cpu().numpy())
-            train_pred.extend(
-                _denormalise_targets(
-                    predictions.detach(), target_normalizer
-                ).cpu().numpy()
+            # Append true and predicted targets to lists for metric calculation
+            train_y_true.extend(targets.detach().cpu().numpy())
+            train_y_pred.extend(
+                _denormalise_targets(outputs.detach(), target_normalizer).cpu().numpy()
             )
+
+        # -- Validation Phase -- #
 
         model.eval()
         val_loss = 0.0
-        val_true, val_pred = [], []
-        with torch.no_grad():
-            # -- Validation Phase -- #
+        val_y_true, val_y_pred = [], []
 
-            for batch in tqdm(
+        # Iterate over validation batches without computing gradients
+        with torch.no_grad():
+            for features in tqdm(
                 val_loader,
                 desc=f"Epoch {epoch + 1}/{num_epochs} - Val",
                 leave=False,
+                total=len(val_loader),
             ):
-                images = batch["image"].to(device)
-                targets = batch[regression_target].to(device)
-                predictions = model(images)
-                val_loss += criterion(
-                    predictions, _normalise_targets(targets, target_normalizer)
-                ).item()
-                val_true.extend(targets.cpu().numpy())
-                val_pred.extend(
-                    _denormalise_targets(
-                        predictions, target_normalizer
-                    ).cpu().numpy()
+                # Get images and targets from features and move to device
+                imgs = features["image"].to(device)
+                targets = features[regression_target].to(device)
+                normalised_targets = _normalise_targets(targets, target_normalizer)
+
+                # Perform forward pass and compute loss
+                outputs = model(imgs)
+                loss = criterion(outputs, normalised_targets)
+
+                # Update overall validation loss
+                val_loss += loss.item()
+                # Append true and predicted targets to lists for metric calculation
+                val_y_true.extend(targets.cpu().numpy())
+                val_y_pred.extend(
+                    _denormalise_targets(outputs, target_normalizer).cpu().numpy()
                 )
 
         # -- Metrics -- #
 
-        # Calculate average normalised loss and raw-unit regression metrics
-        train_loss /= len(train_loader)
-        val_loss /= len(val_loader)
-        train_metrics = _regression_metrics(train_true, train_pred)
-        val_metrics = _regression_metrics(val_true, val_pred)
-        history.append(
-            {
-                "epoch": epoch + 1,
-                "train_loss": train_loss,
-                "train_mae": train_metrics["mae"],
-                "train_rmse": train_metrics["rmse"],
-                "val_loss": val_loss,
-                "val_mae": val_metrics["mae"],
-                "val_rmse": val_metrics["rmse"],
-                "val_r2": val_metrics["r2"],
-                "learning_rate": optimizer.param_groups[0]["lr"],
-            }
-        )
+        # Compute average normalised loss and raw-unit metrics for this epoch
+        train_loss = train_loss / len(train_loader)
+        val_loss = val_loss / len(val_loader)
+        train_metrics = _regression_metrics(train_y_true, train_y_pred)
+        val_metrics = _regression_metrics(val_y_true, val_y_pred)
+
+        # Store metrics in dictionary and append to history
+        metrics = {
+            "epoch": epoch + 1,
+            "train_loss": train_loss,
+            "train_mae": train_metrics["mae"],
+            "train_rmse": train_metrics["rmse"],
+            "val_loss": val_loss,
+            "val_mae": val_metrics["mae"],
+            "val_rmse": val_metrics["rmse"],
+            "val_r2": val_metrics["r2"],
+            "learning_rate": optimizer.param_groups[0]["lr"],
+        }
+        history.append(metrics)
+
+        # Print metrics for this epoch (use tqdm.write to avoid corrupting bars)
         tqdm.write(
             f"Epoch {epoch + 1}/{num_epochs} - Train Loss: {train_loss:.4f}, "
             f"Train MAE: {train_metrics['mae']:.4f}, Val Loss: {val_loss:.4f}, "
@@ -557,40 +575,48 @@ def train_regressor(
 
         # -- Checkpointing -- #
 
-        # Save the model with the lowest validation loss
-        if checkpoint_path and val_loss < best_val_loss:
-            best_val_loss = val_loss
-            torch.save(
-                {
-                    "epoch": epoch + 1,
-                    "model_state_dict": model.state_dict(),
-                    "optimizer_state_dict": optimizer.state_dict(),
-                    "val_loss": best_val_loss,
-                },
-                checkpoint_path,
-            )
+        # If checkpointing is enabled
+        if train_config["checkpoint_dir"]:
+            # If this is the best validation loss so far, save the model checkpoint
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                torch.save(
+                    {
+                        "epoch": epoch + 1,
+                        "model_state_dict": model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "val_loss": best_val_loss,
+                    },
+                    checkpoint_path,
+                )
 
         # -- Early stopping -- #
 
-        # Stop when validation loss does not improve by the configured minimum amount
-        if patience is not None:
-            if val_loss < best_early_stopping_loss - min_delta:
-                best_early_stopping_loss = val_loss
+        # If early stopping is enabled
+        if early_stopping_patience is not None:
+            # Reset the patience counter when validation loss improves by min_delta
+            if val_loss < best_early_stopping_val_loss - early_stopping_min_delta:
+                best_early_stopping_val_loss = val_loss
                 epochs_without_improvement = 0
+            # Otherwise, count this epoch toward the early-stopping patience limit
             else:
                 epochs_without_improvement += 1
-                if epochs_without_improvement >= patience:
+                if epochs_without_improvement >= early_stopping_patience:
                     tqdm.write(
-                        f"Early stopping after {epoch + 1} epochs: validation loss did "
-                        f"not improve by at least {min_delta} for {patience} epochs."
+                        "Early stopping after "
+                        f"{epoch + 1} epochs: validation loss did not improve "
+                        f"by at least {early_stopping_min_delta} for "
+                        f"{early_stopping_patience} consecutive epochs."
                     )
                     break
 
-    # Load the best validation checkpoint after training completes
-    if checkpoint_path:
+    # After training is complete, if checkpointing is enabled, load the best checkpoint
+    if train_config["checkpoint_dir"]:
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
         model.load_state_dict(checkpoint["model_state_dict"])
         print(f"Loaded best model checkpoint from epoch {checkpoint['epoch']}.")
+
+    # Return the trained model and the history of metrics
     return model, history
 
 
@@ -601,48 +627,66 @@ def eval_regressor(
     test_loader,
     regression_target,
     target_normalizer,
-    evaluation_name,
+    evaluation_name="test",
 ):
     """
-    Evaluate a tactile regressor on one dataset split.
+    Evaluate the given regressor model on the test set.
 
     Args:
-        model (nn.Module): The trained regression model.
-        model_title (str): Model name used in evaluation output.
-        device (torch.device): The device used for evaluation.
-        test_loader (DataLoader): The evaluation data loader.
-        regression_target (str): The batch key for the continuous target variable.
-        target_normalizer (dict): Training-split target mean and standard deviation.
-        evaluation_name (str): Name of the evaluated dataset split.
+        model (nn.Module): The model to evaluate.
+        model_title (str): The title of the model for logging purposes.
+        device (torch.device): The device to use for evaluation.
+        test_loader (DataLoader): The test data loader.
+        regression_target (str): The label key for the continuous target variable.
+        target_normalizer (dict): The training-split target mean and standard deviation.
+        evaluation_name (str): Name used in evaluation progress output.
 
     Returns:
-        dict: Loss, raw-unit metrics, true targets, and predictions.
+        dict: A dictionary containing test loss, raw-unit regression metrics, true
+            targets, and predicted targets.
     """
 
-    # Set the model to evaluation mode and use the training loss function
-    model.eval()
+    model = model.to(device)
+    # Criterion is Huber loss for regression
     criterion = nn.HuberLoss().to(device)
+
+    # -- Evaluation Phase -- #
+
+    model.eval()
     test_loss = 0.0
     y_true, y_pred = [], []
-    print(f"Evaluating {model_title} on {evaluation_name}...")
 
+    print(f"Starting {evaluation_name} evaluation of {model_title} on device: {device}")
+
+    # Iterate over test batches without computing gradients
     with torch.no_grad():
-        for batch in tqdm(test_loader, desc=evaluation_name, total=len(test_loader)):
-            images = batch["image"].to(device)
-            targets = batch[regression_target].to(device)
-            predictions = model(images)
-            test_loss += criterion(
-                predictions, _normalise_targets(targets, target_normalizer)
-            ).item()
-            y_true.extend(targets.cpu().numpy())
-            y_pred.extend(
-                _denormalise_targets(predictions, target_normalizer).cpu().numpy()
-            )
+        for features in tqdm(test_loader, desc=evaluation_name, total=len(test_loader)):
+            # Get images and targets from features and move to device
+            imgs = features["image"].to(device)
+            targets = features[regression_target].to(device)
+            normalised_targets = _normalise_targets(targets, target_normalizer)
 
+            # Perform forward pass and compute loss
+            outputs = model(imgs)
+            loss = criterion(outputs, normalised_targets)
+
+            # Update overall test loss
+            test_loss += loss.item()
+            # Append true and predicted targets to lists for later analysis
+            # Move to CPU and convert to numpy array before appending
+            y_true.extend(targets.cpu().numpy())
+            y_pred.extend(_denormalise_targets(outputs, target_normalizer).cpu().numpy())
+
+    # Compute average test loss
+    test_loss = test_loss / len(test_loader)
+
+    # Compute raw-unit regression metrics
     metrics = _regression_metrics(y_true, y_pred)
-    test_loss /= len(test_loader)
+
     tqdm.write(
         f"Loss: {test_loss:.4f}, MAE: {metrics['mae']:.4f}, "
         f"RMSE: {metrics['rmse']:.4f}, R2: {metrics['r2']:.4f}"
     )
+
+    # Return a dictionary containing the results
     return {"test_loss": test_loss, **metrics, "y_true": y_true, "y_pred": y_pred}
