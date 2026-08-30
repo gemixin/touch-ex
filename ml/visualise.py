@@ -205,13 +205,21 @@ def plot_regression_training_curves(history, plots_path, regression_target):
     # Extract epoch, loss, and MAE values from the training history
     epochs = [entry["epoch"] for entry in history]
     fig, axes = plt.subplots(1, 2, figsize=(15, 5))
-    axes[0].plot(epochs, [entry["train_loss"] for entry in history], label="Train")
-    axes[0].plot(epochs, [entry["val_loss"] for entry in history], label="Validation")
-    axes[0].set(title=f"Huber Loss — {regression_target}", xlabel="Epoch", ylabel="Loss")
+    axes[0].plot(
+        epochs, [entry["train_loss"] for entry in history], label="Train Loss"
+    )
+    axes[0].plot(epochs, [entry["val_loss"] for entry in history], label="Val Loss")
+    axes[0].set_title(
+        f"Loss Curves for {regression_target}", fontsize=14, fontweight="bold"
+    )
+    axes[0].set(xlabel="Epoch", ylabel="Loss")
     axes[0].legend()
-    axes[1].plot(epochs, [entry["train_mae"] for entry in history], label="Train")
-    axes[1].plot(epochs, [entry["val_mae"] for entry in history], label="Validation")
-    axes[1].set(title=f"MAE — {regression_target}", xlabel="Epoch", ylabel="MAE")
+    axes[1].plot(epochs, [entry["train_mae"] for entry in history], label="Train MAE")
+    axes[1].plot(epochs, [entry["val_mae"] for entry in history], label="Val MAE")
+    axes[1].set_title(
+        f"MAE Curves for {regression_target}", fontsize=14, fontweight="bold"
+    )
+    axes[1].set(xlabel="Epoch", ylabel="MAE")
     axes[1].legend()
     # Create the output directory and save the combined learning-curves figure
     os.makedirs(plots_path, exist_ok=True)
@@ -236,12 +244,13 @@ def plot_regression_predictions(results, plots_path, regression_target, test_set
     y_pred = np.asarray(results["y_pred"])
     minimum = min(y_true.min(), y_pred.min())
     maximum = max(y_true.max(), y_pred.max())
+    test_set_title = TEST_SET_TITLES[test_set_name]
     # Plot predictions against true values alongside the corresponding residuals
     fig, axes = plt.subplots(1, 2, figsize=(15, 5))
     axes[0].scatter(y_true, y_pred, alpha=0.65, s=18)
     axes[0].plot([minimum, maximum], [minimum, maximum], "k--", label="Ideal")
     axes[0].set(
-        title=f"Predicted vs True — {test_set_name}",
+        title=f"Predicted vs True — {test_set_title}",
         xlabel=f"True {regression_target}",
         ylabel=f"Predicted {regression_target}",
     )
@@ -249,7 +258,7 @@ def plot_regression_predictions(results, plots_path, regression_target, test_set
     axes[1].scatter(y_true, y_pred - y_true, alpha=0.65, s=18)
     axes[1].axhline(0, color="black", linestyle="--")
     axes[1].set(
-        title=f"Residuals — {test_set_name}",
+        title=f"Residuals — {test_set_title}",
         xlabel=f"True {regression_target}",
         ylabel="Prediction error",
     )

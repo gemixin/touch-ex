@@ -16,7 +16,7 @@ FREEZE_BACKBONE = False
 
 # Values here override keys in the provided data and training configuration files
 DATA_CONFIG_OVERRIDES = {}
-TRAIN_CONFIG_OVERRIDES = {"num_epochs": 3}
+TRAIN_CONFIG_OVERRIDES = {"num_epochs": 1}
 
 DATA_CONFIG_PATH = "configs/default_data_config.json"
 TRAIN_CONFIG_PATH = "configs/finetuned_train_config.json"
