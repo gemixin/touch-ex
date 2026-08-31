@@ -6,9 +6,9 @@
 	"min_learning_rate": 0.00001,
 	"momentum": 0.9,
 	"weight_decay": 0.02,
-	"num_epochs": 10,
-	"early_stopping_patience": null,
-	"early_stopping_min_delta": 0.0,
+	"num_epochs": 25,
+	"early_stopping_patience": 3,
+	"early_stopping_min_delta": 0.1,
 	"checkpoint_dir": "checkpoints",
 	"model_title": "model"
 }
