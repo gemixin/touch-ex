@@ -25,7 +25,7 @@ TARGET_LABEL = "object"
 EXPERIMENT_NAME = "resnet18_candidate_seed_130_sweep"
 
 # Randomisation settings
-SEED = 130
+SEED = 129
 DETERMINISTIC = True
 
 # Set to True to train only the classifier of pretrained models

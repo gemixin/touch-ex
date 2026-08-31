@@ -192,86 +192,9 @@ def plot_tsne_features(
     print(f"Saved interactive t-SNE features at {interactive_path}")
 
 
-def plot_regression_training_curves(history, plots_path, regression_target):
+def plot_classification_training_curves(history, model_type, plots_path):
     """
-    Plot and save training and validation loss and MAE curves for a regression experiment.
-
-    Args:
-        history (list): Regression training history.
-        plots_path (str): Directory in which to save the plot.
-        regression_target (str): Continuous target displayed in plot titles.
-    """
-
-    # Extract epoch, loss, and MAE values from the training history
-    epochs = [entry["epoch"] for entry in history]
-    fig, axes = plt.subplots(1, 2, figsize=(15, 5))
-    axes[0].plot(
-        epochs, [entry["train_loss"] for entry in history], label="Train Loss"
-    )
-    axes[0].plot(epochs, [entry["val_loss"] for entry in history], label="Val Loss")
-    axes[0].set_title(
-        f"Loss Curves for {regression_target}", fontsize=14, fontweight="bold"
-    )
-    axes[0].set(xlabel="Epoch", ylabel="Loss")
-    axes[0].legend()
-    axes[1].plot(epochs, [entry["train_mae"] for entry in history], label="Train MAE")
-    axes[1].plot(epochs, [entry["val_mae"] for entry in history], label="Val MAE")
-    axes[1].set_title(
-        f"MAE Curves for {regression_target}", fontsize=14, fontweight="bold"
-    )
-    axes[1].set(xlabel="Epoch", ylabel="MAE")
-    axes[1].legend()
-    # Create the output directory and save the combined learning-curves figure
-    os.makedirs(plots_path, exist_ok=True)
-    fig.tight_layout()
-    fig.savefig(os.path.join(plots_path, "training_curves.png"), dpi=300)
-    plt.close(fig)
-
-
-def plot_regression_predictions(results, plots_path, regression_target, test_set_name):
-    """
-    Plot and save predicted-versus-true and residual plots in raw target units.
-
-    Args:
-        results (dict): Regression evaluation metrics and predictions.
-        plots_path (str): Directory in which to save the plot.
-        regression_target (str): Continuous target displayed on plot axes.
-        test_set_name (str): Name of the evaluated dataset split.
-    """
-
-    # Convert saved predictions and targets to NumPy arrays for plotting
-    y_true = np.asarray(results["y_true"])
-    y_pred = np.asarray(results["y_pred"])
-    minimum = min(y_true.min(), y_pred.min())
-    maximum = max(y_true.max(), y_pred.max())
-    test_set_title = TEST_SET_TITLES[test_set_name]
-    # Plot predictions against true values alongside the corresponding residuals
-    fig, axes = plt.subplots(1, 2, figsize=(15, 5))
-    axes[0].scatter(y_true, y_pred, alpha=0.65, s=18)
-    axes[0].plot([minimum, maximum], [minimum, maximum], "k--", label="Ideal")
-    axes[0].set(
-        title=f"Predicted vs True — {test_set_title}",
-        xlabel=f"True {regression_target}",
-        ylabel=f"Predicted {regression_target}",
-    )
-    axes[0].legend()
-    axes[1].scatter(y_true, y_pred - y_true, alpha=0.65, s=18)
-    axes[1].axhline(0, color="black", linestyle="--")
-    axes[1].set(
-        title=f"Residuals — {test_set_title}",
-        xlabel=f"True {regression_target}",
-        ylabel="Prediction error",
-    )
-    # Create the output directory and save the combined prediction figure
-    os.makedirs(plots_path, exist_ok=True)
-    fig.tight_layout()
-    fig.savefig(os.path.join(plots_path, f"{test_set_name}_predictions.png"), dpi=300)
-    plt.close(fig)
-
-
-def plot_training_curves(history, model_type, plots_path):
-    """
-    Plot training and validation loss and accuracy curves for one model.
+    Plot training and validation loss and accuracy curves for one classification model.
 
     Args:
         history (list): Training history for the model.
@@ -430,3 +353,97 @@ def plot_confusion_matrix(
     fig.savefig(save_path, bbox_inches="tight", dpi=300)
     plt.close(fig)
     print(f"Saved confusion matrix for {model_type} at {save_path}")
+
+
+def plot_regression_training_curves(history, regression_target, plots_path):
+    """
+    Plot training and validation loss and MAE curves for one regression model.
+
+    Args:
+        history (list): Training history for the model.
+        regression_target (str): The continuous target used in the plot titles.
+        plots_path (str): The folder path where the plots will be saved.
+    """
+
+    # Create a figure with 2 subplots
+    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+
+    # Extract epochs, training and validation losses from the history
+    epochs = [h["epoch"] for h in history]
+    train_losses = [h["train_loss"] for h in history]
+    val_losses = [h["val_loss"] for h in history]
+
+    # Plot training and validation loss curves
+    axs[0].plot(epochs, train_losses, label="Train Loss")
+    axs[0].plot(epochs, val_losses, label="Val Loss")
+    axs[0].set_title(f"Loss Curves for {regression_target}", fontsize=14, fontweight="bold")
+    axs[0].set_xlabel("Epoch")
+    axs[0].set_ylabel("Loss")
+    axs[0].legend()
+
+    # Extract training and validation MAEs from the history
+    train_maes = [h["train_mae"] for h in history]
+    val_maes = [h["val_mae"] for h in history]
+
+    # Plot training and validation MAE curves
+    axs[1].plot(epochs, train_maes, label="Train MAE")
+    axs[1].plot(epochs, val_maes, label="Val MAE")
+    axs[1].set_title(f"MAE Curves for {regression_target}", fontsize=14, fontweight="bold")
+    axs[1].set_xlabel("Epoch")
+    axs[1].set_ylabel("MAE")
+    axs[1].legend()
+
+    # Save the plot
+    plt.tight_layout()
+    save_path = f"{plots_path}/curves.png"
+    os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
+    fig.savefig(save_path, dpi=300)
+    plt.close(fig)
+    print(f"Saved training curves for {regression_target} at {save_path}")
+
+
+def plot_regression_predictions(results, regression_target, plots_path, test_set_name):
+    """
+    Plot and save predicted-versus-true and residual plots in raw target units.
+
+    Args:
+        results (dict): Evaluation results for the model.
+        regression_target (str): The continuous target displayed on the plot axes.
+        plots_path (str): The folder path where the plot will be saved.
+        test_set_name (str): Name of the evaluated test set, used in plot titles and paths.
+    """
+
+    # Convert saved predictions and targets to NumPy arrays for plotting
+    y_true = np.asarray(results["y_true"])
+    y_pred = np.asarray(results["y_pred"])
+
+    # Get shared axis limits for the true and predicted values
+    minimum = min(y_true.min(), y_pred.min())
+    maximum = max(y_true.max(), y_pred.max())
+    test_set_title = TEST_SET_TITLES[test_set_name]
+
+    # Create a figure with 2 subplots
+    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+
+    # Plot predicted values against true values
+    axs[0].scatter(y_true, y_pred, alpha=0.65, s=18)
+    axs[0].plot([minimum, maximum], [minimum, maximum], "k--", label="Ideal")
+    axs[0].set_title(f"Predicted vs True — {test_set_title}")
+    axs[0].set_xlabel(f"True {regression_target}")
+    axs[0].set_ylabel(f"Predicted {regression_target}")
+    axs[0].legend()
+
+    # Plot residuals against true values
+    axs[1].scatter(y_true, y_pred - y_true, alpha=0.65, s=18)
+    axs[1].axhline(0, color="black", linestyle="--")
+    axs[1].set_title(f"Residuals — {test_set_title}")
+    axs[1].set_xlabel(f"True {regression_target}")
+    axs[1].set_ylabel("Prediction Error")
+
+    # Save the plot
+    plt.tight_layout()
+    save_path = f"{plots_path}/predictions_{test_set_name}.png"
+    os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
+    fig.savefig(save_path, dpi=300)
+    plt.close(fig)
+    print(f"Saved predictions at {save_path}")

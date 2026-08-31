@@ -677,7 +677,7 @@ def generate_classification_plots(experiment):
     # Plot training curves for each model
     for history, run_name in zip(experiment["histories"], experiment["run_names"]):
         model_plots_path = os.path.join(plots_path, run_name)
-        mv.plot_training_curves(
+        mv.plot_classification_training_curves(
             history=history,
             model_type=run_name,
             plots_path=model_plots_path,

@@ -93,7 +93,7 @@ class PretrainedModel(nn.Module):
 
     def forward(self, x, return_features=False):
         """
-        Forward pass through the model.
+         Perform a forward pass through the model.
 
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, 3, 224, 224)

@@ -1,6 +1,10 @@
 # Touch-Ex
 
-Touch-Ex provides a reproducible classification pipeline for the [Touch-Ex dataset](https://huggingface.co/datasets/gemixin/touch-ex), a visuo-tactile dataset collected with a [DIGIT](https://digit.ml/) tactile sensor. It supports baseline CNN and pretrained visual/tactile encoders, standard and unseen-set evaluation, and saved experiment results and plots.
+Touch-Ex provides reproducible classification and regression pipelines for the
+[Touch-Ex dataset](https://huggingface.co/datasets/gemixin/touch-ex), a visuo-tactile
+dataset collected with a [DIGIT](https://digit.ml/) tactile sensor. It supports a
+baseline CNN, pretrained visual and tactile encoders, continuous force and voltage
+regression, standard and unseen-set evaluation, and saved experiment results and plots.
 
 ## Project Structure
 
@@ -33,7 +37,9 @@ conda env create -f environment.yml
 conda activate touch-ex
 ```
 
-The pipeline downloads the Touch-Ex dataset from Hugging Face when it is first used. A CUDA-enabled PyTorch installation is recommended for training.
+The pipeline downloads the Touch-Ex dataset from Hugging Face when it is first used. A
+CUDA-enabled PyTorch installation is recommended for training. Run the commands below
+from the repository root so the relative configuration and data paths resolve correctly.
 
 ## Running a Classification Experiment
 
@@ -85,16 +91,27 @@ Configure `REGRESSION_TARGET` in [`scripts/regress.py`](scripts/regress.py) as e
 python3 -m scripts.regress
 ```
 
+The main settings are:
+
+- `REGRESSION_TARGET`: `force_n` or `fsr_voltage`
+- `EXPERIMENT_NAME`: a descriptive name recorded with the results
+- `SEED` and `DETERMINISTIC`: reproducibility settings
+- `FREEZE_BACKBONE`: train only the regression head when `True`
+- `DATA_CONFIG_OVERRIDES` and `TRAIN_CONFIG_OVERRIDES`: values applied over the selected
+  base JSON configurations
+
 The regression workflow uses an ImageNet-pretrained ResNet-18, optimises Huber loss on
 training-split-normalised targets, and reports MAE, RMSE, and R² in the original target
-units.
+units. With `FREEZE_BACKBONE=True`, the ImageNet-pretrained backbone remains frozen and
+only the regression head is trained; with `False`, the entire model is fine-tuned.
 
 ## Configurations
 
-The scripts start with a base JSON file and apply any variant overrides defined in the
-script. The experiment's `SEED` and `TARGET_LABEL` take precedence over
-`random_state` and `stratify_label`, respectively, so every run in an experiment uses
-the same split and records it consistently.
+The scripts start with base JSON files and apply the overrides defined in the script.
+Classification sweeps apply every combination of their named data and training variants.
+`SEED` always takes precedence over the data config's `random_state`. Classification
+experiments also set `stratify_label` from `TARGET_LABEL`; regression experiments retain
+the `stratify_label` selected in their data configuration.
 
 ### Data
 
@@ -136,52 +153,58 @@ the optimiser momentum. To enable early stopping, set
 epochs; leave it as `null` to train for every epoch. `early_stopping_min_delta` is the
 minimum improvement required to reset patience: validation-accuracy improvement (in
 percentage points) for classification, or validation-loss reduction for regression.
-When a baseline is part of a multi-model experiment, it automatically uses the
-baseline config while pretrained models use the selected frozen or fine-tuned config.
+When a baseline is part of a multi-model classification experiment, it automatically
+uses the baseline config while pretrained models use the selected frozen or fine-tuned
+config. Regression uses the frozen or fine-tuned config according to
+`FREEZE_BACKBONE`.
 
 ## Outputs
 
 ### Classification
 
-Each classification run saves the best validation checkpoint for every model under:
+Each classification run saves the best-validation-accuracy checkpoint for every model
+under:
 
 ```text
-checkpoints/<target>_classify/<experiment_number>/
+<CHECKPOINT_DIR>/<target>_classify/<NNN>/<run_name>.pth
 ```
 
 Experiment metadata, data/training configs, histories, predictions, and evaluation metrics are appended to:
 
 ```text
-results/<target>_classify/experiments.parquet
+<RESULTS_DIR>/<target>_classify/experiments.parquet
 ```
 
 Plots are saved under:
 
 ```text
-results/<target>_classify/plots/<experiment_number>/
+<RESULTS_DIR>/<target>_classify/plots/<NNN>/
 ```
 
-This includes training curves, confusion matrices for the standard and unseen test sets, comparison plots for multi-model runs, and optional static and interactive t-SNE plots for the standard test set.
+Here, `<NNN>` is the zero-padded experiment number. The output includes per-run training
+curves and confusion matrices for the standard and unseen test sets, comparison plots
+for multi-run experiments, and optional static and interactive t-SNE plots for the
+standard test set.
 
 ### Regression
 
 Each regression run saves its lowest-validation-loss checkpoint under:
 
 ```text
-checkpoints/<target>_regress/<experiment_number>/resnet18_regressor.pth
+<CHECKPOINT_DIR>/<target>_regress/<NNN>/resnet18_regressor.pth
 ```
 
 Its metadata, configurations, target normalisation statistics, training history,
 predictions, and metrics for the standard and unseen test sets are appended to:
 
 ```text
-results/<target>_regress/experiments.parquet
+<RESULTS_DIR>/<target>_regress/experiments.parquet
 ```
 
 Regression plots are saved under:
 
 ```text
-results/<target>_regress/plots/<experiment_number>/
+<RESULTS_DIR>/<target>_regress/plots/<NNN>/
 ```
 
 They include loss and MAE curves, plus predicted-versus-true and residual plots for

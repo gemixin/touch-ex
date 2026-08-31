@@ -1,17 +1,13 @@
-"""
-A module containing a ResNet-18 model for continuous tactile-target regression.
-
-Author: Gemma McLean
-Date: August 2026
-"""
-
 import torch.nn as nn
 from torchvision import models
 
 
 class ResNet18Regressor(nn.Module):
     """
-    An ImageNet-pretrained ResNet-18 wrapper with a single-value regression head.
+    An ImageNet-pretrained ResNet-18 model wrapper with a single-value regression head.
+
+    Author: Gemma McLean
+    Date: August 2026
     """
 
     feature_dim = 512
@@ -26,17 +22,19 @@ class ResNet18Regressor(nn.Module):
         """
 
         super().__init__()
-        # Store whether the pretrained backbone should remain frozen
         self.freeze_backbone = freeze_backbone
+
         # Load the pretrained ResNet-18 backbone and remove its classification head
         self.backbone = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
         self.backbone.fc = nn.Identity()
-        # Add a single-output regression head
+
+        # Set the regressor
         self.regressor = nn.Sequential(
             nn.Dropout(p=0.2),
             nn.Linear(self.feature_dim, 1),
         )
 
+        # Freeze pretrained backbone parameters when training only the regression head
         if self.freeze_backbone:
             for parameter in self.backbone.parameters():
                 parameter.requires_grad = False
@@ -60,7 +58,7 @@ class ResNet18Regressor(nn.Module):
 
     def forward(self, images, return_features=False):
         """
-        Perform a forward pass through the regressor.
+        Perform a forward pass through the model.
 
         Args:
             images (torch.Tensor): Input tensor of shape (batch_size, 3, 224, 224)
@@ -71,10 +69,12 @@ class ResNet18Regressor(nn.Module):
                 (batch_size, feature_dim) when return_features is True.
         """
 
-        # Pass images through the pretrained backbone to obtain feature vectors
+        # Pass through the backbone to get features
         features = self.backbone(images)
-        # Return image features for feature visualisation when requested
+
+        # If return_features is True, return the features before the regressor
         if return_features:
             return features
-        # Otherwise return one continuous prediction per input image
+
+        # Otherwise, pass through the regressor for regression
         return self.regressor(features).squeeze(1)
