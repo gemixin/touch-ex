@@ -47,15 +47,14 @@ PLOT_TSNE = True
 TSNE_MAX_SAMPLES = -1
 
 # Paths for files and directories
-DATA_CONFIG_PATH = "configs/default_data_config.json"
+DATA_CONFIG_PATH = "configs/pad_jitter_data_config.json"
 TRAIN_CONFIG_PATH = (
     "configs/frozen_train_config.json"
     if FREEZE_BACKBONE
     else "configs/finetuned_train_config.json"
 )
 BASELINE_TRAIN_CONFIG_PATH = "configs/baseline_train_config.json"
-# RESULTS_DIR = "/home/gemma/development/python/touch-ex-results/results"
-RESULTS_DIR = "results"
+RESULTS_DIR = "/home/gemma/development/python/touch-ex-results/results"
 CHECKPOINT_DIR = "checkpoints"
 
 # --- Train and evaluate models --- #
