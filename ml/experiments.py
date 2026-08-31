@@ -12,10 +12,17 @@ import pandas as pd
 from data.builder import create_dataloaders, get_datasets
 from models.baseline import BaselineCNNModel
 from models.pretrained import DEIT_TINY_CHECKPOINT, PretrainedModel
+from models.regression import ResNet18Regressor
 from models.t3 import T3_REPOSITORY, T3_REVISION
-from models.train_eval import eval_classifier, train_classifier
-from models.torch_functions import get_device, set_random_seed
-import models.visualise as mv
+from ml.train_eval import (
+    eval_classifier,
+    eval_regressor,
+    get_target_normalizer,
+    train_classifier,
+    train_regressor,
+)
+from ml.torch_functions import get_device, set_random_seed
+import ml.visualise as mv
 
 
 # Map each target label to its unseen-evaluation label and whether its true and
@@ -26,6 +33,9 @@ UNSEEN_EVALUATION_TARGETS = {
     "force_level": {"target_label": "force_level", "cross_space": False},
     "motion": {"target_label": "motion", "cross_space": False},
 }
+
+# Set of valid regression targets
+REGRESSION_TARGETS = {"force_n", "fsr_voltage"}
 
 
 def classify(
@@ -56,15 +66,15 @@ def classify(
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
         freeze_backbone (bool): Whether to freeze pretrained model backbones. Baseline
             models are always trained end-to-end.
-        data_config_overrides (dict): A dictionary containing overrides for the
-            default data configuration, applied to every model.
-        train_config_overrides (dict): A dictionary containing overrides for the default
+        data_config_overrides (dict): A dictionary containing overrides for the base
+            data configuration, applied to every model.
+        train_config_overrides (dict): A dictionary containing overrides for the base
             training configuration.
         plot_tsne (bool): Whether to generate t-SNE plots.
         tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all test
             samples should be used.
-        data_config_path (str): Path to the default data configuration JSON file.
-        train_config_path (str): Path to the default training configuration JSON file.
+        data_config_path (str): Path to the base data configuration JSON file.
+        train_config_path (str): Path to the base training configuration JSON file.
         baseline_train_config_path (str): Path to the training configuration JSON file
             used for baseline models.
         results_dir (str): Root directory for experiment results.
@@ -98,10 +108,11 @@ def classify(
         )
 
     # Prepare the experiment context
-    experiment = prepare_experiment(
+    experiment = prepare_classification_experiment(
         model_types=model_types,
         run_names=model_types,
         target_label=target_label,
+        experiment_name=experiment_name,
         seed=seed,
         deterministic=deterministic,
         freeze_backbone=freeze_backbone,
@@ -117,10 +128,10 @@ def classify(
     )
 
     # Train, evaluate, save, and plot the experiment
-    train_models(experiment)
-    evaluate_models(experiment)
-    save_experiment_results(experiment, experiment_name)
-    generate_experiment_plots(experiment)
+    train_classifiers(experiment)
+    evaluate_classifiers(experiment)
+    save_classification_results(experiment)
+    generate_classification_plots(experiment)
 
     # Return the outputs as a tuple of (models, histories, test_results)
     return experiment["models"], experiment["histories"], experiment["test_results"]
@@ -155,14 +166,14 @@ def classify_sweep(
         freeze_backbone (bool): Whether to freeze pretrained model backbones. Baseline
             models are always trained end-to-end.
         data_config_variants (dict): A dictionary mapping data-variant names to
-            dictionaries containing overrides for the default data configuration.
+            dictionaries containing overrides for the base data configuration.
         train_config_variants (dict): A dictionary mapping training-variant names to
-            dictionaries containing overrides for the default training configuration.
+            dictionaries containing overrides for the base training configuration.
         plot_tsne (bool): Whether to generate t-SNE plots.
         tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all test
             samples should be used.
-        data_config_path (str): Path to the default data configuration JSON file.
-        train_config_path (str): Path to the default training configuration JSON file.
+        data_config_path (str): Path to the base data configuration JSON file.
+        train_config_path (str): Path to the base training configuration JSON file.
         baseline_train_config_path (str): Path to the training configuration JSON file
             used for baseline models.
         results_dir (str): Root directory for experiment results.
@@ -206,7 +217,7 @@ def classify_sweep(
         product(data_config_variants.items(), train_config_variants.items())
     )
     # Name only the configuration dimension that varies. This keeps one-axis sweeps
-    # concise while retaining both names for full data/training grid sweeps.
+    # concise while retaining both names for full data/training grid sweeps
     if len(data_config_variants) == 1 and len(train_config_variants) == 1:
         run_names = ["default"]
     elif len(train_config_variants) == 1:
@@ -228,10 +239,11 @@ def classify_sweep(
     ]
 
     # Prepare the experiment context
-    experiment = prepare_experiment(
+    experiment = prepare_classification_experiment(
         model_types=[model_type] * len(run_names),
         run_names=run_names,
         target_label=target_label,
+        experiment_name=experiment_name,
         seed=seed,
         deterministic=deterministic,
         freeze_backbone=freeze_backbone,
@@ -247,19 +259,20 @@ def classify_sweep(
     )
 
     # Train, evaluate, save, and plot the experiment
-    train_models(experiment)
-    evaluate_models(experiment)
-    save_experiment_results(experiment, experiment_name)
-    generate_experiment_plots(experiment)
+    train_classifiers(experiment)
+    evaluate_classifiers(experiment)
+    save_classification_results(experiment)
+    generate_classification_plots(experiment)
 
     # Return the outputs as a tuple of (models, histories, test_results)
     return experiment["models"], experiment["histories"], experiment["test_results"]
 
 
-def prepare_experiment(
+def prepare_classification_experiment(
     model_types,
     run_names,
     target_label,
+    experiment_name,
     seed,
     deterministic,
     freeze_backbone,
@@ -280,6 +293,7 @@ def prepare_experiment(
         model_types (list): A list of model types to be used in the experiment.
         run_names (list): Names used for checkpoints and plot labels for each run.
         target_label (str): The target label for classification.
+        experiment_name (str): A name for tracking and saving the experiment.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
         freeze_backbone (bool): Whether to freeze pretrained model backbones.
@@ -289,8 +303,8 @@ def prepare_experiment(
         plot_tsne (bool): Whether to generate t-SNE plots.
         tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all test
             samples should be used.
-        data_config_path (str): Path to the default data configuration JSON file.
-        train_config_path (str): Path to the default training configuration JSON file.
+        data_config_path (str): Path to the base data configuration JSON file.
+        train_config_path (str): Path to the base training configuration JSON file.
         baseline_train_config_path (str): Path to the training configuration JSON file
             used for baseline models.
         results_dir (str): Root directory for experiment results.
@@ -334,7 +348,7 @@ def prepare_experiment(
 
     # Get data config from json file
     with open(data_config_path, "r", encoding="utf-8") as file:
-        default_data_config = json.load(file)
+        base_data_config = json.load(file)
 
     data_configs = []
     dataloaders = []
@@ -345,8 +359,8 @@ def prepare_experiment(
 
     # Build one complete data configuration for each model or sweep run
     for data_config_overrides in data_config_overrides_list:
-        # Start with the default data config and apply the overrides for this run
-        data_config = default_data_config.copy()
+        # Start with the base data config and apply the overrides for this run
+        data_config = base_data_config.copy()
         data_config.update(data_config_overrides)
         data_config["stratify_label"] = target_label
         data_config["random_state"] = seed
@@ -379,7 +393,7 @@ def prepare_experiment(
     with open(baseline_train_config_path, "r", encoding="utf-8") as file:
         baseline_train_config = json.load(file)
 
-    # Create a model-specific training config for each run and apply its overrides.
+    # Create a model-specific training config for each run and apply its overrides
     train_configs = []
     for model_type, train_config_overrides in zip(model_types, train_config_overrides_list):
         config = (
@@ -406,6 +420,7 @@ def prepare_experiment(
         "dataloaders": dataloaders,
         "deterministic": deterministic,
         "device": device,
+        "experiment_name": experiment_name,
         "existing_results_df": existing_results_df,
         "experiment_number": experiment_number,
         "experiments_df_path": experiments_df_path,
@@ -434,7 +449,7 @@ def prepare_experiment(
     }
 
 
-def train_models(experiment):
+def train_classifiers(experiment):
     """
     Create and train the models defined by an experiment context. Modifies the experiment
     context in place to add trained models and training histories.
@@ -478,7 +493,7 @@ def train_models(experiment):
         experiment["histories"].append(history)
 
 
-def evaluate_models(experiment):
+def evaluate_classifiers(experiment):
     """
     Evaluate the trained models in an experiment context. Modifies the experiment context in
     place to add evaluation results.
@@ -545,7 +560,7 @@ def evaluate_models(experiment):
         experiment["test_unseen_related_results"].append(result)
 
 
-def save_experiment_results(experiment, experiment_name):
+def save_classification_results(experiment):
     """
     Save an experiment context's configurations, metrics, and test results to a parquet
     file.
@@ -553,7 +568,6 @@ def save_experiment_results(experiment, experiment_name):
     Args:
         experiment (dict): A dictionary containing the prepared experiment context,
             including dataloaders, device, configurations, and paths for saving results.
-        experiment_name (str): A name for the experiment, used for saving results.
     """
 
     # --- Save experiment data --- #
@@ -562,7 +576,7 @@ def save_experiment_results(experiment, experiment_name):
     experiment_df = pd.DataFrame(
         {
             "experiment_number": experiment["experiment_number"],
-            "experiment_name": experiment_name,
+            "experiment_name": experiment["experiment_name"],
             "run_name": experiment["run_names"],
             "seed": experiment["seed"],
             "deterministic": experiment["deterministic"],
@@ -640,7 +654,7 @@ def save_experiment_results(experiment, experiment_name):
     experiment_df.to_parquet(experiment["experiments_df_path"], index=False)
 
 
-def generate_experiment_plots(experiment):
+def generate_classification_plots(experiment):
     """
     Generate plots for an experiment context.
 
@@ -663,7 +677,7 @@ def generate_experiment_plots(experiment):
     # Plot training curves for each model
     for history, run_name in zip(experiment["histories"], experiment["run_names"]):
         model_plots_path = os.path.join(plots_path, run_name)
-        mv.plot_training_curves(
+        mv.plot_classification_training_curves(
             history=history,
             model_type=run_name,
             plots_path=model_plots_path,
@@ -783,3 +797,392 @@ def generate_experiment_plots(experiment):
                 plots_path=model_plots_path,
                 max_samples=experiment["tsne_max_samples"],
             )
+
+
+def regress(
+    regression_target,
+    experiment_name,
+    seed,
+    deterministic,
+    freeze_backbone,
+    data_config_overrides,
+    train_config_overrides,
+    data_config_path,
+    train_config_path,
+    results_dir,
+    checkpoint_dir,
+):
+    """
+    Train and evaluate a ResNet-18 regressor for one continuous tactile target.
+
+    Args:
+        regression_target (str): The continuous target for regression, either "force_n"
+            or "fsr_voltage".
+        experiment_name (str): A name for the experiment, used for saving results.
+        seed (int): Random seed for reproducibility.
+        deterministic (bool): Whether to require deterministic PyTorch algorithms.
+        freeze_backbone (bool): Whether to freeze the pretrained ResNet-18 backbone.
+        data_config_overrides (dict): A dictionary containing overrides for the base
+            data configuration.
+        train_config_overrides (dict): A dictionary containing overrides for the base
+            training configuration.
+        data_config_path (str): Path to the base data configuration JSON file.
+        train_config_path (str): Path to the base training configuration JSON file.
+        results_dir (str): Root directory for experiment results.
+        checkpoint_dir (str): Root directory for model checkpoints.
+
+    Returns:
+        tuple: A tuple containing the trained model, training history, and evaluation
+            results.
+    """
+
+    # Check that the regression target is valid
+    if regression_target not in REGRESSION_TARGETS:
+        raise ValueError("regression_target must be 'force_n' or 'fsr_voltage'.")
+
+    # Check that the configuration files exist
+    if not os.path.isfile(data_config_path):
+        raise FileNotFoundError(f"Data configuration file not found: {data_config_path}")
+    if not os.path.isfile(train_config_path):
+        raise FileNotFoundError(
+            f"Training configuration file not found: {train_config_path}"
+        )
+
+    # Prepare the experiment context
+    experiment = prepare_regression_experiment(
+        regression_target=regression_target,
+        experiment_name=experiment_name,
+        seed=seed,
+        deterministic=deterministic,
+        freeze_backbone=freeze_backbone,
+        data_config_overrides=data_config_overrides,
+        train_config_overrides=train_config_overrides,
+        data_config_path=data_config_path,
+        train_config_path=train_config_path,
+        results_dir=results_dir,
+        checkpoint_dir=checkpoint_dir,
+    )
+
+    # Train, evaluate, save, and plot the experiment
+    train_regression_model(experiment)
+    evaluate_regression_model(experiment)
+    save_regression_results(experiment)
+    generate_regression_plots(experiment)
+
+    # Return the outputs as a tuple of (model, history, test_results)
+    return experiment["model"], experiment["history"], experiment["test_results"]
+
+
+def prepare_regression_experiment(
+    regression_target,
+    experiment_name,
+    seed,
+    deterministic,
+    freeze_backbone,
+    data_config_overrides,
+    train_config_overrides,
+    data_config_path,
+    train_config_path,
+    results_dir,
+    checkpoint_dir,
+):
+    """
+    Load configurations and prepare the regression experiment context.
+
+    Args:
+        regression_target (str): The continuous target for regression, either "force_n"
+            or "fsr_voltage".
+        experiment_name (str): A name for tracking and saving the experiment.
+        seed (int): Random seed for reproducibility.
+        deterministic (bool): Whether to require deterministic PyTorch algorithms.
+        freeze_backbone (bool): Whether to freeze the pretrained ResNet-18 backbone.
+        data_config_overrides (dict): A dictionary containing overrides for the base
+            data configuration.
+        train_config_overrides (dict): A dictionary containing overrides for the base
+            training configuration.
+        data_config_path (str): Path to the base data configuration JSON file.
+        train_config_path (str): Path to the base training configuration JSON file.
+        results_dir (str): Root directory for experiment results.
+        checkpoint_dir (str): Root directory for model checkpoints.
+
+    Returns:
+        dict: A dictionary containing the prepared experiment context, including
+            dataloaders, device, configurations, and paths for saving results.
+    """
+
+    # --- Setup --- #
+
+    set_random_seed(seed, deterministic=deterministic)
+    device = get_device()
+
+    # Folder name for saving results and checkpoints
+    # Use a new folder for each regression target
+    folder_name = f"{regression_target}_regress"
+
+    # Paths for checkpoints, results, and configuration files
+    checkpoints_path = os.path.join(checkpoint_dir, folder_name)
+    results_path = os.path.join(results_dir, folder_name)
+
+    # --- Get experiment number --- #
+
+    # Path for saving the experiments dataframe parquet file
+    experiments_df_path = os.path.join(results_path, "experiments.parquet")
+
+    # Check if an experiments dataframe parquet file already exists for this folder
+    if os.path.exists(experiments_df_path):
+        # If it exists, load the existing file into a DataFrame
+        existing_results_df = pd.read_parquet(experiments_df_path)
+        # Get max experiment number and increment it
+        experiment_number = existing_results_df["experiment_number"].max() + 1
+    # Otherwise
+    else:
+        # Start a new experiment number at 1
+        existing_results_df = None
+        experiment_number = 1
+
+    # --- Load and prepare the dataset --- #
+
+    # Get data config from json file
+    with open(data_config_path, "r", encoding="utf-8") as file:
+        base_data_config = json.load(file)
+
+    # Start with the base data config and apply the overrides for this run
+    data_config = base_data_config.copy()
+    data_config.update(data_config_overrides)
+    data_config["random_state"] = seed
+    datasets, _ = get_datasets(data_config)
+    dataloaders = create_dataloaders(datasets, data_config)
+    target_normalizer = get_target_normalizer(datasets["train"], regression_target)
+
+    # --- Prepare model --- #
+
+    # Get train config from json file
+    with open(train_config_path, "r", encoding="utf-8") as file:
+        base_train_config = json.load(file)
+
+    # Start with the base train config and apply the overrides for this run
+    train_config = base_train_config.copy()
+    train_config.update(train_config_overrides)
+
+    # Set regression-specific metadata, checkpoint directory, and model title
+    train_config["regression_target"] = regression_target
+    train_config["checkpoint_dir"] = os.path.join(
+        checkpoints_path, str(experiment_number).zfill(3)
+    )
+    train_config["model_title"] = "resnet18_regressor"
+
+    # Return the experiment context as a dictionary
+    return {
+        "data_config": data_config,
+        "dataloaders": dataloaders,
+        "deterministic": deterministic,
+        "device": device,
+        "experiment_name": experiment_name,
+        "existing_results_df": existing_results_df,
+        "experiment_number": experiment_number,
+        "experiments_df_path": experiments_df_path,
+        "freeze_backbone": freeze_backbone,
+        "regression_target": regression_target,
+        "results_path": results_path,
+        "seed": seed,
+        "target_normalizer": target_normalizer,
+        "train_config": train_config,
+    }
+
+
+def train_regression_model(experiment):
+    """
+    Create and train the model defined by a regression experiment context. Modifies the
+    experiment context in place to add a trained model and training history.
+
+    Args:
+        experiment (dict): A dictionary containing the prepared experiment context,
+            including dataloaders, device, configurations, and paths for saving results.
+    """
+
+    # --- Train model --- #
+
+    # Create the regression model
+    model = ResNet18Regressor(freeze_backbone=experiment["freeze_backbone"])
+
+    # Train the model and save the history
+    model, history = train_regressor(
+        model=model,
+        device=experiment["device"],
+        train_loader=experiment["dataloaders"]["train"],
+        val_loader=experiment["dataloaders"]["val"],
+        regression_target=experiment["regression_target"],
+        target_normalizer=experiment["target_normalizer"],
+        train_config=experiment["train_config"],
+    )
+    experiment["model"] = model
+    experiment["history"] = history
+
+
+def evaluate_regression_model(experiment):
+    """
+    Evaluate the trained model in a regression experiment context. Modifies the
+    experiment context in place to add evaluation results.
+
+    Args:
+        experiment (dict): A dictionary containing the prepared experiment context,
+            including dataloaders, device, configurations, and paths for saving results.
+    """
+
+    # --- Evaluate using standard test set --- #
+
+    # Evaluate the model on the standard test set
+    experiment["test_results"] = eval_regressor(
+        model=experiment["model"],
+        model_title=experiment["train_config"]["model_title"],
+        device=experiment["device"],
+        test_loader=experiment["dataloaders"]["test"],
+        regression_target=experiment["regression_target"],
+        target_normalizer=experiment["target_normalizer"],
+        evaluation_name="test",
+    )
+
+    # --- Evaluate using unseen test sets --- #
+
+    # Evaluate the model on the test_unseen_matched set
+    experiment["test_unseen_matched_results"] = eval_regressor(
+        model=experiment["model"],
+        model_title=experiment["train_config"]["model_title"],
+        device=experiment["device"],
+        test_loader=experiment["dataloaders"]["test_unseen_matched"],
+        regression_target=experiment["regression_target"],
+        target_normalizer=experiment["target_normalizer"],
+        evaluation_name="test_unseen_matched",
+    )
+
+    # Evaluate the model on the test_unseen_related set
+    experiment["test_unseen_related_results"] = eval_regressor(
+        model=experiment["model"],
+        model_title=experiment["train_config"]["model_title"],
+        device=experiment["device"],
+        test_loader=experiment["dataloaders"]["test_unseen_related"],
+        regression_target=experiment["regression_target"],
+        target_normalizer=experiment["target_normalizer"],
+        evaluation_name="test_unseen_related",
+    )
+
+
+def save_regression_results(experiment):
+    """
+    Save an experiment context's configurations, metrics, and test results to a parquet
+    file.
+
+    Args:
+        experiment (dict): A dictionary containing the prepared experiment context,
+            including dataloaders, device, configurations, and paths for saving results.
+    """
+
+    # --- Save experiment data --- #
+
+    # Create a new DataFrame with relevant information for this experiment
+    row = {
+        "experiment_number": experiment["experiment_number"],
+        "experiment_name": experiment["experiment_name"],
+        "model_type": "resnet18_regressor",
+        "regression_target": experiment["regression_target"],
+        "seed": experiment["seed"],
+        "deterministic": experiment["deterministic"],
+        "freeze_backbone": experiment["freeze_backbone"],
+        "data_config": experiment["data_config"],
+        "train_config": experiment["train_config"],
+        "target_normalizer": experiment["target_normalizer"],
+        "history": experiment["history"],
+        "test_loss": experiment["test_results"]["test_loss"],
+        "test_mae": experiment["test_results"]["mae"],
+        "test_rmse": experiment["test_results"]["rmse"],
+        "test_r2": experiment["test_results"]["r2"],
+        "test_y_true": experiment["test_results"]["y_true"],
+        "test_y_pred": experiment["test_results"]["y_pred"],
+        "test_unseen_matched_loss": experiment["test_unseen_matched_results"]["test_loss"],
+        "test_unseen_matched_mae": experiment["test_unseen_matched_results"]["mae"],
+        "test_unseen_matched_rmse": experiment["test_unseen_matched_results"]["rmse"],
+        "test_unseen_matched_r2": experiment["test_unseen_matched_results"]["r2"],
+        "test_unseen_matched_y_true": experiment["test_unseen_matched_results"]["y_true"],
+        "test_unseen_matched_y_pred": experiment["test_unseen_matched_results"]["y_pred"],
+        "test_unseen_related_loss": experiment["test_unseen_related_results"]["test_loss"],
+        "test_unseen_related_mae": experiment["test_unseen_related_results"]["mae"],
+        "test_unseen_related_rmse": experiment["test_unseen_related_results"]["rmse"],
+        "test_unseen_related_r2": experiment["test_unseen_related_results"]["r2"],
+        "test_unseen_related_y_true": experiment["test_unseen_related_results"]["y_true"],
+        "test_unseen_related_y_pred": experiment["test_unseen_related_results"]["y_pred"],
+    }
+    experiment_df = pd.DataFrame([row])
+    result_columns = list(experiment_df.columns)
+
+    # If there is an existing experiments dataframe
+    if experiment["existing_results_df"] is not None:
+        # Concatenate the existing and new dataframes
+        experiment_df = pd.concat(
+            [experiment["existing_results_df"], experiment_df], ignore_index=True
+        )
+        experiment_df = experiment_df.reindex(columns=result_columns)
+    # Otherwise
+    else:
+        # Create folder if it doesn't exist in the results directory
+        os.makedirs(experiment["results_path"], exist_ok=True)
+
+    # Save DataFrame to parquet file
+    experiment_df.to_parquet(experiment["experiments_df_path"], index=False)
+
+
+def generate_regression_plots(experiment):
+    """
+    Generate plots for a regression experiment context.
+
+    Args:
+        experiment (dict): A dictionary containing the prepared experiment context,
+            including dataloaders, device, configurations, and paths for saving results.
+    """
+
+    # --- Generate plots --- #
+
+    # Path for saving plots
+    plots_path = os.path.join(
+        experiment["results_path"],
+        "plots",
+        str(experiment["experiment_number"]).zfill(3),
+    )
+
+    # --- Training plots --- #
+
+    # Plot training curves
+    mv.plot_regression_training_curves(
+        history=experiment["history"],
+        plots_path=plots_path,
+        regression_target=experiment["regression_target"],
+    )
+
+    # --- Standard test set plots --- #
+
+    # Plot predictions for the standard test set
+    mv.plot_regression_predictions(
+        results=experiment["test_results"],
+        plots_path=plots_path,
+        regression_target=experiment["regression_target"],
+        test_set_name="test",
+    )
+
+    # --- Unseen matched test set plots --- #
+
+    # Plot predictions for the test_unseen_matched set
+    mv.plot_regression_predictions(
+        results=experiment["test_unseen_matched_results"],
+        plots_path=plots_path,
+        regression_target=experiment["regression_target"],
+        test_set_name="test_unseen_matched",
+    )
+
+    # --- Unseen related test set plots --- #
+
+    # Plot predictions for the test_unseen_related set
+    mv.plot_regression_predictions(
+        results=experiment["test_unseen_related_results"],
+        plots_path=plots_path,
+        regression_target=experiment["regression_target"],
+        test_set_name="test_unseen_related",
+    )

@@ -6,7 +6,7 @@ Author: Gemma McLean
 Date: April 2026
 """
 
-from models.experiments import classify
+from ml.experiments import classify
 
 
 # --- Configurable parameters --- #
@@ -54,7 +54,8 @@ TRAIN_CONFIG_PATH = (
     else "configs/finetuned_train_config.json"
 )
 BASELINE_TRAIN_CONFIG_PATH = "configs/baseline_train_config.json"
-RESULTS_DIR = "/home/gemma/development/python/touch-ex-results/results"
+# RESULTS_DIR = "/home/gemma/development/python/touch-ex-results/results"
+RESULTS_DIR = "results"
 CHECKPOINT_DIR = "checkpoints"
 
 # --- Train and evaluate models --- #
