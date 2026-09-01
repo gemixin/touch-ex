@@ -13,7 +13,7 @@ from ml.experiments import regress
 
 # Target for regression
 # Choose from 'force_n' or 'fsr_voltage'
-REGRESSION_TARGET = "force_n"
+REGRESSION_TARGET = "fsr_voltage"
 
 # Experiment name for tracking results
 EXPERIMENT_NAME = "resnet18_main"
