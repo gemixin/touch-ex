@@ -16,7 +16,7 @@ from ml.experiments import regress
 REGRESSION_TARGET = "force_n"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_force_n_regression"
+EXPERIMENT_NAME = "resnet18_main"
 
 # Randomisation settings
 SEED = 129
@@ -27,7 +27,7 @@ FREEZE_BACKBONE = False
 
 # Values here override keys in provided data_config and train_config files
 DATA_CONFIG_OVERRIDES = {}
-TRAIN_CONFIG_OVERRIDES = {}
+TRAIN_CONFIG_OVERRIDES = {"early_stopping_min_delta": 0.001}
 
 # Paths for files and directories
 DATA_CONFIG_PATH = "configs/pad_jitter_data_config.json"

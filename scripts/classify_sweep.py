@@ -18,7 +18,7 @@ MODEL_TYPE = "resnet18"
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', or 'motion'
-TARGET_LABEL = "object"
+TARGET_LABEL = "object_region"
 
 # Experiment name for tracking results
 EXPERIMENT_NAME = "resnet18_filter_sweep"

@@ -14,21 +14,14 @@ from ml.experiments import classify
 # Model types to compare
 # Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or
 # 't3_tiny'
-MODEL_TYPES = [
-    "baseline",
-    "resnet18",
-    "efficientnet_b0",
-    "vit_b_16",
-    "deit_tiny",
-    "t3_tiny",
-]
+MODEL_TYPES = ["resnet18"]
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', or 'motion'
-TARGET_LABEL = "object"
+TARGET_LABEL = "force_level"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "finetuned_comparison"
+EXPERIMENT_NAME = "resnet18_main"
 
 # Randomisation settings
 SEED = 129
