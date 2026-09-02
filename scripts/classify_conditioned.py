@@ -14,7 +14,7 @@ from ml.experiments import classify_conditioned
 
 # Target label for classification
 # Choose from 'object' or 'object_region'
-TARGET_LABEL = "object"
+TARGET_LABEL = "object_region"
 
 # Experiment name for tracking results
 EXPERIMENT_NAME = "resnet18_force_level_conditioned"

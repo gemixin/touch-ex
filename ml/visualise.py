@@ -33,6 +33,7 @@ DISPLAY_NAMES = {
     "vit_b_16": "ViT-B/16",
     "deit_tiny": "DeiT-Tiny",
     "t3_tiny": "T3-Tiny",
+    "conditioned_resnet18": "Conditioned ResNet-18",
     "all_data": "All data",
     "force_level_1": "Force Level 1",
     "force_level_2": "Force Level 2",

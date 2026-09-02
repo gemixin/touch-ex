@@ -204,7 +204,7 @@ def classify_conditioned(
     # Prepare the experiment context using a separate conditioned-results folder
     experiment = prepare_classification_experiment(
         model_types=["resnet18"],
-        run_names=["resnet18"],
+        run_names=["conditioned_resnet18"],
         target_label=target_label,
         experiment_name=experiment_name,
         seed=seed,

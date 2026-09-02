@@ -18,7 +18,7 @@ MODEL_TYPES = ["resnet18"]
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', or 'motion'
-TARGET_LABEL = "force_level"
+TARGET_LABEL = "object"
 
 # Experiment name for tracking results
 EXPERIMENT_NAME = "resnet18_main"
