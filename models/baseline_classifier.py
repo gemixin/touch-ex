@@ -1,9 +1,9 @@
 import torch.nn as nn
 
 
-class BaselineCNNModel(nn.Module):
+class BaselineCNNClassifier(nn.Module):
     """
-    A simple baseline CNN model for tactile image feature extraction/classification.
+    A simple baseline CNN classifier for tactile images.
 
     Author: Gemma McLean
     Date: April 2026
@@ -11,13 +11,13 @@ class BaselineCNNModel(nn.Module):
 
     def __init__(self, num_classes):
         """
-        Initialise the BaselineCNNModel.
+        Initialise the BaselineCNNClassifier.
 
         Args:
             num_classes (int): The number of classes to classify.
         """
 
-        super(BaselineCNNModel, self).__init__()
+        super().__init__()
 
         # Extract increasingly abstract spatial features from the input image
         self.features = nn.Sequential(
@@ -67,17 +67,17 @@ class BaselineCNNModel(nn.Module):
 
     def forward(self, x, return_features=False):
         """
-        Forward pass through the model.
+        Perform a forward pass through the classifier.
 
         Args:
-            x (torch.Tensor): Input tensor of shape (batch_size, 3, 224, 224)
+            x (torch.Tensor): Input tensor of shape (batch_size, 3, 224, 224).
             return_features (bool): If True, return the features before the classifier
                 instead of the final output.
 
         Returns:
             torch.Tensor: If return_features is False, returns the output of the
-                classifier (batch_size, num_classes). If return_features is True,
-                returns the features before the classifier (batch_size, feature_dim).
+                classifier with shape (batch_size, num_classes). If return_features is
+                True, returns the features with shape (batch_size, feature_dim).
         """
 
         # Extract and pool convolutional features

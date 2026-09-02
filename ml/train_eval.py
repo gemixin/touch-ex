@@ -16,7 +16,15 @@ from tqdm import tqdm
 from data.validate import validate_train_config
 
 
-def train_classifier(model, device, train_loader, val_loader, target_label, train_config):
+def train_classifier(
+    model,
+    device,
+    train_loader,
+    val_loader,
+    target_label,
+    train_config,
+    conditioning_label=None,
+):
     """
     Train the given classifier model.
 
@@ -27,6 +35,8 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
         val_loader (DataLoader): The validation data loader.
         target_label (str): The label key for the target variable.
         train_config (dict): Configuration dictionary containing training settings.
+        conditioning_label (str, optional): An additional label key supplied to a
+            conditioned classifier. Defaults to None.
 
     Returns:
         nn.Module: The trained model.
@@ -84,7 +94,11 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
 
             # Perform forward pass, compute loss, and backpropagate
             optimizer.zero_grad()
-            outputs = model(imgs)
+            if conditioning_label is None:
+                outputs = model(imgs)
+            else:
+                conditioning_values = features[conditioning_label].to(device)
+                outputs = model(imgs, conditioning_values)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -115,7 +129,11 @@ def train_classifier(model, device, train_loader, val_loader, target_label, trai
                 labels = features[target_label].to(device)
 
                 # Perform forward pass and compute loss
-                outputs = model(imgs)
+                if conditioning_label is None:
+                    outputs = model(imgs)
+                else:
+                    conditioning_values = features[conditioning_label].to(device)
+                    outputs = model(imgs, conditioning_values)
                 loss = criterion(outputs, labels)
 
                 # Update overall validation loss
@@ -295,6 +313,7 @@ def eval_classifier(
     target_label,
     true_label=None,
     evaluation_name="test",
+    conditioning_label=None,
 ):
     """
     Evaluate the given classifier model on the test set.
@@ -308,6 +327,8 @@ def eval_classifier(
         true_label (str, optional): The original-label key used for confusion-matrix rows.
             Defaults to target_label.
         evaluation_name (str): Name used in evaluation progress output.
+        conditioning_label (str, optional): An additional label key supplied to a
+            conditioned classifier. Defaults to None.
 
     Returns:
         dict: A dictionary containing test loss, test accuracy, true labels, expected
@@ -335,7 +356,11 @@ def eval_classifier(
             true_labels = features[true_label or target_label].to(device)
 
             # Perform forward pass and compute loss
-            outputs = model(imgs)
+            if conditioning_label is None:
+                outputs = model(imgs)
+            else:
+                conditioning_values = features[conditioning_label].to(device)
+                outputs = model(imgs, conditioning_values)
             loss = criterion(outputs, expected_labels)
 
             # Update overall test loss

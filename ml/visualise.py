@@ -67,6 +67,7 @@ def plot_tsne_features(
     device,
     plots_path,
     max_samples=-1,
+    conditioning_label=None,
 ):
     """
     Extract model features from the test set and save a labelled 2-D t-SNE plot.
@@ -82,6 +83,8 @@ def plot_tsne_features(
         plots_path (str): The folder path where the t-SNE plot will be saved.
         max_samples (int): Maximum number of class-balanced samples used for t-SNE.
             Defaults to -1 (use all test samples).
+        conditioning_label (str, optional): An additional label key supplied during
+            conditioned feature extraction. Defaults to None.
     """
 
     print(f"Starting t-SNE features for {model_type}...")
@@ -96,7 +99,14 @@ def plot_tsne_features(
     # Extract the features before the classification layer without computing gradients
     with torch.no_grad():
         for batch in dataloader:
-            features = model(batch["image"].to(device), return_features=True)
+            if conditioning_label is None:
+                features = model(batch["image"].to(device), return_features=True)
+            else:
+                features = model(
+                    batch["image"].to(device),
+                    batch[conditioning_label].to(device),
+                    return_features=True,
+                )
             all_features.append(features.cpu().numpy())
             all_labels.append(batch[target_label].numpy())
 

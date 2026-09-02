@@ -1,16 +1,17 @@
 import torch.nn as nn
 import timm
 from torchvision import models
+
 from models.t3 import T3TinyBackbone
 
 
-# Pretrained deit model checkpoint path
+# Pretrained DeiT model checkpoint path
 DEIT_TINY_CHECKPOINT = "timm/deit_tiny_patch16_224.fb_in1k"
 
 
-class PretrainedModel(nn.Module):
+class PretrainedClassifier(nn.Module):
     """
-    A pretrained model wrapper with a configurable backbone and classifier.
+    A tactile classifier with a configurable pretrained feature-extraction backbone.
 
     Author: Gemma McLean
     Date: April 2026
@@ -18,21 +19,20 @@ class PretrainedModel(nn.Module):
 
     def __init__(self, model_type, num_classes, freeze_backbone=False):
         """
-        Initialise the PretrainedModel.
+        Initialise the PretrainedClassifier.
 
         Args:
-            model_type (str): The type of the pretrained model to use. Options are
+            model_type (str): The type of pretrained backbone to use. Options are
                 'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or 't3_tiny'.
             num_classes (int): The number of classes to classify.
             freeze_backbone (bool, optional): Whether to train only the classifier.
                 Defaults to False.
         """
 
-        super(PretrainedModel, self).__init__()
+        super().__init__()
         self.freeze_backbone = freeze_backbone
 
-        # Depending on the model_type, load the appropriate pretrained model and modify
-        # it to output features instead of class predictions
+        # Load the selected pretrained model and remove its original classification head
         if model_type == "resnet18":
             self.backbone = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
             self.feature_dim = self.backbone.fc.in_features
@@ -63,7 +63,7 @@ class PretrainedModel(nn.Module):
         else:
             raise ValueError(f"Invalid model type: {model_type}.")
 
-        # Set the classifier
+        # Set the task-specific classifier
         self.classifier = nn.Sequential(
             nn.Dropout(p=0.2),
             nn.Linear(self.feature_dim, num_classes),
@@ -79,11 +79,11 @@ class PretrainedModel(nn.Module):
         Set training mode while keeping a frozen backbone in evaluation mode.
 
         Args:
-            mode (bool): If True, sets the model to training mode. If False, sets
-                the model to evaluation mode.
+            mode (bool): If True, sets the model to training mode. If False, sets the
+                model to evaluation mode.
 
         Returns:
-            self: The model instance.
+            PretrainedClassifier: The classifier instance.
         """
 
         super().train(mode)
@@ -93,17 +93,17 @@ class PretrainedModel(nn.Module):
 
     def forward(self, x, return_features=False):
         """
-         Perform a forward pass through the model.
+        Perform a forward pass through the classifier.
 
         Args:
-            x (torch.Tensor): Input tensor of shape (batch_size, 3, 224, 224)
+            x (torch.Tensor): Input tensor of shape (batch_size, 3, 224, 224).
             return_features (bool): If True, return the features before the classifier
                 instead of the final output.
 
         Returns:
             torch.Tensor: If return_features is False, returns the output of the
-                classifier (batch_size, num_classes). If return_features is True,
-                returns the features before the classifier (batch_size, feature_dim).
+                classifier with shape (batch_size, num_classes). If return_features is
+                True, returns the features with shape (batch_size, feature_dim).
         """
 
         # Pass through the backbone to get features

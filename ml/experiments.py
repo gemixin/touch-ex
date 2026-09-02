@@ -10,8 +10,9 @@ import os
 from itertools import product
 import pandas as pd
 from data.builder import create_dataloaders, get_datasets
-from models.baseline import BaselineCNNModel
-from models.pretrained import DEIT_TINY_CHECKPOINT, PretrainedModel
+from models.baseline_classifier import BaselineCNNClassifier
+from models.conditioned import ResNet18ConditionedClassifier
+from models.pretrained_classifier import DEIT_TINY_CHECKPOINT, PretrainedClassifier
 from models.regression import ResNet18Regressor
 from models.t3 import T3_REPOSITORY, T3_REVISION
 from ml.train_eval import (
@@ -135,6 +136,113 @@ def classify(
 
     # Return the outputs as a tuple of (models, histories, test_results)
     return experiment["models"], experiment["histories"], experiment["test_results"]
+
+
+def classify_conditioned(
+    target_label,
+    experiment_name,
+    seed,
+    deterministic,
+    freeze_backbone,
+    fusion_hidden_dim,
+    fusion_dropout,
+    data_config_overrides,
+    train_config_overrides,
+    plot_tsne,
+    tsne_max_samples,
+    data_config_path,
+    train_config_path,
+    results_dir,
+    checkpoint_dir,
+):
+    """
+    Train and evaluate a ResNet-18 tactile classifier conditioned on force level.
+
+    Args:
+        target_label (str): The object or object-region target label.
+        experiment_name (str): A name for the experiment, used for saving results.
+        seed (int): Random seed for reproducibility.
+        deterministic (bool): Whether to require deterministic PyTorch algorithms.
+        freeze_backbone (bool): Whether to freeze the pretrained ResNet-18 backbone.
+        fusion_hidden_dim (int): Dimension of the fused image and force representation.
+        fusion_dropout (float): Dropout probability applied before classification.
+        data_config_overrides (dict): A dictionary containing overrides for the base
+            data configuration.
+        train_config_overrides (dict): A dictionary containing overrides for the base
+            training configuration.
+        plot_tsne (bool): Whether to generate t-SNE plots.
+        tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all test
+            samples should be used.
+        data_config_path (str): Path to the base data configuration JSON file.
+        train_config_path (str): Path to the base training configuration JSON file.
+        results_dir (str): Root directory for experiment results.
+        checkpoint_dir (str): Root directory for model checkpoints.
+
+    Returns:
+        tuple: A tuple containing the trained model, training history, and evaluation
+            results.
+    """
+
+    # Check that target_label is valid (object or object_region)
+    if target_label not in {"object", "object_region"}:
+        raise ValueError("target_label must be 'object' or 'object_region'.")
+
+    # Validate the fusion-layer settings
+    if type(fusion_hidden_dim) is not int or fusion_hidden_dim < 1:
+        raise ValueError("fusion_hidden_dim must be an integer greater than or equal to 1.")
+    if type(fusion_dropout) not in [int, float] or not 0 <= fusion_dropout <= 1:
+        raise ValueError("fusion_dropout must be between 0 and 1.")
+
+    # Check that the configuration files exist
+    if not os.path.isfile(data_config_path):
+        raise FileNotFoundError(f"Data configuration file not found: {data_config_path}")
+    if not os.path.isfile(train_config_path):
+        raise FileNotFoundError(
+            f"Training configuration file not found: {train_config_path}"
+        )
+
+    # Prepare the experiment context using a separate conditioned-results folder
+    experiment = prepare_classification_experiment(
+        model_types=["resnet18"],
+        run_names=["resnet18"],
+        target_label=target_label,
+        experiment_name=experiment_name,
+        seed=seed,
+        deterministic=deterministic,
+        freeze_backbone=freeze_backbone,
+        data_config_overrides_list=[data_config_overrides],
+        train_config_overrides_list=[train_config_overrides],
+        plot_tsne=plot_tsne,
+        tsne_max_samples=tsne_max_samples,
+        data_config_path=data_config_path,
+        train_config_path=train_config_path,
+        baseline_train_config_path=None,
+        results_dir=results_dir,
+        checkpoint_dir=checkpoint_dir,
+        folder_name=f"{target_label}_conditioned_classify",
+    )
+
+    # Add the force-conditioning configuration to the experiment context
+    experiment["conditioning_label"] = "force_level"
+    experiment["force_level_labels"] = [
+        list(dataloaders["train"].dataset.label2idx["force_level"])
+        for dataloaders in experiment["dataloaders"]
+    ]
+    experiment["fusion_hidden_dim"] = fusion_hidden_dim
+    experiment["fusion_dropout"] = fusion_dropout
+
+    # Train, evaluate, save, and plot the experiment
+    train_conditioned_classifier(experiment)
+    evaluate_classifiers(experiment)
+    save_classification_results(experiment)
+    generate_classification_plots(experiment)
+
+    # Return the outputs as a tuple of (model, history, test_results)
+    return (
+        experiment["models"][0],
+        experiment["histories"][0],
+        experiment["test_results"][0],
+    )
 
 
 def classify_sweep(
@@ -285,6 +393,7 @@ def prepare_classification_experiment(
     baseline_train_config_path,
     results_dir,
     checkpoint_dir,
+    folder_name=None,
 ):
     """
     Load configurations and prepare the shared experiment context.
@@ -305,10 +414,13 @@ def prepare_classification_experiment(
             samples should be used.
         data_config_path (str): Path to the base data configuration JSON file.
         train_config_path (str): Path to the base training configuration JSON file.
-        baseline_train_config_path (str): Path to the training configuration JSON file
-            used for baseline models.
+        baseline_train_config_path (str, optional): Path to the training configuration
+            JSON file used for baseline models. May be None when no baseline model is
+            included.
         results_dir (str): Root directory for experiment results.
         checkpoint_dir (str): Root directory for model checkpoints.
+        folder_name (str, optional): Folder used for results and checkpoints. Defaults
+            to the standard target-specific classification folder.
 
     Returns:
         dict: A dictionary containing the prepared experiment context, including
@@ -320,9 +432,9 @@ def prepare_classification_experiment(
     set_random_seed(seed, deterministic=deterministic)
     device = get_device()
 
-    # Folder name for saving results and checkpoints
-    # Use a new folder for each target label
-    folder_name = f"{target_label}_classify"
+    # Use the standard target-specific folder unless the experiment provides one
+    if folder_name is None:
+        folder_name = f"{target_label}_classify"
 
     # Paths for checkpoints, results, and configuration files
     checkpoints_path = os.path.join(checkpoint_dir, folder_name)
@@ -389,9 +501,16 @@ def prepare_classification_experiment(
     with open(train_config_path, "r", encoding="utf-8") as file:
         train_config = json.load(file)
 
-    # Get baseline train config from json file
-    with open(baseline_train_config_path, "r", encoding="utf-8") as file:
-        baseline_train_config = json.load(file)
+    # Get baseline train config from json file when a baseline model is included
+    if "baseline" in model_types:
+        if baseline_train_config_path is None:
+            raise ValueError(
+                "baseline_train_config_path is required when using a baseline model."
+            )
+        with open(baseline_train_config_path, "r", encoding="utf-8") as file:
+            baseline_train_config = json.load(file)
+    else:
+        baseline_train_config = None
 
     # Create a model-specific training config for each run and apply its overrides
     train_configs = []
@@ -470,9 +589,9 @@ def train_classifiers(experiment):
         num_train_classes = len(experiment["train_labels"][i])
         # Create the model based on the model type
         if experiment["model_types"][i] == "baseline":
-            model = BaselineCNNModel(num_classes=num_train_classes)
+            model = BaselineCNNClassifier(num_classes=num_train_classes)
         else:
-            model = PretrainedModel(
+            model = PretrainedClassifier(
                 model_type=experiment["model_types"][i],
                 num_classes=num_train_classes,
                 freeze_backbone=experiment["freeze_backbones"][i],
@@ -491,6 +610,49 @@ def train_classifiers(experiment):
         # Append the model and history to the respective lists
         experiment["models"].append(model)
         experiment["histories"].append(history)
+
+
+def train_conditioned_classifier(experiment):
+    """
+    Create and train the conditioned model defined by an experiment context. Modifies
+    the experiment context in place to add the trained model and training history.
+
+    Args:
+        experiment (dict): A dictionary containing the prepared experiment context,
+            including dataloaders, device, configurations, and force-fusion settings.
+    """
+
+    # --- Train model --- #
+
+    # Create one-item lists for compatibility with shared evaluation and plotting
+    experiment["models"] = []
+    experiment["histories"] = []
+
+    num_train_classes = len(experiment["train_labels"][0])
+
+    # Create a ResNet-18 classifier that fuses image features with the force level
+    model = ResNet18ConditionedClassifier(
+        num_classes=num_train_classes,
+        force_level_labels=experiment["force_level_labels"][0],
+        freeze_backbone=experiment["freeze_backbones"][0],
+        fusion_hidden_dim=experiment["fusion_hidden_dim"],
+        fusion_dropout=experiment["fusion_dropout"],
+    )
+
+    # Train the model and save the history
+    model, history = train_classifier(
+        model=model,
+        device=experiment["device"],
+        train_loader=experiment["dataloaders"][0]["train"],
+        val_loader=experiment["dataloaders"][0]["val"],
+        target_label=experiment["target_label"],
+        train_config=experiment["train_configs"][0],
+        conditioning_label=experiment["conditioning_label"],
+    )
+
+    # Store the model and history in the lists used by the shared functions
+    experiment["models"].append(model)
+    experiment["histories"].append(history)
 
 
 def evaluate_classifiers(experiment):
@@ -518,6 +680,7 @@ def evaluate_classifiers(experiment):
             test_loader=experiment["dataloaders"][i]["test"],
             target_label=experiment["target_label"],
             evaluation_name="test",
+            conditioning_label=experiment.get("conditioning_label"),
         )
         # Append the test result to the list
         experiment["test_results"].append(result)
@@ -542,6 +705,7 @@ def evaluate_classifiers(experiment):
             target_label=unseen_evaluation["target_label"],
             true_label=experiment["target_label"],
             evaluation_name="test_unseen_matched",
+            conditioning_label=experiment.get("conditioning_label"),
         )
         experiment["test_unseen_matched_results"].append(result)
 
@@ -556,6 +720,7 @@ def evaluate_classifiers(experiment):
             target_label=unseen_evaluation["target_label"],
             true_label=experiment["target_label"],
             evaluation_name="test_unseen_related",
+            conditioning_label=experiment.get("conditioning_label"),
         )
         experiment["test_unseen_related_results"].append(result)
 
@@ -572,70 +737,82 @@ def save_classification_results(experiment):
 
     # --- Save experiment data --- #
 
+    # Collect relevant information for this experiment
+    experiment_data = {
+        "experiment_number": experiment["experiment_number"],
+        "experiment_name": experiment["experiment_name"],
+        "run_name": experiment["run_names"],
+        "seed": experiment["seed"],
+        "deterministic": experiment["deterministic"],
+        "freeze_backbone": experiment["freeze_backbones"],
+        "pretrained_checkpoint": experiment["pretrained_checkpoints"],
+        "train_config": experiment["train_configs"],
+        "data_config": experiment["data_configs"],
+        "model_type": experiment["model_types"],
+        "train_labels": experiment["train_labels"],
+        "test_unseen_matched_labels": experiment["test_unseen_matched_labels"],
+        "test_unseen_related_labels": experiment["test_unseen_related_labels"],
+        "history": experiment["histories"],
+        "test_acc": [result["test_acc"] for result in experiment["test_results"]],
+        "test_loss": [result["test_loss"] for result in experiment["test_results"]],
+        "test_weighted_f1_avg": [
+            result["weighted_f1_avg"] for result in experiment["test_results"]
+        ],
+        "test_y_pred": [result["y_pred"] for result in experiment["test_results"]],
+        "test_y_true": [result["y_true"] for result in experiment["test_results"]],
+        "test_unseen_matched_acc": [
+            result["test_acc"] for result in experiment["test_unseen_matched_results"]
+        ],
+        "test_unseen_matched_loss": [
+            result["test_loss"] for result in experiment["test_unseen_matched_results"]
+        ],
+        "test_unseen_matched_weighted_f1_avg": [
+            result["weighted_f1_avg"]
+            for result in experiment["test_unseen_matched_results"]
+        ],
+        "test_unseen_matched_y_true": [
+            result["y_true"] for result in experiment["test_unseen_matched_results"]
+        ],
+        "test_unseen_matched_y_expected": [
+            result["y_expected"] for result in experiment["test_unseen_matched_results"]
+        ],
+        "test_unseen_matched_y_pred": [
+            result["y_pred"] for result in experiment["test_unseen_matched_results"]
+        ],
+        "test_unseen_related_acc": [
+            result["test_acc"] for result in experiment["test_unseen_related_results"]
+        ],
+        "test_unseen_related_loss": [
+            result["test_loss"] for result in experiment["test_unseen_related_results"]
+        ],
+        "test_unseen_related_weighted_f1_avg": [
+            result["weighted_f1_avg"]
+            for result in experiment["test_unseen_related_results"]
+        ],
+        "test_unseen_related_y_true": [
+            result["y_true"] for result in experiment["test_unseen_related_results"]
+        ],
+        "test_unseen_related_y_expected": [
+            result["y_expected"] for result in experiment["test_unseen_related_results"]
+        ],
+        "test_unseen_related_y_pred": [
+            result["y_pred"] for result in experiment["test_unseen_related_results"]
+        ],
+    }
+
+    # Record force-fusion settings only in conditioned result tables
+    if experiment.get("conditioning_label") is not None:
+        experiment_data.update(
+            {
+                "conditioning_label": experiment["conditioning_label"],
+                "force_level_labels": experiment["force_level_labels"],
+                "fusion_hidden_dim": experiment["fusion_hidden_dim"],
+                "fusion_dropout": experiment["fusion_dropout"],
+            }
+        )
+
     # Create a new DataFrame with relevant information for this experiment
-    experiment_df = pd.DataFrame(
-        {
-            "experiment_number": experiment["experiment_number"],
-            "experiment_name": experiment["experiment_name"],
-            "run_name": experiment["run_names"],
-            "seed": experiment["seed"],
-            "deterministic": experiment["deterministic"],
-            "freeze_backbone": experiment["freeze_backbones"],
-            "pretrained_checkpoint": experiment["pretrained_checkpoints"],
-            "train_config": experiment["train_configs"],
-            "data_config": experiment["data_configs"],
-            "model_type": experiment["model_types"],
-            "train_labels": experiment["train_labels"],
-            "test_unseen_matched_labels": experiment["test_unseen_matched_labels"],
-            "test_unseen_related_labels": experiment["test_unseen_related_labels"],
-            "history": experiment["histories"],
-            "test_acc": [result["test_acc"] for result in experiment["test_results"]],
-            "test_loss": [result["test_loss"] for result in experiment["test_results"]],
-            "test_weighted_f1_avg": [
-                result["weighted_f1_avg"] for result in experiment["test_results"]
-            ],
-            "test_y_pred": [result["y_pred"] for result in experiment["test_results"]],
-            "test_y_true": [result["y_true"] for result in experiment["test_results"]],
-            "test_unseen_matched_acc": [
-                result["test_acc"] for result in experiment["test_unseen_matched_results"]
-            ],
-            "test_unseen_matched_loss": [
-                result["test_loss"] for result in experiment["test_unseen_matched_results"]
-            ],
-            "test_unseen_matched_weighted_f1_avg": [
-                result["weighted_f1_avg"]
-                for result in experiment["test_unseen_matched_results"]
-            ],
-            "test_unseen_matched_y_true": [
-                result["y_true"] for result in experiment["test_unseen_matched_results"]
-            ],
-            "test_unseen_matched_y_expected": [
-                result["y_expected"] for result in experiment["test_unseen_matched_results"]
-            ],
-            "test_unseen_matched_y_pred": [
-                result["y_pred"] for result in experiment["test_unseen_matched_results"]
-            ],
-            "test_unseen_related_acc": [
-                result["test_acc"] for result in experiment["test_unseen_related_results"]
-            ],
-            "test_unseen_related_loss": [
-                result["test_loss"] for result in experiment["test_unseen_related_results"]
-            ],
-            "test_unseen_related_weighted_f1_avg": [
-                result["weighted_f1_avg"]
-                for result in experiment["test_unseen_related_results"]
-            ],
-            "test_unseen_related_y_true": [
-                result["y_true"] for result in experiment["test_unseen_related_results"]
-            ],
-            "test_unseen_related_y_expected": [
-                result["y_expected"] for result in experiment["test_unseen_related_results"]
-            ],
-            "test_unseen_related_y_pred": [
-                result["y_pred"] for result in experiment["test_unseen_related_results"]
-            ],
-        }
-    )
+    experiment_df = pd.DataFrame(experiment_data)
     result_columns = list(experiment_df.columns)
 
     # If there is an existing experiments dataframe
@@ -796,6 +973,7 @@ def generate_classification_plots(experiment):
                 device=experiment["device"],
                 plots_path=model_plots_path,
                 max_samples=experiment["tsne_max_samples"],
+                conditioning_label=experiment.get("conditioning_label"),
             )
 
 

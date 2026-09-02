@@ -67,6 +67,9 @@ Available model types are:
 - `deit_tiny`: ImageNet-pretrained DeiT-Tiny
 - `t3_tiny`: T3-Tiny tactile encoder pretrained on DIGIT data
 
+The `baseline` architecture is implemented by `BaselineCNNClassifier`. All configurable
+pretrained backbones are wrapped by `PretrainedClassifier`.
+
 For pretrained models, `FREEZE_BACKBONE=True` retains the pretrained backbone and trains only the classifier. With `False`, the entire model is fine-tuned. The baseline is always trained end-to-end.
 
 ### Running Classification Configuration Sweeps
@@ -81,6 +84,24 @@ variant dictionaries over the base JSON configuration files.
 ```bash
 python3 -m scripts.classify_sweep
 ```
+
+### Running Conditioned Classification
+
+Configure the constants at the top of
+[`scripts/classify_conditioned.py`](scripts/classify_conditioned.py),
+then run:
+
+```bash
+python3 -m scripts.classify_conditioned
+```
+
+Set `TARGET_LABEL` to either `object` or `object_region`. The ImageNet-pretrained
+ResNet-18 concatenates its image representation with the ground-truth force level,
+normalised to `0.0`, `0.5`, or `1.0`, before applying a lightweight fusion layer and
+classification head.
+`FUSION_HIDDEN_DIM` and `FUSION_DROPOUT` configure the fusion architecture. All other
+data, training, backbone-freezing, and t-SNE settings follow the standard
+classification pipeline.
 
 ## Running a Regression Experiment
 
@@ -185,6 +206,20 @@ Here, `<NNN>` is the zero-padded experiment number. The output includes per-run 
 curves and confusion matrices for the standard and unseen test sets, comparison plots
 for multi-run experiments, and optional static and interactive t-SNE plots for the
 standard test set.
+
+### Conditioned Classification
+
+Conditioned classification uses force level as its additional input and follows the same
+output structure, with separate folders for the object and object-region tasks:
+
+```text
+<CHECKPOINT_DIR>/<target>_conditioned_classify/<NNN>/<run_name>.pth
+<RESULTS_DIR>/<target>_conditioned_classify/experiments.parquet
+<RESULTS_DIR>/<target>_conditioned_classify/plots/<NNN>/
+```
+
+The conditioned result table additionally records the conditioning label, ordered force
+labels, fusion hidden dimension, and fusion dropout probability.
 
 ### Regression
 
