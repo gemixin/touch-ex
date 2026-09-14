@@ -18,11 +18,11 @@ from sklearn.manifold import TSNE
 sns.set_style("darkgrid")
 sns.set_palette("deep")
 
-# Define a mapping of test set names to their corresponding titles for plots
+# Define test-set titles used by per-run evaluation plots
 TEST_SET_TITLES = {
-    "test": "Standard Test",
-    "test_unseen_matched": "Unseen Matched Objects",
-    "test_unseen_related": "Unseen Related Objects",
+    "test": "Test",
+    "test_unseen_matched": "Unseen Matched",
+    "test_unseen_related": "Unseen Related",
 }
 
 # Define custom display names for model types and runs in plots
@@ -34,6 +34,7 @@ DISPLAY_NAMES = {
     "deit_tiny": "DeiT-Tiny",
     "t3_tiny": "T3-Tiny",
     "conditioned_resnet18": "Conditioned ResNet-18",
+    "resnet18_regressor": "ResNet-18",
     "all_data": "All data",
     "force_level_1": "Force Level 1",
     "force_level_2": "Force Level 2",
@@ -215,7 +216,8 @@ def plot_classification_training_curves(history, model_type, plots_path):
 
     # Create a figure with 2 subplots
     display_name = get_display_name(model_type)
-    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+    with sns.axes_style("darkgrid"):
+        fig, axs = plt.subplots(1, 2, figsize=(15, 5))
 
     # Extract epochs, training and validation losses from the history
     epochs = [h["epoch"] for h in history]
@@ -225,7 +227,9 @@ def plot_classification_training_curves(history, model_type, plots_path):
     # Plot training and validation loss curves
     axs[0].plot(epochs, train_losses, label="Train Loss")
     axs[0].plot(epochs, val_losses, label="Val Loss")
-    axs[0].set_title(f"Loss Curves for {display_name}", fontsize=14, fontweight="bold")
+    axs[0].set_title(
+        f"Loss Curves ({display_name})", fontsize=14, fontweight="normal"
+    )
     axs[0].legend()
 
     # Extract training and validation accuracies from the history
@@ -235,7 +239,9 @@ def plot_classification_training_curves(history, model_type, plots_path):
     # Plot training and validation accuracy curves
     axs[1].plot(epochs, train_accs, label="Train Acc")
     axs[1].plot(epochs, val_accs, label="Val Acc")
-    axs[1].set_title(f"Accuracy Curves for {display_name}", fontsize=14, fontweight="bold")
+    axs[1].set_title(
+        f"Accuracy Curves ({display_name})", fontsize=14, fontweight="normal"
+    )
     axs[1].legend()
 
     # Save the plot
@@ -259,7 +265,8 @@ def plot_model_comparison(results, model_types, plots_path, test_set_name):
     """
 
     # Create a figure with 2 subplots
-    fig, axs = plt.subplots(1, 2, figsize=(14, 5))
+    with sns.axes_style("darkgrid"):
+        fig, axs = plt.subplots(1, 2, figsize=(14, 5))
     colors = sns.color_palette("deep", len(model_types))
     display_names = [get_display_name(model_type) for model_type in model_types]
 
@@ -267,14 +274,18 @@ def plot_model_comparison(results, model_types, plots_path, test_set_name):
 
     # Plot test accuracy for each model
     axs[0].bar(display_names, [result["test_acc"] for result in results], color=colors)
-    axs[0].set_title(f"{test_set_title} Accuracy", fontsize=14, fontweight="bold")
+    axs[0].set_title(
+        f"{test_set_title} Accuracy", fontsize=14, fontweight="normal"
+    )
     axs[0].set_ylabel("Accuracy")
 
     # Plot weighted F1 average for each model
     axs[1].bar(
         display_names, [result["weighted_f1_avg"] for result in results], color=colors
     )
-    axs[1].set_title(f"{test_set_title} Weighted F1", fontsize=14, fontweight="bold")
+    axs[1].set_title(
+        f"{test_set_title} Weighted F1", fontsize=14, fontweight="normal"
+    )
     axs[1].set_ylabel("F1 Score")
 
     # Save plot
@@ -314,9 +325,6 @@ def plot_confusion_matrix(
 
     display_name = get_display_name(model_type)
 
-    # Set Seaborn style for confusion matrix plots (no grid)
-    sns.set_style("white")
-
     # Create confusion matrix
     cm = np.zeros((len(row_labels), len(column_labels)), dtype=int)
     # Count each true-label and predicted-label pair
@@ -331,7 +339,8 @@ def plot_confusion_matrix(
             max(12, len(column_labels) * 0.6),
             max(12, len(row_labels) * 0.45),
         )
-    fig, ax = plt.subplots(figsize=figure_size)
+    with sns.axes_style("darkgrid"):
+        fig, ax = plt.subplots(figsize=figure_size)
 
     # Create confusion matrix display
     sns.heatmap(
@@ -356,7 +365,10 @@ def plot_confusion_matrix(
     if rotate_x_labels:
         ax.set_xticklabels(ax.get_xticklabels(), rotation=60, ha="right")
     test_set_title = TEST_SET_TITLES[test_set_name]
-    ax.set_title(f"Confusion Matrix — {test_set_title} ({display_name})")
+    ax.set_title(
+        f"Confusion Matrix — {test_set_title} ({display_name})",
+        fontweight="normal",
+    )
 
     # Save plot
     save_path = f"{plots_path}/confusion_matrix_{test_set_name}.png"
@@ -366,18 +378,20 @@ def plot_confusion_matrix(
     print(f"Saved confusion matrix for {model_type} at {save_path}")
 
 
-def plot_regression_training_curves(history, regression_target, plots_path):
+def plot_regression_training_curves(history, model_type, plots_path):
     """
     Plot training and validation loss and MAE curves for one regression model.
 
     Args:
         history (list): Training history for the model.
-        regression_target (str): The continuous target used in the plot titles.
+        model_type (str): The model name, used in the plot titles.
         plots_path (str): The folder path where the plots will be saved.
     """
 
     # Create a figure with 2 subplots
-    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+    display_name = get_display_name(model_type)
+    with sns.axes_style("darkgrid"):
+        fig, axs = plt.subplots(1, 2, figsize=(15, 5))
 
     # Extract epochs, training and validation losses from the history
     epochs = [h["epoch"] for h in history]
@@ -387,7 +401,9 @@ def plot_regression_training_curves(history, regression_target, plots_path):
     # Plot training and validation loss curves
     axs[0].plot(epochs, train_losses, label="Train Loss")
     axs[0].plot(epochs, val_losses, label="Val Loss")
-    axs[0].set_title(f"Loss Curves for {regression_target}", fontsize=14, fontweight="bold")
+    axs[0].set_title(
+        f"Loss Curves ({display_name})", fontsize=14, fontweight="normal"
+    )
     axs[0].set_xlabel("Epoch")
     axs[0].set_ylabel("Loss")
     axs[0].legend()
@@ -399,7 +415,9 @@ def plot_regression_training_curves(history, regression_target, plots_path):
     # Plot training and validation MAE curves
     axs[1].plot(epochs, train_maes, label="Train MAE")
     axs[1].plot(epochs, val_maes, label="Val MAE")
-    axs[1].set_title(f"MAE Curves for {regression_target}", fontsize=14, fontweight="bold")
+    axs[1].set_title(
+        f"MAE Curves ({display_name})", fontsize=14, fontweight="normal"
+    )
     axs[1].set_xlabel("Epoch")
     axs[1].set_ylabel("MAE")
     axs[1].legend()
@@ -410,7 +428,7 @@ def plot_regression_training_curves(history, regression_target, plots_path):
     os.makedirs(plots_path, exist_ok=True)  # Create the folder if it doesn't exist
     fig.savefig(save_path, dpi=300)
     plt.close(fig)
-    print(f"Saved training curves for {regression_target} at {save_path}")
+    print(f"Saved training curves for {model_type} at {save_path}")
 
 
 def plot_regression_predictions(results, regression_target, plots_path, test_set_name):
@@ -434,12 +452,15 @@ def plot_regression_predictions(results, regression_target, plots_path, test_set
     test_set_title = TEST_SET_TITLES[test_set_name]
 
     # Create a figure with 2 subplots
-    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+    with sns.axes_style("darkgrid"):
+        fig, axs = plt.subplots(1, 2, figsize=(15, 5))
 
     # Plot predicted values against true values
     axs[0].scatter(y_true, y_pred, alpha=0.65, s=18)
     axs[0].plot([minimum, maximum], [minimum, maximum], "k--", label="Ideal")
-    axs[0].set_title(f"Predicted vs True — {test_set_title}")
+    axs[0].set_title(
+        f"Predicted vs True — {test_set_title}", fontweight="normal"
+    )
     axs[0].set_xlabel(f"True {regression_target}")
     axs[0].set_ylabel(f"Predicted {regression_target}")
     axs[0].legend()
@@ -447,7 +468,7 @@ def plot_regression_predictions(results, regression_target, plots_path, test_set
     # Plot residuals against true values
     axs[1].scatter(y_true, y_pred - y_true, alpha=0.65, s=18)
     axs[1].axhline(0, color="black", linestyle="--")
-    axs[1].set_title(f"Residuals — {test_set_title}")
+    axs[1].set_title(f"Residuals — {test_set_title}", fontweight="normal")
     axs[1].set_xlabel(f"True {regression_target}")
     axs[1].set_ylabel("Prediction Error")
 

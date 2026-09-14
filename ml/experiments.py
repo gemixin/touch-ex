@@ -1332,7 +1332,7 @@ def generate_regression_plots(experiment):
     mv.plot_regression_training_curves(
         history=experiment["history"],
         plots_path=plots_path,
-        regression_target=experiment["regression_target"],
+        model_type=experiment["train_config"]["model_title"],
     )
 
     # --- Standard test set plots --- #
