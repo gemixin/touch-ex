@@ -41,6 +41,24 @@ DISPLAY_NAMES = {
     "force_level_3": "Force Level 3",
     "sliding": "Sliding",
     "rotation": "Rotation",
+    "none": "None",
+    "color_jitter": "Colour Jitter",
+    "random_resized_crop": "Random Resized Crop",
+    "both": "Both",
+    "bg_subtraction_off": "BG Subtraction: Off",
+    "bg_subtraction_on": "BG Subtraction: On",
+    "flip": "Flip",
+    "ssvtp_settings": "SSVTP Settings",
+    "t3_settings": "T3 Settings",
+    "no_norm": "No Normalisation",
+    "dataset_norm": "Dataset Normalisation",
+    "imagenet_norm": "ImageNet Normalisation",
+    "ssvtp_all": "SSVTP Augmentations",
+    "t3_all": "T3 Augmentations",
+    "pad_none": "Pad: None",
+    "pad_jitter": "Pad: Jitter",
+    "pad_flip_jitter": "Pad: Jitter + Flip",
+    "crop_all": "Crop: All",
 }
 
 
@@ -227,9 +245,7 @@ def plot_classification_training_curves(history, model_type, plots_path):
     # Plot training and validation loss curves
     axs[0].plot(epochs, train_losses, label="Train Loss")
     axs[0].plot(epochs, val_losses, label="Val Loss")
-    axs[0].set_title(
-        f"Loss Curves ({display_name})", fontsize=14, fontweight="normal"
-    )
+    axs[0].set_title(f"Loss Curves ({display_name})", fontsize=14, fontweight="normal")
     axs[0].legend()
 
     # Extract training and validation accuracies from the history
@@ -239,9 +255,7 @@ def plot_classification_training_curves(history, model_type, plots_path):
     # Plot training and validation accuracy curves
     axs[1].plot(epochs, train_accs, label="Train Acc")
     axs[1].plot(epochs, val_accs, label="Val Acc")
-    axs[1].set_title(
-        f"Accuracy Curves ({display_name})", fontsize=14, fontweight="normal"
-    )
+    axs[1].set_title(f"Accuracy Curves ({display_name})", fontsize=14, fontweight="normal")
     axs[1].legend()
 
     # Save the plot
@@ -274,18 +288,14 @@ def plot_model_comparison(results, model_types, plots_path, test_set_name):
 
     # Plot test accuracy for each model
     axs[0].bar(display_names, [result["test_acc"] for result in results], color=colors)
-    axs[0].set_title(
-        f"{test_set_title} Accuracy", fontsize=14, fontweight="normal"
-    )
+    axs[0].set_title(f"{test_set_title} Accuracy", fontsize=14, fontweight="normal")
     axs[0].set_ylabel("Accuracy")
 
     # Plot weighted F1 average for each model
     axs[1].bar(
         display_names, [result["weighted_f1_avg"] for result in results], color=colors
     )
-    axs[1].set_title(
-        f"{test_set_title} Weighted F1", fontsize=14, fontweight="normal"
-    )
+    axs[1].set_title(f"{test_set_title} Weighted F1", fontsize=14, fontweight="normal")
     axs[1].set_ylabel("F1 Score")
 
     # Save plot
@@ -401,9 +411,7 @@ def plot_regression_training_curves(history, model_type, plots_path):
     # Plot training and validation loss curves
     axs[0].plot(epochs, train_losses, label="Train Loss")
     axs[0].plot(epochs, val_losses, label="Val Loss")
-    axs[0].set_title(
-        f"Loss Curves ({display_name})", fontsize=14, fontweight="normal"
-    )
+    axs[0].set_title(f"Loss Curves ({display_name})", fontsize=14, fontweight="normal")
     axs[0].set_xlabel("Epoch")
     axs[0].set_ylabel("Loss")
     axs[0].legend()
@@ -415,9 +423,7 @@ def plot_regression_training_curves(history, model_type, plots_path):
     # Plot training and validation MAE curves
     axs[1].plot(epochs, train_maes, label="Train MAE")
     axs[1].plot(epochs, val_maes, label="Val MAE")
-    axs[1].set_title(
-        f"MAE Curves ({display_name})", fontsize=14, fontweight="normal"
-    )
+    axs[1].set_title(f"MAE Curves ({display_name})", fontsize=14, fontweight="normal")
     axs[1].set_xlabel("Epoch")
     axs[1].set_ylabel("MAE")
     axs[1].legend()
@@ -458,9 +464,7 @@ def plot_regression_predictions(results, regression_target, plots_path, test_set
     # Plot predicted values against true values
     axs[0].scatter(y_true, y_pred, alpha=0.65, s=18)
     axs[0].plot([minimum, maximum], [minimum, maximum], "k--", label="Ideal")
-    axs[0].set_title(
-        f"Predicted vs True — {test_set_title}", fontweight="normal"
-    )
+    axs[0].set_title(f"Predicted vs True — {test_set_title}", fontweight="normal")
     axs[0].set_xlabel(f"True {regression_target}")
     axs[0].set_ylabel(f"Predicted {regression_target}")
     axs[0].legend()
