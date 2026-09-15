@@ -6,6 +6,9 @@ dataset collected with a [DIGIT](https://digit.ml/) tactile sensor. It supports 
 baseline CNN, pretrained visual and tactile encoders, continuous force and voltage
 regression, standard and unseen-set evaluation, and saved experiment results and plots.
 
+Results from my own experiments using these pipelines are available in the
+[Touch-Ex results repository](https://github.com/gemixin/touch-ex-results).
+
 ## Project Structure
 
 - `configs/` contains data, training, and normalisation-cache configurations
