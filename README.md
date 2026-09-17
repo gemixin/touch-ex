@@ -256,7 +256,9 @@ If you use Touch-Ex in your research, please cite:
 @dataset{mclean2026touchex,
   author = {McLean, Gemma and Hao, Zhou Daniel},
   title = {Touch-Ex: A Region-Level, Force-Annotated Visuo-Tactile Dataset},
-  year = {2026}
+  year = {2026},
+  publisher = {Hugging Face},
+  url = {https://huggingface.co/datasets/gemixin/touch-ex}
 }
 ```
 
