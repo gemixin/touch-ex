@@ -344,6 +344,9 @@ def plot_confusion_matrix(
     # Size standard matrices according to their number of class labels
     if cross_space:
         figure_size = (max(12, len(column_labels)), 8)
+    # Keep small matrices, such as force levels, proportionate to their text
+    elif max(len(row_labels), len(column_labels)) <= 3:
+        figure_size = (6, 5)
     else:
         figure_size = (
             max(12, len(column_labels) * 0.6),
