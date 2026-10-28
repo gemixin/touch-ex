@@ -88,6 +88,52 @@ class EvaluationProtocolTests(unittest.TestCase):
         self.assertGreaterEqual(related['force_level'].item(), 0)
         self.assertNotIn('expected_object', related)
 
+    def test_common_test_partition_across_targets(self):
+        partitions = {}
+        for label in ['object', 'object_region', 'force_level', 'motion']:
+            datasets, _ = builder.get_datasets(
+                {**self.config, 'stratify_label': label}, 'final_evaluation'
+            )
+            partitions[label] = {
+                split: set(datasets[split].df.interaction_id)
+                for split in ['train', 'val', 'test']
+            }
+            self.assertEqual([len(partitions[label][s]) for s in ['train', 'val', 'test']],
+                             [42, 9, 9])
+            self.assertFalse(partitions[label]['test'] &
+                             (partitions[label]['train'] | partitions[label]['val']))
+        for label in partitions:
+            self.assertEqual(partitions[label]['test'], partitions['object']['test'])
+        self.assertNotEqual(partitions['object']['val'], partitions['force_level']['val'])
+
+    def test_each_classification_run_resets_training_randomness(self):
+        samples = {}
+
+        def train(model, train_config, **kwargs):
+            samples[train_config['model_title']] = (
+                model.weight.detach().clone(), torch.rand(10)
+            )
+            return model, []
+
+        with patch.object(experiments, 'BaselineCNNClassifier',
+                          side_effect=lambda **kwargs: nn.Linear(2, 2)), \
+                patch.object(experiments, 'train_classifier', side_effect=train):
+            for order in [['first', 'second'], ['second', 'first']]:
+                context = dict(
+                    seed=17, deterministic=True, device='cpu', target_label='object',
+                    dataloaders=[{'train': None, 'val': None}] * 2,
+                    train_labels=[['a', 'b']] * 2, model_types=['baseline'] * 2,
+                    train_configs=[{'model_title': name} for name in order],
+                )
+                experiments.train_classifiers(context)
+                for first, second in zip(samples['first'], samples['second']):
+                    self.assertTrue(torch.equal(first, second))
+                if order[0] == 'first':
+                    original = samples['first']
+                else:
+                    for first, second in zip(original, samples['first']):
+                        self.assertTrue(torch.equal(first, second))
+
     def test_unknown_predictions_skip_loss_but_known_targets_are_scored(self):
         features = [dict(image=torch.tensor([2., 0.]), object=torch.tensor(-1),
                          source_object='new', motion=torch.tensor(0)) for _ in range(3)]
@@ -177,11 +223,14 @@ class EvaluationProtocolTests(unittest.TestCase):
                     self.assertEqual(len(pd.read_csv(path.parent / 'tables' / '002' / 'summary.csv')), 1)
                     conditioned = {k: v for k, v in common.items() if k != 'baseline_train_config_path'}
                     _, _, results = experiments.classify_conditioned(
-                        fusion_hidden_dim=4, fusion_dropout=0., experiment_purpose=purpose, **conditioned)
+                        model_type='resnet50', fusion_hidden_dim=4, fusion_dropout=0.,
+                        experiment_purpose=purpose, **conditioned)
                     self.assertEqual(tuple(results), splits)
                     conditioned_tables = Path(directory, 'object_conditioned_classify', purpose, 'tables', '001')
                     self.assertEqual(pd.read_csv(conditioned_tables / 'summary.csv').run_name.tolist(),
-                                     ['conditioned_resnet18'])
+                                     ['conditioned_resnet50'])
+                    self.assertEqual(pd.read_csv(conditioned_tables / 'summary.csv').model_type.tolist(),
+                                     ['resnet50'])
                     sweep = {k: v for k, v in common.items() if k not in {'data_config_overrides', 'train_config_overrides'}}
                     _, _, results = experiments.classify_sweep(
                         model_type='baseline', data_config_variants={'first': {}, 'second': {}},
@@ -214,6 +263,7 @@ class EvaluationProtocolTests(unittest.TestCase):
             config.write_text(json.dumps(self.config))
             for purpose, splits in utils.EVALUATION_SPLITS.items():
                 _, _, results = experiments.regress(
+                    model_type='t3_tiny',
                     regression_target='force_n', experiment_name='example', seed=23,
                     deterministic=True, freeze_backbone=False, data_config_overrides={},
                     train_config_overrides={}, data_config_path=str(config),
@@ -225,7 +275,8 @@ class EvaluationProtocolTests(unittest.TestCase):
                 self.assertEqual(saved.iloc[0].split_seed, 129)
                 self.assertTrue(all(f'{split}_mae' in saved for split in splits))
                 summary = pd.read_csv(Path(directory, 'force_n_regress', purpose, 'tables', '001', 'summary.csv'))
-                self.assertEqual(summary.run_name.tolist(), ['resnet18_regressor'])
+                self.assertEqual(summary.run_name.tolist(), ['t3_tiny_regressor'])
+                self.assertEqual(summary.model_type.tolist(), ['t3_tiny'])
                 self.assertEqual(summary.columns.tolist(), ['run_name', 'model_type'] + [
                     f'{split}_{metric}' for split in splits for metric in ['mae', 'rmse', 'r2']
                 ])

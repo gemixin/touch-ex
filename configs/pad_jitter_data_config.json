@@ -1,6 +1,6 @@
 {
-    "split_size": 0.2,
-    "stratify_label": "object",
+    "split_size": 0.3,
+    "stratify_label": "object_region",
     "transform_name": "pad_224",
     "train_augmentations": {
         "color_jitter": {

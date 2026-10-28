@@ -1,5 +1,5 @@
 """
-A script to train and evaluate a ResNet-18 model on a regression task. Results are saved
+A script to train and evaluate a pretrained model on a regression task. Results are saved
 in the results directory.
 
 Author: Gemma McLean
@@ -11,12 +11,15 @@ from ml.experiments import regress
 
 # --- Configurable parameters --- #
 
+# Pretrained backbone: resnet18, resnet50, efficientnet_b0, vit_b_16, deit_tiny, t3_tiny
+MODEL_TYPE = "resnet18"
+
 # Target for regression
 # Choose from 'force_n' or 'fsr_voltage'
 REGRESSION_TARGET = "fsr_voltage"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_main"
+EXPERIMENT_NAME = f"{MODEL_TYPE}_main"
 
 # Use model_selection for configuration/model choice; final_evaluation for testing
 EXPERIMENT_PURPOSE = "model_selection"
@@ -45,6 +48,7 @@ CHECKPOINT_DIR = "checkpoints"
 # --- Train and evaluate model --- #
 
 regress(
+    model_type=MODEL_TYPE,
     regression_target=REGRESSION_TARGET,
     experiment_name=EXPERIMENT_NAME,
     experiment_purpose=EXPERIMENT_PURPOSE,

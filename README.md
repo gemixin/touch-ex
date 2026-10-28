@@ -100,8 +100,9 @@ then run:
 python3 -m scripts.classify_conditioned
 ```
 
-Set `TARGET_LABEL` to either `object` or `object_region`. The ImageNet-pretrained
-ResNet-18 concatenates its image representation with the ground-truth force level,
+Set `TARGET_LABEL` to either `object` or `object_region`. Set `MODEL_TYPE` to any of
+the six pretrained backbones supported by ordinary classification (default `resnet18`).
+The encoder concatenates its image representation with the ground-truth force level,
 normalised to `0.0`, `0.5`, or `1.0`, before applying a lightweight fusion layer and
 classification head.
 `FUSION_HIDDEN_DIM` and `FUSION_DROPOUT` configure the fusion architecture. All other
@@ -120,6 +121,7 @@ python3 -m scripts.regress
 The main settings are:
 
 - `REGRESSION_TARGET`: `force_n` or `fsr_voltage`
+- `MODEL_TYPE`: `resnet18`, `resnet50`, `efficientnet_b0`, `vit_b_16`, `deit_tiny`, or `t3_tiny`
 - `EXPERIMENT_NAME`: a descriptive name recorded with the results
 - `EXPERIMENT_PURPOSE`: `model_selection` (default) or `final_evaluation`
 - `SEED` and `DETERMINISTIC`: model and training reproducibility settings; dataset partitions always use seed `129`
@@ -127,9 +129,9 @@ The main settings are:
 - `DATA_CONFIG_OVERRIDES` and `TRAIN_CONFIG_OVERRIDES`: values applied over the selected
   base JSON configurations
 
-The regression workflow uses an ImageNet-pretrained ResNet-18, optimises Huber loss on
+The regression workflow uses the selected pretrained backbone, optimises Huber loss on
 training-split-normalised targets, and reports MAE, RMSE, and R² in the original target
-units. With `FREEZE_BACKBONE=True`, the ImageNet-pretrained backbone remains frozen and
+units. With `FREEZE_BACKBONE=True`, the pretrained backbone remains frozen and
 only the regression head is trained; with `False`, the entire model is fine-tuned.
 
 ## Configurations
@@ -140,15 +142,31 @@ Dataset partitioning always uses `SPLIT_SEED = 129`, independently of `SEED`. Th
 experiment `SEED` controls model initialisation, training shuffle, and augmentation
 randomness. For the same split size and stratification, changing `SEED`
 preserves the train/validation/test partition membership.
+The training seed is reset before each run's model initialisation and training, so
+reordering models or sweep variants does not change a run's random sequence.
+
+The internal test partition is reserved first, using `object_region` stratification,
+and is shared across every target and workflow for the same `split_size`. Half of
+`split_size` goes to this test set. The remaining interactions are split into training
+and validation, with the other half of `split_size` going to validation. Thus
+The supplied configs use `split_size=0.3`, giving approximately 70% training,
+15% validation, and 15% testing.
+Model-selection runs never train or validate on the reserved test interactions.
 
 Classification experiments, including sweeps and conditioned models, always override
-`stratify_label` with `TARGET_LABEL`: object classification stratifies by `object`,
+`stratify_label` with `TARGET_LABEL` for the train/validation split:
+object classification stratifies by `object`,
 object-region classification by `object_region`, force classification by `force_level`,
 and motion classification by `motion`. Regression uses the data config's
-`stratify_label`, including any overrides; the supplied configs use `object`.
-Different classification targets can therefore produce different interaction partitions
-despite using the same split seed. Stratification approximately preserves proportions
-for the selected label, without guaranteeing balance across other labels.
+`stratify_label`, including any overrides; the supplied configs use `object_region`.
+Different classification targets can therefore produce different training/validation
+partitions while retaining the common test partition. Stratification approximately
+preserves proportions for the selected label, without guaranteeing balance across
+other labels.
+
+Changing to this test-first procedure changes existing partition membership and
+invalidates the old normalisation-cache entry automatically. Rerun selection experiments
+under this procedure before comparing their results with final evaluations.
 
 ### Data
 
@@ -162,7 +180,7 @@ padding-based transform with mild training-only colour jitter.
 | Setting | Purpose and accepted values |
 | --- | --- |
 | `split_size` | Total fraction held out from training, split equally between validation and the standard test set. |
-| `stratify_label` | Interaction-level stratification column used by regression (`object` by default). Classification always overrides this with `TARGET_LABEL`. |
+| `stratify_label` | Train/validation interaction-level stratification column used by regression (`object_region` by default). Classification always overrides this with `TARGET_LABEL`. The common test partition always stratifies by `object_region`. |
 | `transform_name` | Base 224×224 image preparation: `pad_224` pads then resizes; `center_crop_224` resizes then centre-crops. Used for validation, test, and training unless `random_resized_crop` is enabled. |
 | `bg_path` | Path to a `.jpg` background image for subtraction, or `null` to disable it. |
 | `norm_type` | `dataset` computes/loads statistics from the training split; `imagenet` uses ImageNet statistics; `null` disables normalisation. `norm_cache_path` is required unless normalisation is disabled. |
@@ -244,9 +262,19 @@ Results, checkpoints, and plots use the existing task folders with a purpose sub
 
 Here `<task>` is `<target>_classify`, `<target>_conditioned_classify`, or
 `<target>_regress`; `<NNN>` is the zero-padded experiment number within that purpose.
-Regression uses `resnet18_regressor` as its run name.
+Regression uses `<MODEL_TYPE>_regressor` as its run name; conditioned classification
+uses `conditioned_<MODEL_TYPE>`.
 Classification checkpoints maximise internal validation accuracy; regression checkpoints
 minimise internal validation loss.
+
+Checkpoints save the model and optimiser state dictionaries, epoch, and best validation
+score. For inference, rebuild the same model class and load `model_state_dict`, then
+call `eval()`. Saving the entire Python model is unnecessary. Keep the matching results
+entry with the architecture, ordered class names, preprocessing configuration and,
+for regression, target normaliser. Also preserve the training image-normalisation
+statistics and background image used for that run; the shared normalisation cache can
+be overwritten by later configurations. Checkpoints alone do not contain all of this
+inference metadata.
 
 Tables record the experiment purpose, training seed, fixed split seed, configurations,
 histories, and evaluated split results. Evaluation columns are prefixed by the actual

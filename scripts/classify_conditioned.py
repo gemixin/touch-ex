@@ -1,5 +1,5 @@
 """
-A script to train and evaluate a conditioned ResNet-18 model on an object or
+A script to train and evaluate a conditioned pretrained model on an object or
 object-region classification task. Force level is used as the conditioning input.
 Results are saved in the results directory.
 
@@ -12,12 +12,15 @@ from ml.experiments import classify_conditioned
 
 # --- Configurable parameters --- #
 
+# Pretrained backbone: resnet18, resnet50, efficientnet_b0, vit_b_16, deit_tiny, t3_tiny
+MODEL_TYPE = "resnet18"
+
 # Target label for classification
 # Choose from 'object' or 'object_region'
 TARGET_LABEL = "object_region"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_force_level_conditioned"
+EXPERIMENT_NAME = f"{MODEL_TYPE}_force_level_conditioned"
 
 # Use model_selection for configuration/model choice; final_evaluation for testing
 EXPERIMENT_PURPOSE = "model_selection"
@@ -54,6 +57,7 @@ CHECKPOINT_DIR = "checkpoints"
 # --- Train and evaluate model --- #
 
 classify_conditioned(
+    model_type=MODEL_TYPE,
     target_label=TARGET_LABEL,
     experiment_name=EXPERIMENT_NAME,
     experiment_purpose=EXPERIMENT_PURPOSE,

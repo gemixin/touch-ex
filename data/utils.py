@@ -20,6 +20,7 @@ LABEL_COLS = ["object", "region", "object_region", "force_level", "motion"]
 
 # Partition membership is independent of model and training randomness.
 SPLIT_SEED = 129
+TEST_STRATIFY_LABEL = "object_region"
 EVALUATION_SPLITS = {
     "model_selection": ("val", "validation_unseen_matched"),
     "final_evaluation": ("test", "test_unseen_matched", "test_unseen_related"),
@@ -37,10 +38,10 @@ def load_touch_ex_dataset(experiment_purpose="model_selection"):
 
 def split_by_interaction(df, split_size, stratify_label):
     """
-    Split a frame-level dataframe by interaction_id using the specified split size and
-    stratification label and fixed seed 129. Splits into train, validation, and test sets.
+    Reserve a common interaction-level test set stratified by object_region, then split
+    the remainder into train/validation using the requested stratification and seed 129.
     Classification passes its target label; regression passes the configured label.
-    Different stratification labels can produce different interaction partitions.
+    Changing that label changes train/validation membership, but preserves the test set.
 
     Args:
         df (pd.DataFrame): The input DataFrame to split.
@@ -55,19 +56,19 @@ def split_by_interaction(df, split_size, stratify_label):
     # Take the first frame of each interaction
     interaction_df = df.groupby("interaction_id").first().reset_index()
 
-    # Split the interactions into train and temp (val+test) sets
-    train_ids_df, temp_ids_df = train_test_split(
+    # Reserve half the held-out fraction for testing, identically for every target.
+    remaining_ids_df, test_ids_df = train_test_split(
         interaction_df,
-        test_size=split_size,
-        stratify=interaction_df[stratify_label],
+        test_size=split_size / 2,
+        stratify=interaction_df[TEST_STRATIFY_LABEL],
         random_state=SPLIT_SEED,
     )
 
-    # Split the temp set into val and test sets (50% each)
-    val_ids_df, test_ids_df = train_test_split(
-        temp_ids_df,
-        test_size=0.50,
-        stratify=temp_ids_df[stratify_label],
+    # Take the other half for validation, stratifying by this task's label.
+    train_ids_df, val_ids_df = train_test_split(
+        remaining_ids_df,
+        test_size=(split_size / 2) / (1 - split_size / 2),
+        stratify=remaining_ids_df[stratify_label],
         random_state=SPLIT_SEED,
     )
 
@@ -183,6 +184,7 @@ def calculate_dataset_norm_stats(df, data_config, use_cache=True):
     # Create a norm config dictionary that captures the relevant parameters
     norm_config = {
         "split_seed": SPLIT_SEED,
+        "test_stratify_label": TEST_STRATIFY_LABEL,
         "split_size": data_config["split_size"],
         "stratify_label": data_config["stratify_label"],
         "transform_name": data_config["transform_name"],

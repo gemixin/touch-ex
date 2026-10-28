@@ -1,22 +1,21 @@
 import torch.nn as nn
-from torchvision import models
+from models.pretrained_classifier import get_pretrained_backbone
 
 
-class ResNet18Regressor(nn.Module):
+class PretrainedRegressor(nn.Module):
     """
-    An ImageNet-pretrained ResNet-18 model wrapper with a single-value regression head.
+    A configurable pretrained encoder with a single-value regression head.
 
     Author: Gemma McLean
     Date: August 2026
     """
 
-    feature_dim = 512
-
-    def __init__(self, freeze_backbone=False):
+    def __init__(self, model_type="resnet18", freeze_backbone=False):
         """
-        Initialise the ResNet-18 regressor.
+        Initialise the regressor with the selected pretrained backbone.
 
         Args:
+            model_type (str): Backbone name supported by PretrainedClassifier.
             freeze_backbone (bool, optional): Whether to train only the regression head.
                 Defaults to False.
         """
@@ -24,9 +23,7 @@ class ResNet18Regressor(nn.Module):
         super().__init__()
         self.freeze_backbone = freeze_backbone
 
-        # Load the pretrained ResNet-18 backbone and remove its classification head
-        self.backbone = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        self.backbone.fc = nn.Identity()
+        self.backbone, self.feature_dim = get_pretrained_backbone(model_type)
 
         # Set the regressor
         self.regressor = nn.Sequential(
@@ -48,7 +45,7 @@ class ResNet18Regressor(nn.Module):
                 the model to evaluation mode.
 
         Returns:
-            ResNet18Regressor: The model instance.
+            PretrainedRegressor: The model instance.
         """
 
         super().train(mode)

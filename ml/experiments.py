@@ -13,9 +13,9 @@ from sklearn.metrics import precision_recall_fscore_support
 from data.builder import create_dataloaders, get_datasets
 from data.utils import EVALUATION_SPLITS, SPLIT_SEED
 from models.baseline_classifier import BaselineCNNClassifier
-from models.conditioned import ResNet18ConditionedClassifier
+from models.conditioned import ConditionedClassifier
 from models.pretrained_classifier import DEIT_TINY_CHECKPOINT, PretrainedClassifier
-from models.regression import ResNet18Regressor
+from models.regression import PretrainedRegressor
 from models.t3 import T3_REPOSITORY, T3_REVISION
 from ml.train_eval import (
     eval_classifier,
@@ -153,16 +153,18 @@ def classify_conditioned(
     results_dir,
     checkpoint_dir,
     experiment_purpose="model_selection",
+    model_type="resnet18",
 ):
     """
-    Train and evaluate a ResNet-18 tactile classifier conditioned on force level.
+    Train and evaluate a pretrained tactile classifier conditioned on force level.
 
     Args:
         target_label (str): The object or object-region target label.
         experiment_name (str): A name for the experiment, used for saving results.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
-        freeze_backbone (bool): Whether to freeze the pretrained ResNet-18 backbone.
+        freeze_backbone (bool): Whether to freeze the pretrained backbone.
+        model_type (str): Pretrained backbone name, as in ordinary classification.
         fusion_hidden_dim (int): Dimension of the fused image and force representation.
         fusion_dropout (float): Dropout probability applied before classification.
         data_config_overrides (dict): A dictionary containing overrides for the base
@@ -203,8 +205,8 @@ def classify_conditioned(
 
     # Prepare the experiment context using a separate conditioned-results folder
     experiment = prepare_classification_experiment(
-        model_types=["resnet18"],
-        run_names=["conditioned_resnet18"],
+        model_types=[model_type],
+        run_names=[f"conditioned_{model_type}"],
         target_label=target_label,
         experiment_name=experiment_name,
         seed=seed,
@@ -435,7 +437,6 @@ def prepare_classification_experiment(
 
     # --- Setup --- #
 
-    set_random_seed(seed, deterministic=deterministic)
     device = get_device()
 
     # Use the standard target-specific folder unless the experiment provides one
@@ -479,7 +480,7 @@ def prepare_classification_experiment(
         data_config = base_data_config.copy()
         data_config.update(data_config_overrides)
         # All classification workflows stratify by their target, overriding the config.
-        # Changing the target can change partition membership even with split seed 129.
+        # Changing the target affects train/validation, but preserves the common test set.
         data_config["stratify_label"] = target_label
         data_configs.append(data_config)
 
@@ -586,6 +587,8 @@ def train_classifiers(experiment):
 
     # Loop through each model type
     for i in range(len(experiment["dataloaders"])):
+        # Reset before initialisation/training so run order cannot change randomness.
+        set_random_seed(experiment["seed"], deterministic=experiment["deterministic"])
         num_train_classes = len(experiment["train_labels"][i])
         # Create the model based on the model type
         if experiment["model_types"][i] == "baseline":
@@ -630,8 +633,10 @@ def train_conditioned_classifier(experiment):
 
     num_train_classes = len(experiment["train_labels"][0])
 
-    # Create a ResNet-18 classifier that fuses image features with the force level
-    model = ResNet18ConditionedClassifier(
+    set_random_seed(experiment["seed"], deterministic=experiment["deterministic"])
+    # Fuse the selected encoder's image features with the force level.
+    model = ConditionedClassifier(
+        model_type=experiment["model_types"][0],
         num_classes=num_train_classes,
         force_level_labels=experiment["force_level_labels"][0],
         freeze_backbone=experiment["freeze_backbones"][0],
@@ -847,9 +852,10 @@ def regress(
     results_dir,
     checkpoint_dir,
     experiment_purpose="model_selection",
+    model_type="resnet18",
 ):
     """
-    Train and evaluate a ResNet-18 regressor for one continuous tactile target.
+    Train and evaluate a pretrained regressor for one continuous tactile target.
 
     Args:
         regression_target (str): The continuous target for regression, either "force_n"
@@ -857,7 +863,8 @@ def regress(
         experiment_name (str): A name for the experiment, used for saving results.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
-        freeze_backbone (bool): Whether to freeze the pretrained ResNet-18 backbone.
+        freeze_backbone (bool): Whether to freeze the pretrained backbone.
+        model_type (str): Pretrained backbone name, as in ordinary classification.
         data_config_overrides (dict): A dictionary containing overrides for the base
             data configuration.
         train_config_overrides (dict): A dictionary containing overrides for the base
@@ -887,6 +894,7 @@ def regress(
 
     # Prepare the experiment context
     experiment = prepare_regression_experiment(
+        model_type=model_type,
         regression_target=regression_target,
         experiment_name=experiment_name,
         seed=seed,
@@ -924,6 +932,7 @@ def prepare_regression_experiment(
     results_dir,
     checkpoint_dir,
     experiment_purpose="model_selection",
+    model_type="resnet18",
 ):
     """
     Load configurations and prepare the regression experiment context.
@@ -934,7 +943,8 @@ def prepare_regression_experiment(
         experiment_name (str): A name for tracking and saving the experiment.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
-        freeze_backbone (bool): Whether to freeze the pretrained ResNet-18 backbone.
+        freeze_backbone (bool): Whether to freeze the pretrained backbone.
+        model_type (str): Pretrained backbone name, as in ordinary classification.
         data_config_overrides (dict): A dictionary containing overrides for the base
             data configuration.
         train_config_overrides (dict): A dictionary containing overrides for the base
@@ -952,7 +962,6 @@ def prepare_regression_experiment(
 
     # --- Setup --- #
 
-    set_random_seed(seed, deterministic=deterministic)
     device = get_device()
 
     # Folder name for saving results and checkpoints
@@ -989,7 +998,7 @@ def prepare_regression_experiment(
     # Start with the base data config and apply the overrides for this run
     data_config = base_data_config.copy()
     data_config.update(data_config_overrides)
-    # Regression retains the configured stratify_label (object in the supplied configs).
+    # Regression retains the configured stratify_label (object_region by default).
     datasets, _ = get_datasets(data_config, experiment_purpose)
     dataloaders = create_dataloaders(datasets, data_config, seed=seed)
     target_normalizer = get_target_normalizer(datasets["train"], regression_target)
@@ -1009,7 +1018,7 @@ def prepare_regression_experiment(
     train_config["checkpoint_dir"] = os.path.join(
         checkpoints_path, str(experiment_number).zfill(3)
     )
-    train_config["model_title"] = "resnet18_regressor"
+    train_config["model_title"] = f"{model_type}_regressor"
 
     # Return the experiment context as a dictionary
     return {
@@ -1023,6 +1032,7 @@ def prepare_regression_experiment(
         "experiment_number": experiment_number,
         "experiments_df_path": experiments_df_path,
         "freeze_backbone": freeze_backbone,
+        "model_type": model_type,
         "regression_target": regression_target,
         "results_path": results_path,
         "seed": seed,
@@ -1044,7 +1054,11 @@ def train_regression_model(experiment):
     # --- Train model --- #
 
     # Create the regression model
-    model = ResNet18Regressor(freeze_backbone=experiment["freeze_backbone"])
+    set_random_seed(experiment["seed"], deterministic=experiment["deterministic"])
+    model = PretrainedRegressor(
+        model_type=experiment["model_type"],
+        freeze_backbone=experiment["freeze_backbone"],
+    )
 
     # Train the model and save the history
     model, history = train_regressor(
@@ -1091,7 +1105,7 @@ def save_regression_results(experiment):
     row = {
         "experiment_number": experiment["experiment_number"],
         "experiment_name": experiment["experiment_name"],
-        "model_type": "resnet18_regressor",
+        "model_type": experiment["model_type"],
         "regression_target": experiment["regression_target"],
         "seed": experiment["seed"],
         "deterministic": experiment["deterministic"],

@@ -1,12 +1,11 @@
 import torch
 import torch.nn as nn
-from torchvision import models
+from models.pretrained_classifier import get_pretrained_backbone
 
 
-class ResNet18ConditionedClassifier(nn.Module):
+class ConditionedClassifier(nn.Module):
     """
-    An ImageNet-pretrained ResNet-18 tactile classifier conditioned on the ground-truth
-    force level.
+    A configurable pretrained tactile classifier conditioned on ground-truth force level.
 
     Author: Gemma McLean
     Date: September 2026
@@ -19,6 +18,7 @@ class ResNet18ConditionedClassifier(nn.Module):
         freeze_backbone=False,
         fusion_hidden_dim=256,
         fusion_dropout=0.2,
+        model_type="resnet18",
     ):
         """
         Initialise the conditioned classifier.
@@ -26,6 +26,7 @@ class ResNet18ConditionedClassifier(nn.Module):
         Args:
             num_classes (int): The number of object or object-region classes.
             force_level_labels (list): Force-level labels in their encoded class order.
+            model_type (str): Backbone name supported by PretrainedClassifier.
             freeze_backbone (bool, optional): Whether to train only the fusion and
                 classification layers. Defaults to False.
             fusion_hidden_dim (int, optional): Dimension of the fused representation.
@@ -39,10 +40,7 @@ class ResNet18ConditionedClassifier(nn.Module):
         self.fusion_hidden_dim = fusion_hidden_dim
         self.fusion_dropout = fusion_dropout
 
-        # Load the pretrained ResNet-18 backbone and remove its classification head
-        self.feature_dim = 512
-        self.backbone = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        self.backbone.fc = nn.Identity()
+        self.backbone, self.feature_dim = get_pretrained_backbone(model_type)
 
         # Freeze pretrained backbone parameters when training only the fusion and head
         if self.freeze_backbone:
@@ -88,7 +86,7 @@ class ResNet18ConditionedClassifier(nn.Module):
                 model to evaluation mode.
 
         Returns:
-            ResNet18ConditionedClassifier: The model instance.
+            ConditionedClassifier: The model instance.
         """
 
         super().train(mode)

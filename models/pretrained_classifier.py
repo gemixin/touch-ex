@@ -9,6 +9,47 @@ from models.t3 import T3TinyBackbone
 DEIT_TINY_CHECKPOINT = "timm/deit_tiny_patch16_224.fb_in1k"
 
 
+def get_pretrained_backbone(model_type):
+    """Load a supported pretrained encoder and return it with its feature dimension."""
+    # Load the selected pretrained model and remove its original classification head
+    if model_type == "resnet18":
+        backbone = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        feature_dim = backbone.fc.in_features
+        backbone.fc = nn.Identity()
+
+    elif model_type == "resnet50":
+        backbone = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
+        feature_dim = backbone.fc.in_features
+        backbone.fc = nn.Identity()
+
+    elif model_type == "efficientnet_b0":
+        backbone = models.efficientnet_b0(
+            weights=models.EfficientNet_B0_Weights.DEFAULT
+        )
+        feature_dim = backbone.classifier[1].in_features
+        backbone.classifier[1] = nn.Identity()
+
+    elif model_type == "vit_b_16":
+        backbone = models.vit_b_16(weights=models.ViT_B_16_Weights.DEFAULT)
+        feature_dim = backbone.heads.head.in_features
+        backbone.heads = nn.Identity()
+
+    elif model_type == "deit_tiny":
+        backbone = timm.create_model(
+            DEIT_TINY_CHECKPOINT, pretrained=True, num_classes=0
+        )
+        feature_dim = backbone.num_features
+
+    elif model_type == "t3_tiny":
+        backbone = T3TinyBackbone()
+        feature_dim = backbone.feature_dim
+
+    else:
+        raise ValueError(f"Invalid model type: {model_type}.")
+
+    return backbone, feature_dim
+
+
 class PretrainedClassifier(nn.Module):
     """
     A tactile classifier with a configurable pretrained feature-extraction backbone.
@@ -33,41 +74,7 @@ class PretrainedClassifier(nn.Module):
         super().__init__()
         self.freeze_backbone = freeze_backbone
 
-        # Load the selected pretrained model and remove its original classification head
-        if model_type == "resnet18":
-            self.backbone = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-            self.feature_dim = self.backbone.fc.in_features
-            self.backbone.fc = nn.Identity()
-
-        elif model_type == "resnet50":
-            self.backbone = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
-            self.feature_dim = self.backbone.fc.in_features
-            self.backbone.fc = nn.Identity()
-
-        elif model_type == "efficientnet_b0":
-            self.backbone = models.efficientnet_b0(
-                weights=models.EfficientNet_B0_Weights.DEFAULT
-            )
-            self.feature_dim = self.backbone.classifier[1].in_features
-            self.backbone.classifier[1] = nn.Identity()
-
-        elif model_type == "vit_b_16":
-            self.backbone = models.vit_b_16(weights=models.ViT_B_16_Weights.DEFAULT)
-            self.feature_dim = self.backbone.heads.head.in_features
-            self.backbone.heads = nn.Identity()
-
-        elif model_type == "deit_tiny":
-            self.backbone = timm.create_model(
-                DEIT_TINY_CHECKPOINT, pretrained=True, num_classes=0
-            )
-            self.feature_dim = self.backbone.num_features
-
-        elif model_type == "t3_tiny":
-            self.backbone = T3TinyBackbone()
-            self.feature_dim = self.backbone.feature_dim
-
-        else:
-            raise ValueError(f"Invalid model type: {model_type}.")
+        self.backbone, self.feature_dim = get_pretrained_backbone(model_type)
 
         # Set the task-specific classifier
         self.classifier = nn.Sequential(
