@@ -478,6 +478,8 @@ def prepare_classification_experiment(
         # Start with the base data config and apply the overrides for this run
         data_config = base_data_config.copy()
         data_config.update(data_config_overrides)
+        # All classification workflows stratify by their target, overriding the config.
+        # Changing the target can change partition membership even with split seed 129.
         data_config["stratify_label"] = target_label
         data_configs.append(data_config)
 
@@ -549,6 +551,8 @@ def prepare_classification_experiment(
                 if model_type == "t3_tiny"
                 else DEIT_TINY_CHECKPOINT
                 if model_type == "deit_tiny"
+                else "torchvision/ResNet50_Weights.IMAGENET1K_V2"
+                if model_type == "resnet50"
                 else None
             )
             for model_type in model_types
@@ -985,6 +989,7 @@ def prepare_regression_experiment(
     # Start with the base data config and apply the overrides for this run
     data_config = base_data_config.copy()
     data_config.update(data_config_overrides)
+    # Regression retains the configured stratify_label (object in the supplied configs).
     datasets, _ = get_datasets(data_config, experiment_purpose)
     dataloaders = create_dataloaders(datasets, data_config, seed=seed)
     target_normalizer = get_target_normalizer(datasets["train"], regression_target)

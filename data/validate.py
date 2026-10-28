@@ -21,8 +21,6 @@ def validate_data_config(data_config):
 
     # Define valid values
     label_cols = ["object", "region", "object_region", "force_level", "motion"]
-    motions = ["sliding", "rotation"]
-    force_levels = ["1", "2", "3"]
     transform_names = ["pad_224", "center_crop_224"]
     norm_types = ["dataset", "imagenet"]
 
@@ -30,8 +28,6 @@ def validate_data_config(data_config):
     required_keys = [
         "split_size",
         "stratify_label",
-        "filtered_force_level",
-        "filtered_motion",
         "transform_name",
         "train_augmentations",
         "bg_path",
@@ -61,16 +57,6 @@ def validate_data_config(data_config):
     # Validate stratify_label
     if data_config["stratify_label"] not in label_cols:
         raise ValueError(f"stratify_label must be one of: {label_cols}.")
-
-    # Validate filtered_force_level
-    filtered_force_level = data_config["filtered_force_level"]
-    if filtered_force_level is not None and filtered_force_level not in force_levels:
-        raise ValueError(f"filtered_force_level must be one of {force_levels} or None.")
-
-    # Validate filtered_motion
-    filtered_motion = data_config["filtered_motion"]
-    if filtered_motion is not None and filtered_motion not in motions:
-        raise ValueError(f"filtered_motion must be one of {motions} or None.")
 
     # Validate transform_name
     if data_config["transform_name"] not in transform_names:
@@ -202,7 +188,7 @@ def validate_train_config(train_config):
     """
 
     # Define valid values
-    optimizers = ["adam", "adamw", "sgd"]
+    optimizers = ["adam", "adamw"]
 
     # Define the required keys
     required_keys = [
@@ -211,7 +197,6 @@ def validate_train_config(train_config):
         "warmup_epochs",
         "warmup_start_factor",
         "min_learning_rate",
-        "momentum",
         "weight_decay",
         "num_epochs",
         "early_stopping_patience",
@@ -285,13 +270,6 @@ def validate_train_config(train_config):
             "min_learning_rate must be a number greater than 0 and no greater than "
             "learning_rate."
         )
-
-    # Validate momentum
-    if (
-        type(train_config["momentum"]) not in [int, float]
-        or not 0 <= train_config["momentum"] <= 1
-    ):
-        raise ValueError("momentum must be a number between 0 and 1.")
 
     # Validate weight_decay
     if (

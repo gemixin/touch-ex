@@ -12,8 +12,8 @@ from ml.experiments import classify_sweep
 # --- Configurable parameters --- #
 
 # Chosen model type for sweep experiments
-# Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or
-# 't3_tiny'
+# Choose from 'baseline', 'resnet18', 'resnet50', 'efficientnet_b0', 'vit_b_16',
+# 'deit_tiny', or 't3_tiny'
 MODEL_TYPE = "resnet18"
 
 # Target label for classification
@@ -21,7 +21,7 @@ MODEL_TYPE = "resnet18"
 TARGET_LABEL = "object_region"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_filter_sweep"
+EXPERIMENT_NAME = "resnet18_config_sweep"
 
 # Use model_selection for configuration/model choice; final_evaluation for testing
 EXPERIMENT_PURPOSE = "model_selection"
@@ -37,27 +37,9 @@ FREEZE_BACKBONE = False
 
 # Each data variant is combined with every training variant below
 # Values override keys in the chosen data config file
+# Add named preprocessing variants here to compare data configurations.
 DATA_CONFIG_VARIANTS = {
-    "force_level_1": {
-        "filtered_force_level": "1",
-        "filtered_motion": None,
-    },
-    "force_level_2": {
-        "filtered_force_level": "2",
-        "filtered_motion": None,
-    },
-    "force_level_3": {
-        "filtered_force_level": "3",
-        "filtered_motion": None,
-    },
-    "sliding": {
-        "filtered_force_level": None,
-        "filtered_motion": "sliding",
-    },
-    "rotation": {
-        "filtered_force_level": None,
-        "filtered_motion": "rotation",
-    },
+    "default": {},
 }
 
 # Each training variant is combined with every data variant above

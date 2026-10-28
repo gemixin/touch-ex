@@ -1,8 +1,6 @@
 {
     "split_size": 0.2,
     "stratify_label": "object",
-    "filtered_force_level": null,
-    "filtered_motion": null,
     "transform_name": "pad_224",
     "train_augmentations": {
         "color_jitter": {

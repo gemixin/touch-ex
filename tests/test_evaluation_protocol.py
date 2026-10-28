@@ -59,6 +59,7 @@ class EvaluationProtocolTests(unittest.TestCase):
                          ['train', 'validation_unseen_matched'] * 2)
         for split in first:
             self.assertEqual(first[split].df.interaction_id.tolist(), second[split].df.interaction_id.tolist())
+        self.assertEqual(len(first['validation_unseen_matched']), len(self.frames['validation_unseen_matched']))
         orders = [list(builder.create_dataloaders(first, self.config, seed=s)['train'].sampler)
                   for s in [17, 17, 23]]
         self.assertEqual(orders[0], orders[1])
@@ -67,6 +68,13 @@ class EvaluationProtocolTests(unittest.TestCase):
         ids = [set(final[s].df.interaction_id) for s in ['train', 'val', 'test']]
         self.assertFalse(ids[0] & ids[1] or ids[0] & ids[2] or ids[1] & ids[2])
         self.assertEqual(set.union(*ids), set(self.frames['train'].interaction_id))
+        combined = pd.concat([final[split].df for split in ['train', 'val', 'test']])
+        self.assertEqual(len(combined), len(self.frames['train']))
+        for label in ['force_level', 'motion']:
+            self.assertEqual(combined[label].value_counts().to_dict(),
+                             self.frames['train'][label].value_counts().to_dict())
+        for split in ['test_unseen_matched', 'test_unseen_related']:
+            self.assertEqual(len(final[split]), len(self.frames[split]))
 
     def test_shared_matched_encoding_and_unknown_related_identities(self):
         datasets, labels = builder.get_datasets(self.config, 'final_evaluation')

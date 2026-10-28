@@ -35,42 +35,12 @@ def load_touch_ex_dataset(experiment_purpose="model_selection"):
     }
 
 
-def filter_by_force_level(df, force_level):
-    """
-    Filter the DataFrame by the given force level.
-
-    Args:
-        df (pd.DataFrame): The input DataFrame to filter.
-        force_level (str): The force level to filter by.
-
-    Returns:
-        pd.DataFrame: A filtered DataFrame containing only rows with the given force level.
-    """
-
-    filtered_df = df[df["force_level"] == force_level]
-    return filtered_df
-
-
-def filter_by_motion(df, motion):
-    """
-    Filter the DataFrame by the given motion.
-
-    Args:
-        df (pd.DataFrame): The input DataFrame to filter.
-        motion (str): The motion to filter by.
-
-    Returns:
-        pd.DataFrame: A filtered DataFrame containing only rows with the given motion.
-    """
-
-    filtered_df = df[df["motion"] == motion]
-    return filtered_df
-
-
 def split_by_interaction(df, split_size, stratify_label):
     """
     Split a frame-level dataframe by interaction_id using the specified split size and
-    stratification label. Splits into train, validation, and test sets.
+    stratification label and fixed seed 129. Splits into train, validation, and test sets.
+    Classification passes its target label; regression passes the configured label.
+    Different stratification labels can produce different interaction partitions.
 
     Args:
         df (pd.DataFrame): The input DataFrame to split.
@@ -215,8 +185,6 @@ def calculate_dataset_norm_stats(df, data_config, use_cache=True):
         "split_seed": SPLIT_SEED,
         "split_size": data_config["split_size"],
         "stratify_label": data_config["stratify_label"],
-        "filtered_force_level": data_config["filtered_force_level"],
-        "filtered_motion": data_config["filtered_motion"],
         "transform_name": data_config["transform_name"],
         "bg_path": data_config["bg_path"],
     }

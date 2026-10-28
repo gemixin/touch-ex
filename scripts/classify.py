@@ -12,8 +12,8 @@ from ml.experiments import classify
 # --- Configurable parameters --- #
 
 # Model types to compare
-# Choose from 'baseline', 'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or
-# 't3_tiny'
+# Choose from 'baseline', 'resnet18', 'resnet50', 'efficientnet_b0', 'vit_b_16',
+# 'deit_tiny', or 't3_tiny'
 MODEL_TYPES = ["resnet18"]
 
 # Target label for classification

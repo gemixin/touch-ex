@@ -23,7 +23,8 @@ class PretrainedClassifier(nn.Module):
 
         Args:
             model_type (str): The type of pretrained backbone to use. Options are
-                'resnet18', 'efficientnet_b0', 'vit_b_16', 'deit_tiny', or 't3_tiny'.
+                'resnet18', 'resnet50', 'efficientnet_b0', 'vit_b_16', 'deit_tiny',
+                or 't3_tiny'.
             num_classes (int): The number of classes to classify.
             freeze_backbone (bool, optional): Whether to train only the classifier.
                 Defaults to False.
@@ -35,6 +36,11 @@ class PretrainedClassifier(nn.Module):
         # Load the selected pretrained model and remove its original classification head
         if model_type == "resnet18":
             self.backbone = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+            self.feature_dim = self.backbone.fc.in_features
+            self.backbone.fc = nn.Identity()
+
+        elif model_type == "resnet50":
+            self.backbone = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
             self.feature_dim = self.backbone.fc.in_features
             self.backbone.fc = nn.Identity()
 

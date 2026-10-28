@@ -229,9 +229,7 @@ def get_optimizer(model, train_config):
     """
 
     # Get class based on string name in config
-    if train_config["optimizer"].lower() == "sgd":
-        optimizer = optim.SGD
-    elif train_config["optimizer"].lower() == "adam":
+    if train_config["optimizer"].lower() == "adam":
         optimizer = optim.Adam
     elif train_config["optimizer"].lower() == "adamw":
         optimizer = optim.AdamW
@@ -243,21 +241,11 @@ def get_optimizer(model, train_config):
         parameter for parameter in model.parameters() if parameter.requires_grad
     )
 
-    # Return the optimizer with the appropriate parameters based on the config
-    # If using SGD, include momentum
-    if optimizer == optim.SGD:
-        return optimizer(
-            trainable_parameters,
-            lr=train_config["learning_rate"],
-            momentum=train_config["momentum"],
-            weight_decay=train_config["weight_decay"],
-        )
-    else:
-        return optimizer(
-            trainable_parameters,
-            lr=train_config["learning_rate"],
-            weight_decay=train_config["weight_decay"],
-        )
+    return optimizer(
+        trainable_parameters,
+        lr=train_config["learning_rate"],
+        weight_decay=train_config["weight_decay"],
+    )
 
 
 def get_lr_scheduler(optimizer, train_config, steps_per_epoch):

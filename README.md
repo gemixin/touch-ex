@@ -66,6 +66,7 @@ Available model types are:
 
 - `baseline`: a CNN trained from scratch
 - `resnet18`: ImageNet-pretrained ResNet-18
+- `resnet50`: ImageNet-pretrained ResNet-50 (`ResNet50_Weights.IMAGENET1K_V2`)
 - `efficientnet_b0`: ImageNet-pretrained EfficientNet-B0
 - `vit_b_16`: ImageNet-pretrained ViT-B/16
 - `deit_tiny`: ImageNet-pretrained DeiT-Tiny
@@ -137,12 +138,21 @@ The scripts start with base JSON files and apply the overrides defined in the sc
 Classification sweeps apply every combination of their named data and training variants.
 Dataset partitioning always uses `SPLIT_SEED = 129`, independently of `SEED`. The
 experiment `SEED` controls model initialisation, training shuffle, and augmentation
-randomness. For the same filters and stratification, changing `SEED` preserves the
-train/validation/test partition membership. Classification experiments set
-`stratify_label` from `TARGET_LABEL`; regression experiments retain
-the `stratify_label` selected in their data configuration.
+randomness. For the same split size and stratification, changing `SEED`
+preserves the train/validation/test partition membership.
+
+Classification experiments, including sweeps and conditioned models, always override
+`stratify_label` with `TARGET_LABEL`: object classification stratifies by `object`,
+object-region classification by `object_region`, force classification by `force_level`,
+and motion classification by `motion`. Regression uses the data config's
+`stratify_label`, including any overrides; the supplied configs use `object`.
+Different classification targets can therefore produce different interaction partitions
+despite using the same split seed. Stratification approximately preserves proportions
+for the selected label, without guaranteeing balance across other labels.
 
 ### Data
+
+All experiments use every force level and both motion types in their selected splits.
 
 [`configs/default_data_config.json`](configs/default_data_config.json) is the standard
 starting point. [`configs/pad_jitter_data_config.json`](configs/pad_jitter_data_config.json)
@@ -152,8 +162,7 @@ padding-based transform with mild training-only colour jitter.
 | Setting | Purpose and accepted values |
 | --- | --- |
 | `split_size` | Total fraction held out from training, split equally between validation and the standard test set. |
-| `filtered_force_level` | Restrict samples to `"1"`, `"2"`, or `"3"`; use `null` for all force levels. |
-| `filtered_motion` | Restrict samples to `"sliding"` or `"rotation"`; use `null` for both. |
+| `stratify_label` | Interaction-level stratification column used by regression (`object` by default). Classification always overrides this with `TARGET_LABEL`. |
 | `transform_name` | Base 224×224 image preparation: `pad_224` pads then resizes; `center_crop_224` resizes then centre-crops. Used for validation, test, and training unless `random_resized_crop` is enabled. |
 | `bg_path` | Path to a `.jpg` background image for subtraction, or `null` to disable it. |
 | `norm_type` | `dataset` computes/loads statistics from the training split; `imagenet` uses ImageNet statistics; `null` disables normalisation. `norm_cache_path` is required unless normalisation is disabled. |
@@ -174,10 +183,9 @@ Choose the base training file that matches the model mode:
 | [`frozen_train_config.json`](configs/frozen_train_config.json) | Pretrained models with frozen backbones. |
 | [`baseline_train_config.json`](configs/baseline_train_config.json) | The baseline CNN, which is always trained end-to-end. |
 
-All training configs set `optimizer` (`adam`, `adamw`, or `sgd`), learning-rate
+All training configs set `optimizer` (`adam` or `adamw`), learning-rate
 schedule (`learning_rate`, `warmup_epochs`, `warmup_start_factor`, and
-`min_learning_rate`), `weight_decay`, and `num_epochs`. For SGD, `momentum` controls
-the optimiser momentum. To enable early stopping, set
+`min_learning_rate`), `weight_decay`, and `num_epochs`. To enable early stopping, set
 `early_stopping_patience` to a positive number of consecutive non-improving validation
 epochs; leave it as `null` to train for every epoch. `early_stopping_min_delta` is the
 minimum improvement required to reset patience: validation-accuracy improvement (in

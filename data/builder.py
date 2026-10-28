@@ -28,15 +28,9 @@ def seed_worker(worker_id):
 
 
 def get_datasets(data_config, experiment_purpose="model_selection"):
-    """Prepare training, validation, and the purpose's evaluation datasets."""
+    """Prepare the purpose's datasets, retaining all force levels and motions."""
     validate_data_config(data_config)
     dataframes = utils.load_touch_ex_dataset(experiment_purpose)
-    for split, df in dataframes.items():
-        if data_config["filtered_force_level"]:
-            df = utils.filter_by_force_level(df, data_config["filtered_force_level"])
-        if data_config["filtered_motion"]:
-            df = utils.filter_by_motion(df, data_config["filtered_motion"])
-        dataframes[split] = df
 
     train_df, val_df, test_df = utils.split_by_interaction(
         dataframes.pop("train"),
