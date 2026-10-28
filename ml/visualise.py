@@ -173,9 +173,9 @@ def plot_tsne_features(
             for label_index, colour in zip(unique_labels, colours)
         },
         labels={"x": "t-SNE Component 1", "y": "t-SNE Component 2", "color": "Label"},
+        title=f"t-SNE: {model_type} | {target_label} | {split_name}",
         template="seaborn",
     )
-    interactive_fig.update_layout(margin=dict(t=20))
     interactive_fig.update_traces(marker=dict(size=5, opacity=0.7))
     interactive_path = f"{plots_path}/tsne_{split_name}_interactive.html"
     interactive_fig.write_html(interactive_path)
