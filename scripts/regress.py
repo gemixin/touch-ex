@@ -36,7 +36,7 @@ DATA_CONFIG_OVERRIDES = {}
 TRAIN_CONFIG_OVERRIDES = {"early_stopping_min_delta": 0.001}
 
 # Paths for files and directories
-DATA_CONFIG_PATH = "configs/pad_jitter_data_config.json"
+DATA_CONFIG_PATH = "configs/chosen_data_config.json"
 TRAIN_CONFIG_PATH = (
     "configs/frozen_train_config.json"
     if FREEZE_BACKBONE
