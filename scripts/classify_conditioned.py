@@ -19,7 +19,10 @@ TARGET_LABEL = "object_region"
 # Experiment name for tracking results
 EXPERIMENT_NAME = "resnet18_force_level_conditioned"
 
-# Randomisation settings
+# Use model_selection for configuration/model choice; final_evaluation for testing
+EXPERIMENT_PURPOSE = "model_selection"
+
+# Randomisation settings (dataset partitioning always uses seed 129)
 SEED = 129
 DETERMINISTIC = True
 
@@ -34,7 +37,7 @@ FUSION_DROPOUT = 0.2
 DATA_CONFIG_OVERRIDES = {}
 TRAIN_CONFIG_OVERRIDES = {}
 
-# t-SNE feature plot settings
+# t-SNE features use internal val for model_selection, test for final_evaluation
 PLOT_TSNE = True
 TSNE_MAX_SAMPLES = -1
 
@@ -53,6 +56,7 @@ CHECKPOINT_DIR = "checkpoints"
 classify_conditioned(
     target_label=TARGET_LABEL,
     experiment_name=EXPERIMENT_NAME,
+    experiment_purpose=EXPERIMENT_PURPOSE,
     seed=SEED,
     deterministic=DETERMINISTIC,
     freeze_backbone=FREEZE_BACKBONE,

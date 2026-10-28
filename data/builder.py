@@ -27,99 +27,51 @@ def seed_worker(worker_id):
     np.random.seed(worker_seed)
 
 
-def get_datasets(data_config):
-    """
-    Load the Touch-Ex dataset and split the main train split into train/val/test sets.
-    Split the unseen test data into two sets: matched unseen objects and related unseen
-    objects. Create a TouchExDataset for each split and return them with the class-label
-    lists.
-
-    Args:
-        data_config (dict): A dictionary containing configuration parameters for loading and
-            preparing the dataset.
-
-    Returns:
-        tuple: A tuple containing the Datasets dictionary and the class-label lists
-            dictionary.
-    """
-
-    # If the data config is invalid, raise an error before proceeding
+def get_datasets(data_config, experiment_purpose="model_selection"):
+    """Prepare training, validation, and the purpose's evaluation datasets."""
     validate_data_config(data_config)
+    dataframes = utils.load_touch_ex_dataset(experiment_purpose)
+    for split, df in dataframes.items():
+        if data_config["filtered_force_level"]:
+            df = utils.filter_by_force_level(df, data_config["filtered_force_level"])
+        if data_config["filtered_motion"]:
+            df = utils.filter_by_motion(df, data_config["filtered_motion"])
+        dataframes[split] = df
 
-    # Load the HuggingFace dataset splits into DataFrames
-    dataframes = utils.load_touch_ex_dataset()
-    train_source_df = dataframes["train"]  # Main training split for train/val/test
-    test_unseen_df = dataframes["test_unseen"]  # Separate test split with unseen labels
-
-    # Add new columns to test_unseen_df for expected labels
-    test_unseen_df = utils.add_expected_labels(test_unseen_df)
-
-    # Filter dataframes by force if specified in the data_config
-    if data_config["filtered_force_level"]:
-        force_val = data_config["filtered_force_level"]
-        train_source_df = utils.filter_by_force_level(train_source_df, force_val)
-        test_unseen_df = utils.filter_by_force_level(test_unseen_df, force_val)
-
-    # Filter dataframes by motion if specified in the data_config
-    if data_config["filtered_motion"]:
-        motion_val = data_config["filtered_motion"]
-        train_source_df = utils.filter_by_motion(train_source_df, motion_val)
-        test_unseen_df = utils.filter_by_motion(test_unseen_df, motion_val)
-
-    # Split the main dataset by interaction_id into train, val, and test sets
     train_df, val_df, test_df = utils.split_by_interaction(
-        train_source_df,
+        dataframes.pop("train"),
         split_size=data_config["split_size"],
         stratify_label=data_config["stratify_label"],
-        random_state=data_config["random_state"],
     )
+    split_dfs = {"train": train_df, "val": val_df, **dataframes}
+    if experiment_purpose == "final_evaluation":
+        split_dfs["test"] = test_df
 
-    # Split the unseen test data into matched and related unseen-object sets
-    test_unseen_matched_df, test_unseen_related_df = utils.split_test_unseen(test_unseen_df)
-
-    # Create a dictionary of DataFrames for each split
-    split_dfs = {
-        "train": train_df,
-        "val": val_df,
-        "test": test_df,
-        "test_unseen_matched": test_unseen_matched_df,
-        "test_unseen_related": test_unseen_related_df,
-    }
-
-    # Get class-label lists
-    label_lists = {
-        "train": utils.get_label_lists(train_df),
-        "test_unseen_matched": utils.get_label_lists(test_unseen_matched_df),
-        "test_unseen_related": utils.get_label_lists(test_unseen_related_df),
-    }
-
-    # Get normalisation stats (mean and std) or None if not enabled
+    label_lists = {"train": utils.get_label_lists(train_df)}
     norm_stats = utils.get_norm_stats(train_df, data_config)
-
-    # Create a TouchEXDataset for each split, passing in the appropriate parameters
     datasets = {
         split: TouchExDataset(
-            dataframe=df_split,
+            dataframe=df,
+            split=split,
             label_lists=label_lists,
             transform_name=data_config["transform_name"],
             train_augmentations=data_config["train_augmentations"],
             norm_stats=norm_stats,
             bg_path=data_config["bg_path"],
-            split=split,
         )
-        for split, df_split in split_dfs.items()
+        for split, df in split_dfs.items()
     }
-
     return datasets, label_lists
 
 
-def create_dataloaders(datasets, data_config):
+def create_dataloaders(datasets, data_config, seed=129):
     """
     Create a fresh dictionary of seeded DataLoaders from prepared datasets.
 
     Args:
         datasets (dict): A dictionary of TouchExDataset objects keyed by split name.
         data_config (dict): A dictionary containing DataLoader settings.
+        seed (int): Experiment seed for shuffling and worker randomness.
 
     Returns:
         dict: A dictionary of DataLoaders keyed by split name.
@@ -136,7 +88,7 @@ def create_dataloaders(datasets, data_config):
             shuffle=data_config["shuffle_map"].get(split, False),
             num_workers=data_config["num_workers"],
             worker_init_fn=seed_worker,
-            generator=torch.Generator().manual_seed(data_config["random_state"]),
+            generator=torch.Generator().manual_seed(seed),
         )
         for split in datasets
     }
@@ -144,18 +96,20 @@ def create_dataloaders(datasets, data_config):
     return dataloaders
 
 
-def get_dataloaders(data_config):
+def get_dataloaders(data_config, experiment_purpose="model_selection", seed=129):
     """
     Build the Touch-Ex datasets and DataLoaders from a data configuration using a single
     function call.
 
     Args:
         data_config (dict): A dictionary containing dataset and DataLoader settings.
+        experiment_purpose (str): model_selection (default) or final_evaluation.
+        seed (int): Experiment seed for shuffling and worker randomness.
 
     Returns:
         tuple: A tuple containing the DataLoaders dictionary and the class-label lists
             dictionary.
     """
 
-    datasets, label_lists = get_datasets(data_config)
-    return create_dataloaders(datasets, data_config), label_lists
+    datasets, label_lists = get_datasets(data_config, experiment_purpose)
+    return create_dataloaders(datasets, data_config, seed=seed), label_lists

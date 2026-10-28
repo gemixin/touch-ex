@@ -18,95 +18,21 @@ from data.transforms import get_random_resized_crop_224, get_transform
 # Columns in the dataset that can be used as labels for classification tasks
 LABEL_COLS = ["object", "region", "object_region", "force_level", "motion"]
 
-# Mappings for expected object labels in the unseen test split
-EXPECTED_OBJECTS = {
-    "tin_peas": "tin_beans",
-    "small_scissors": "scissors",
-    "patterned_mug": "mug",
-    "media_remote": "tv_remote",
-    "table_knife": "scissors",
-    "microfibre_cloth": "tea_towel",
-    "dish_brush": "toothbrush",
-    "beaker": "mug",
-    "rubber_ball": "tennis_ball",
+# Partition membership is independent of model and training randomness.
+SPLIT_SEED = 129
+EVALUATION_SPLITS = {
+    "model_selection": ("val", "validation_unseen_matched"),
+    "final_evaluation": ("test", "test_unseen_matched", "test_unseen_related"),
 }
 
-# Mappings for expected object_region labels in the unseen test split
-EXPECTED_OBJECT_REGIONS = {
-    "tin_peas_body": "tin_beans_body",
-    "tin_peas_lid": "tin_beans_lid",
-    "tin_peas_base": "tin_beans_base",
-    "small_scissors_handle": "scissors_handle",
-    "small_scissors_blades": "scissors_blades",
-    "patterned_mug_body": "mug_body",
-    "patterned_mug_handle": "mug_handle",
-    "patterned_mug_rim": "mug_rim",
-    "media_remote_body": "tv_remote_body",
-    "media_remote_buttons": "tv_remote_buttons",
-    "table_knife_handle": "scissors_blades",
-    "table_knife_blade": "scissors_blades",
-    "microfibre_cloth_surface": "tea_towel_surface",
-    "microfibre_cloth_edge": "tea_towel_edge",
-    "dish_brush_handle": "toothbrush_handle",
-    "dish_brush_head": "toothbrush_head",
-    "beaker_body": "mug_body",
-    "beaker_rim": "mug_rim",
-    "rubber_ball_body": "tennis_ball_body",
-    "rubber_ball_ridges": "tennis_ball_seam",
-}
 
-# Categorise objects from the unseen test split
-# Matched objects are those that have a close counterpart in the training set
-MATCHED_OBJECTS = ["tin_peas", "small_scissors", "patterned_mug", "media_remote"]
-
-# Related objects are different but evaluated against a related training class
-RELATED_OBJECTS = [
-    "table_knife",
-    "microfibre_cloth",
-    "dish_brush",
-    "beaker",
-    "rubber_ball",
-]
-
-
-def load_touch_ex_dataset():
-    """
-    Load the Touch-Ex Hugging Face dataset and return a dictionary containing the main
-    train split and the test_unseen split as pandas DataFrames.
-
-    Returns:
-        dict: A dictionary containing the train and test_unseen splits as pandas DataFrames.
-    """
-
-    # Load the Touch-Ex dataset from Hugging Face
-    dataset = load_dataset("gemixin/touch-ex")
-
-    # Convert the train and test_unseen splits to pandas DataFrames
-    train_df = dataset["train"].to_pandas()
-    test_unseen_df = dataset["test_unseen"].to_pandas()
-
-    # Return the DataFrames in a dictionary
-    return {"train": train_df, "test_unseen": test_unseen_df}
-
-
-def add_expected_labels(df):
-    """
-    Add expected object and object_region labels for the unseen test split.
-
-    Args:
-        df (pd.DataFrame): The unseen test split DataFrame.
-
-    Returns:
-        pd.DataFrame: A copy of the input DataFrame with expected label columns added.
-    """
-
-    # Map the original labels to the expected labels using the predefined mappings
-    updated_df = df.copy()
-    updated_df["expected_object"] = updated_df["object"].map(EXPECTED_OBJECTS)
-    updated_df["expected_object_region"] = updated_df["object_region"].map(
-        EXPECTED_OBJECT_REGIONS
-    )
-    return updated_df
+def load_touch_ex_dataset(experiment_purpose="model_selection"):
+    """Load only the Hugging Face source splits needed for this experiment."""
+    source_splits = ["train", *EVALUATION_SPLITS[experiment_purpose][1:]]
+    return {
+        split: load_dataset("gemixin/touch-ex", split=split).to_pandas()
+        for split in source_splits
+    }
 
 
 def filter_by_force_level(df, force_level):
@@ -141,7 +67,7 @@ def filter_by_motion(df, motion):
     return filtered_df
 
 
-def split_by_interaction(df, split_size, stratify_label, random_state):
+def split_by_interaction(df, split_size, stratify_label):
     """
     Split a frame-level dataframe by interaction_id using the specified split size and
     stratification label. Splits into train, validation, and test sets.
@@ -150,7 +76,6 @@ def split_by_interaction(df, split_size, stratify_label, random_state):
         df (pd.DataFrame): The input DataFrame to split.
         split_size (float): The proportion of the dataset for val/test splits.
         stratify_label (str): The column name to use for stratification.
-        random_state (int): The random seed for reproducibility.
 
     Returns:
         tuple: A tuple containing the train, validation, and test DataFrames.
@@ -165,7 +90,7 @@ def split_by_interaction(df, split_size, stratify_label, random_state):
         interaction_df,
         test_size=split_size,
         stratify=interaction_df[stratify_label],
-        random_state=random_state,
+        random_state=SPLIT_SEED,
     )
 
     # Split the temp set into val and test sets (50% each)
@@ -173,7 +98,7 @@ def split_by_interaction(df, split_size, stratify_label, random_state):
         temp_ids_df,
         test_size=0.50,
         stratify=temp_ids_df[stratify_label],
-        random_state=random_state,
+        random_state=SPLIT_SEED,
     )
 
     # Apply the splits back to the original dataframe by filtering on the interaction IDs
@@ -186,24 +111,6 @@ def split_by_interaction(df, split_size, stratify_label, random_state):
     print(f"Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
 
     return train_df, val_df, test_df
-
-
-def split_test_unseen(df):
-    """
-    Split the test_unseen DataFrame into matched and related unseen-object sets.
-
-    Args:
-        df (pd.DataFrame): The input test_unseen DataFrame.
-
-    Returns:
-        tuple: A tuple containing the matched and related unseen-object DataFrames.
-    """
-
-    # Split unseen test data into matched and related unseen-object sets
-    test_unseen_matched_df = df[df["object"].isin(MATCHED_OBJECTS)]
-    test_unseen_related_df = df[df["object"].isin(RELATED_OBJECTS)]
-
-    return test_unseen_matched_df, test_unseen_related_df
 
 
 def get_label_lists(df):
@@ -305,7 +212,7 @@ def calculate_dataset_norm_stats(df, data_config, use_cache=True):
 
     # Create a norm config dictionary that captures the relevant parameters
     norm_config = {
-        "random_state": data_config["random_state"],
+        "split_seed": SPLIT_SEED,
         "split_size": data_config["split_size"],
         "stratify_label": data_config["stratify_label"],
         "filtered_force_level": data_config["filtered_force_level"],

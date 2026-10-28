@@ -18,7 +18,10 @@ REGRESSION_TARGET = "fsr_voltage"
 # Experiment name for tracking results
 EXPERIMENT_NAME = "resnet18_main"
 
-# Randomisation settings
+# Use model_selection for configuration/model choice; final_evaluation for testing
+EXPERIMENT_PURPOSE = "model_selection"
+
+# Randomisation settings (dataset partitioning always uses seed 129)
 SEED = 129
 DETERMINISTIC = True
 
@@ -44,6 +47,7 @@ CHECKPOINT_DIR = "checkpoints"
 regress(
     regression_target=REGRESSION_TARGET,
     experiment_name=EXPERIMENT_NAME,
+    experiment_purpose=EXPERIMENT_PURPOSE,
     seed=SEED,
     deterministic=DETERMINISTIC,
     freeze_backbone=FREEZE_BACKBONE,

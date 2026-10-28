@@ -31,8 +31,8 @@ class TouchExDataset(Dataset):
         Args:
             dataframe (pd.DataFrame): The input DataFrame containing the dataset.
             split (str): The split to which the dataset belongs.
-            label_lists (dict): A dictionary mapping each dataset split to its class-label
-                lists. Each split maps label names to ordered lists of class values.
+            label_lists (dict): Training class lists under 'train', mapping label names
+                to ordered lists of class values shared across all splits.
             transform_name (str): The name of the transform to apply to the images.
             train_augmentations (dict): Augmentations applied only when split is
                 'train'.
@@ -61,60 +61,17 @@ class TouchExDataset(Dataset):
             else None
         )
 
-        # Determine if this is an unseen test split based on the split name
-        if self.split in ["test_unseen_matched", "test_unseen_related"]:
-            self.test_unseen = True
-        else:
-            self.test_unseen = False
-
-        # Get class-label lists for this split
-        if self.split == "test_unseen_matched":
-            split_label_lists = label_lists["test_unseen_matched"]
-        elif self.split == "test_unseen_related":
-            split_label_lists = label_lists["test_unseen_related"]
-        # Standard train, val and test splits use the training class-label lists
-        else:
-            split_label_lists = label_lists["train"]
-
-        # Derive label-to-index dictionaries based on the class-label lists for this split
+        # Every split uses the training class indices.
         self.label2idx = {
-            label: {class_name: index for index, class_name in enumerate(class_list)}
-            for label, class_list in split_label_lists.items()
+            label: {name: index for index, name in enumerate(classes)}
+            for label, classes in label_lists["train"].items()
         }
-        # For unseen test splits, derive training label-to-index dictionaries
-        # to encode expected labels in the training label spaces
-        if self.test_unseen:
-            train_label2idx = {
-                label: {class_name: index for index, class_name in enumerate(class_list)}
-                for label, class_list in label_lists["train"].items()
-            }
-
-        # Encode categorical string labels using derived label-to-index dictionaries
-        # ["object", "region", "object_region", "force_level", "motion"]
-        # Store the encoded class indices in the dataframe
-        for label in self.label2idx.keys():
-            mapping = self.label2idx[label]
-            # Force level and motion retain their existing labels across splits, but must
-            # use training-space indices for unseen evaluation
-            if self.test_unseen and label in {"force_level", "motion"}:
-                mapping = train_label2idx[label]
-            # Map the string labels to class indices, filling any unmapped values with -1
-            # This allows us to handle any potential unseen labels gracefully
-            encoded = self.df[label].map(mapping).fillna(-1).astype("int64")
-            self.df[f"{label}_class"] = encoded
-
-        # If this is an unseen test split, also encode the expected labels using
-        # the corresponding training-set label spaces
-        if self.test_unseen:
-            # Define the expected label targets for the unseen test splits
-            self.expected_label_targets = {
-                "expected_object": "object",
-                "expected_object_region": "object_region",
-            }
-            for expected_label, train_label in self.expected_label_targets.items():
-                mapping = train_label2idx[train_label]
-                self.df[f"{expected_label}_class"] = (
-                    self.df[expected_label].map(mapping).fillna(-1).astype("int64")
+        for label, mapping in self.label2idx.items():
+            if split == "test_unseen_related" and label in {"object", "object_region"}:
+                self.df[f"{label}_class"] = -1
+            else:
+                self.df[f"{label}_class"] = (
+                    self.df[label].map(mapping).fillna(-1).astype("int64")
                 )
 
         # If a background image path is provided, load and preprocess it
@@ -204,13 +161,10 @@ class TouchExDataset(Dataset):
         for label in self.label2idx.keys():
             features[label] = torch.tensor(row[f"{label}_class"], dtype=torch.long)
 
-        # Expected labels for unseen test splits (encoded as class indices in the training
-        # label space)
-        if self.test_unseen:
-            for expected_label in self.expected_label_targets:
-                features[expected_label] = torch.tensor(
-                    row[f"{expected_label}_class"], dtype=torch.long
-                )
+        # Retain source identities for related-object diagnostic plots.
+        if self.split == "test_unseen_related":
+            features["source_object"] = row["object"]
+            features["source_object_region"] = row["object_region"]
 
         # Return a dictionary containing everything
         return features

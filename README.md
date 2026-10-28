@@ -57,9 +57,10 @@ The main settings are:
 - `MODEL_TYPES`: one or more models to train and compare
 - `TARGET_LABEL`: `object`, `object_region`, `force_level`, or `motion`
 - `EXPERIMENT_NAME`: a descriptive name recorded with the results
-- `SEED` and `DETERMINISTIC`: reproducibility settings
+- `EXPERIMENT_PURPOSE`: `model_selection` (default) or `final_evaluation`
+- `SEED` and `DETERMINISTIC`: model and training reproducibility settings; dataset partitions always use seed `129`
 - `FREEZE_BACKBONE`: train only the task-specific head of pretrained models when `True`
-- `PLOT_TSNE` and `TSNE_MAX_SAMPLES`: test-set t-SNE plot settings; use `-1` to include every test example
+- `PLOT_TSNE` and `TSNE_MAX_SAMPLES`: t-SNE settings for internal validation or test, according to the purpose; use `-1` to include every example
 
 Available model types are:
 
@@ -119,7 +120,8 @@ The main settings are:
 
 - `REGRESSION_TARGET`: `force_n` or `fsr_voltage`
 - `EXPERIMENT_NAME`: a descriptive name recorded with the results
-- `SEED` and `DETERMINISTIC`: reproducibility settings
+- `EXPERIMENT_PURPOSE`: `model_selection` (default) or `final_evaluation`
+- `SEED` and `DETERMINISTIC`: model and training reproducibility settings; dataset partitions always use seed `129`
 - `FREEZE_BACKBONE`: train only the regression head when `True`
 - `DATA_CONFIG_OVERRIDES` and `TRAIN_CONFIG_OVERRIDES`: values applied over the selected
   base JSON configurations
@@ -133,8 +135,11 @@ only the regression head is trained; with `False`, the entire model is fine-tune
 
 The scripts start with base JSON files and apply the overrides defined in the script.
 Classification sweeps apply every combination of their named data and training variants.
-`SEED` always takes precedence over the data config's `random_state`. Classification
-experiments also set `stratify_label` from `TARGET_LABEL`; regression experiments retain
+Dataset partitioning always uses `SPLIT_SEED = 129`, independently of `SEED`. The
+experiment `SEED` controls model initialisation, training shuffle, and augmentation
+randomness. For the same filters and stratification, changing `SEED` preserves the
+train/validation/test partition membership. Classification experiments set
+`stratify_label` from `TARGET_LABEL`; regression experiments retain
 the `stratify_label` selected in their data configuration.
 
 ### Data
@@ -182,71 +187,87 @@ uses the baseline config while pretrained models use the selected frozen or fine
 config. Regression uses the frozen or fine-tuned config according to
 `FREEZE_BACKBONE`.
 
+## Evaluation purposes
+
+All scripts expose `EXPERIMENT_PURPOSE`, passed to the Python workflows as
+`experiment_purpose`. It defaults to `model_selection`.
+
+| Purpose | Evaluation splits |
+| --- | --- |
+| `model_selection` | Internal `val` and Hugging Face `validation_unseen_matched` |
+| `final_evaluation` | Internal `test`, `test_unseen_matched`, and `test_unseen_related` |
+
+Hugging Face `train` is always partitioned by interaction into internal train, val,
+and test using seed `129`. Internal val selects the best checkpoint and controls early
+stopping in both modes. Selection runs reserve internal test interactions without
+creating their loader, and request only the unseen validation source split. Use
+`final_evaluation` after fixing the model and configuration choices.
+
+Matched splits use the training class indices directly. For related objects, object
+and object-region targets are `unknown` (`-1`); classifiers still predict known training
+classes. Those evaluations save predictions and original source identities, with no
+loss, accuracy, or F1. One matrix shows predictions by original source identity, with
+training classes as columns. Force-level, motion, and regression targets remain
+labelled and receive normal metrics on related data.
+
+The public workflows return `(models, histories, evaluation_results)` (singular model
+and history for conditioned classification and regression). `evaluation_results` is
+keyed by split name; classification and sweeps contain a list of results per split in
+run order, while conditioned classification and regression contain one result per split.
+Classifier result keys are `loss`, `accuracy` (percent), `macro_f1_avg`, `y_true`,
+and `y_pred`. Unknown identity results contain only `y_true`, `y_pred`, and
+`source_labels`. Regression results contain `loss`, `mae`, `rmse`, `r2`, `y_true`, and
+`y_pred`. The low-level evaluators accept `data_loader`.
+Macro F1 gives equal weight to each ground-truth class represented in the evaluation
+split. Predictions outside those classes still count as errors. Saved `y_true` and
+`y_pred` allow other F1 averages to be calculated later.
+
 ## Outputs
 
-### Classification
-
-Each classification run saves the best-validation-accuracy checkpoint for every model
-under:
+Results, checkpoints, and plots use the existing task folders with a purpose subfolder:
 
 ```text
-<CHECKPOINT_DIR>/<target>_classify/<NNN>/<run_name>.pth
+<RESULTS_DIR>/<task>/<experiment_purpose>/experiments.parquet
+<RESULTS_DIR>/<task>/<experiment_purpose>/tables/<NNN>/summary.csv
+<RESULTS_DIR>/<task>/<experiment_purpose>/tables/<NNN>/<run_name>/classification_report_<split>.csv
+<RESULTS_DIR>/<task>/<experiment_purpose>/plots/<NNN>/
+<CHECKPOINT_DIR>/<task>/<experiment_purpose>/<NNN>/<run_name>.pth
 ```
 
-Experiment metadata, data/training configs, histories, predictions, and evaluation metrics are appended to:
+Here `<task>` is `<target>_classify`, `<target>_conditioned_classify`, or
+`<target>_regress`; `<NNN>` is the zero-padded experiment number within that purpose.
+Regression uses `resnet18_regressor` as its run name.
+Classification checkpoints maximise internal validation accuracy; regression checkpoints
+minimise internal validation loss.
 
-```text
-<RESULTS_DIR>/<target>_classify/experiments.parquet
-```
+Tables record the experiment purpose, training seed, fixed split seed, configurations,
+histories, and evaluated split results. Evaluation columns are prefixed by the actual
+split, for example `val_accuracy` or `test_unseen_matched_macro_f1_avg`. Selection
+tables have no test evaluation columns. Training histories still include validation
+metrics in both modes.
+Conditioned tables also record the conditioning label, ordered force labels, fusion
+hidden dimension, and fusion dropout.
 
-Plots are saved under:
+Each experiment's `summary.csv` has one row per `run_name`, with `model_type` and
+split-prefixed accuracy/macro F1 for classification or MAE/RMSE/R² for regression.
+It contains only that experiment's runs and applicable metrics. Accuracy is a percentage;
+F1 is on a 0–1 scale. Related identity predictions have no summary metric columns.
 
-```text
-<RESULTS_DIR>/<target>_classify/plots/<NNN>/
-```
+Classification also saves a report for each run and scored split, with columns `class`,
+`precision`, `recall`, `f1`, and `support`. Recall is the fraction of a class's frames
+classified correctly (often called per-class accuracy); precision, recall, and F1 are
+on a 0–1 scale. Reports cover ground-truth classes present in that split, matching the
+macro F1 calculation. Related identity predictions have diagnostic plots instead of
+classification reports; related force and motion predictions receive normal reports.
 
-Here, `<NNN>` is the zero-padded experiment number. The output includes per-run training
-curves and confusion matrices for the standard and unseen test sets, comparison plots
-for multi-run experiments, and optional static and interactive t-SNE plots for the
-standard test set.
-
-### Conditioned Classification
-
-Conditioned classification uses force level as its additional input and follows the same
-output structure, with separate folders for the object and object-region tasks:
-
-```text
-<CHECKPOINT_DIR>/<target>_conditioned_classify/<NNN>/<run_name>.pth
-<RESULTS_DIR>/<target>_conditioned_classify/experiments.parquet
-<RESULTS_DIR>/<target>_conditioned_classify/plots/<NNN>/
-```
-
-The conditioned result table additionally records the conditioning label, ordered force
-labels, fusion hidden dimension, and fusion dropout probability.
-
-### Regression
-
-Each regression run saves its lowest-validation-loss checkpoint under:
-
-```text
-<CHECKPOINT_DIR>/<target>_regress/<NNN>/resnet18_regressor.pth
-```
-
-Its metadata, configurations, target normalisation statistics, training history,
-predictions, and metrics for the standard and unseen test sets are appended to:
-
-```text
-<RESULTS_DIR>/<target>_regress/experiments.parquet
-```
-
-Regression plots are saved under:
-
-```text
-<RESULTS_DIR>/<target>_regress/plots/<NNN>/
-```
-
-They include loss and MAE curves, plus predicted-versus-true and residual plots for
-the standard, unseen-matched, and unseen-related test splits.
+Classification plots include training curves, confusion matrices, scored-model
+comparisons, and optional static/interactive t-SNE on internal val for selection or
+internal test for final evaluation. Regression plots include training curves and
+predicted-versus-true/residual plots for the evaluated splits.
+Plot titles are omitted for use with LaTeX captions. Axis labels and legends are
+retained, with shared DejaVu Sans typography: 12-point axis labels and 11-point ticks,
+legends, and heatmap annotations. Interactive t-SNE uses the same font and equivalent
+sizes in pixels. Filenames and folder paths identify the task, run, and split.
 
 ## Citations
 

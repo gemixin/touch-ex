@@ -309,93 +309,54 @@ def eval_classifier(
     model,
     model_title,
     device,
-    test_loader,
+    data_loader,
     target_label,
-    true_label=None,
-    evaluation_name="test",
+    evaluation_name="evaluation",
     conditioning_label=None,
+    compute_metrics=True,
 ):
-    """
-    Evaluate the given classifier model on the test set.
-
-    Args:
-        model (nn.Module): The model to evaluate.
-        model_title (str): The title of the model for logging purposes.
-        device (torch.device): The device to use for evaluation.
-        test_loader (DataLoader): The test data loader.
-        target_label (str): The expected-label key used to calculate loss and metrics.
-        true_label (str, optional): The original-label key used for confusion-matrix rows.
-            Defaults to target_label.
-        evaluation_name (str): Name used in evaluation progress output.
-        conditioning_label (str, optional): An additional label key supplied to a
-            conditioned classifier. Defaults to None.
-
-    Returns:
-        dict: A dictionary containing test loss, test accuracy, true labels, expected
-            labels, and predicted labels.
-    """
-
+    """Evaluate a labelled split, or collect predictions for unknown identities."""
     model = model.to(device)
-    # Criterion is cross-entropy loss for classification
-    criterion = nn.CrossEntropyLoss().to(device)
-
-    # -- Evaluation Phase -- #
-
     model.eval()
-    test_loss, test_correct, test_total = 0.0, 0, 0
-    y_true, y_expected, y_pred = [], [], []
+    criterion = nn.CrossEntropyLoss().to(device) if compute_metrics else None
+    total_loss, correct, total = 0.0, 0, 0
+    y_true, y_pred, source_labels = [], [], []
 
     print(f"Starting {evaluation_name} evaluation of {model_title} on device: {device}")
-
-    # Iterate over test batches without computing gradients
     with torch.no_grad():
-        for features in tqdm(test_loader, desc=evaluation_name, total=len(test_loader)):
-            # Get images and labels from features and move to device
+        for features in tqdm(data_loader, desc=evaluation_name, total=len(data_loader)):
             imgs = features["image"].to(device)
-            expected_labels = features[target_label].to(device)
-            true_labels = features[true_label or target_label].to(device)
-
-            # Perform forward pass and compute loss
+            labels = features[target_label].to(device)
             if conditioning_label is None:
                 outputs = model(imgs)
             else:
-                conditioning_values = features[conditioning_label].to(device)
-                outputs = model(imgs, conditioning_values)
-            loss = criterion(outputs, expected_labels)
+                outputs = model(imgs, features[conditioning_label].to(device))
+            predicted = outputs.argmax(dim=1)
+            if compute_metrics:
+                total_loss += criterion(outputs, labels).item()
+                correct += (predicted == labels).sum().item()
+            else:
+                source_labels.extend(features[f"source_{target_label}"])
+            total += labels.size(0)
+            y_true.extend(labels.cpu().tolist())
+            y_pred.extend(predicted.cpu().tolist())
 
-            # Update overall test loss
-            test_loss += loss.item()
-            # Get predicted classes and update overall correct/total counts for accuracy
-            _, predicted = torch.max(outputs.data, 1)
-            test_total += expected_labels.size(0)
-            test_correct += (predicted == expected_labels).sum().item()
-            # Append true, expected, and predicted labels to lists for later analysis
-            # Move to CPU and convert to numpy array before appending
-            y_true.extend(true_labels.cpu().numpy())
-            y_expected.extend(expected_labels.cpu().numpy())
-            y_pred.extend(predicted.cpu().numpy())
-
-    # Compute average test loss and accuracy
-    test_loss = test_loss / len(test_loader)
-    test_acc = 100 * test_correct / test_total
-
-    # Compute weighted F1 average using sklearn's f1_score function
-    weighted_f1_avg = f1_score(y_expected, y_pred, average="weighted")
-
-    tqdm.write(f"Loss: {test_loss:.4f}, Accuracy: {test_acc:.2f}%")
-    tqdm.write(f"Weighted F1 Average: {weighted_f1_avg:.4f}")
-
-    # Return a dictionary containing the results
-    # For anything except object/object_region in the unseen test sets, y_expected will be
-    # the same as y_true
-    return {
-        "test_loss": test_loss,
-        "test_acc": test_acc,
-        "weighted_f1_avg": weighted_f1_avg,
-        "y_true": y_true,
-        "y_expected": y_expected,
-        "y_pred": y_pred,
-    }
+    results = {"y_true": y_true, "y_pred": y_pred}
+    if compute_metrics:
+        results.update(
+            loss=total_loss / len(data_loader),
+            accuracy=100 * correct / total,
+            macro_f1_avg=f1_score(
+                y_true, y_pred, labels=np.unique(y_true), average="macro", zero_division=0
+            ),
+        )
+        tqdm.write(
+            f"Loss: {results['loss']:.4f}, Accuracy: {results['accuracy']:.2f}%, "
+            f"Macro F1: {results['macro_f1_avg']:.4f}"
+        )
+    else:
+        results["source_labels"] = source_labels
+    return results
 
 
 def get_target_normalizer(dataset, regression_target):
@@ -649,25 +610,25 @@ def eval_regressor(
     model,
     model_title,
     device,
-    test_loader,
+    data_loader,
     regression_target,
     target_normalizer,
-    evaluation_name="test",
+    evaluation_name="evaluation",
 ):
     """
-    Evaluate the given regressor model on the test set.
+    Evaluate the given regressor model on an evaluation split.
 
     Args:
         model (nn.Module): The model to evaluate.
         model_title (str): The title of the model for logging purposes.
         device (torch.device): The device to use for evaluation.
-        test_loader (DataLoader): The test data loader.
+        data_loader (DataLoader): The evaluation data loader.
         regression_target (str): The label key for the continuous target variable.
         target_normalizer (dict): The training-split target mean and standard deviation.
         evaluation_name (str): Name used in evaluation progress output.
 
     Returns:
-        dict: A dictionary containing test loss, raw-unit regression metrics, true
+        dict: A dictionary containing loss, raw-unit regression metrics, true
             targets, and predicted targets.
     """
 
@@ -678,14 +639,14 @@ def eval_regressor(
     # -- Evaluation Phase -- #
 
     model.eval()
-    test_loss = 0.0
+    total_loss = 0.0
     y_true, y_pred = [], []
 
     print(f"Starting {evaluation_name} evaluation of {model_title} on device: {device}")
 
-    # Iterate over test batches without computing gradients
+    # Iterate over evaluation batches without computing gradients
     with torch.no_grad():
-        for features in tqdm(test_loader, desc=evaluation_name, total=len(test_loader)):
+        for features in tqdm(data_loader, desc=evaluation_name, total=len(data_loader)):
             # Get images and targets from features and move to device
             imgs = features["image"].to(device)
             targets = features[regression_target].to(device)
@@ -695,23 +656,23 @@ def eval_regressor(
             outputs = model(imgs)
             loss = criterion(outputs, normalised_targets)
 
-            # Update overall test loss
-            test_loss += loss.item()
+            # Update overall evaluation loss
+            total_loss += loss.item()
             # Append true and predicted targets to lists for later analysis
             # Move to CPU and convert to numpy array before appending
             y_true.extend(targets.cpu().numpy())
             y_pred.extend(_denormalise_targets(outputs, target_normalizer).cpu().numpy())
 
-    # Compute average test loss
-    test_loss = test_loss / len(test_loader)
+    # Compute average evaluation loss
+    total_loss = total_loss / len(data_loader)
 
     # Compute raw-unit regression metrics
     metrics = _regression_metrics(y_true, y_pred)
 
     tqdm.write(
-        f"Loss: {test_loss:.4f}, MAE: {metrics['mae']:.4f}, "
+        f"Loss: {total_loss:.4f}, MAE: {metrics['mae']:.4f}, "
         f"RMSE: {metrics['rmse']:.4f}, R2: {metrics['r2']:.4f}"
     )
 
     # Return a dictionary containing the results
-    return {"test_loss": test_loss, **metrics, "y_true": y_true, "y_pred": y_pred}
+    return {"loss": total_loss, **metrics, "y_true": y_true, "y_pred": y_pred}

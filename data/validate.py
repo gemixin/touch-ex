@@ -28,7 +28,6 @@ def validate_data_config(data_config):
 
     # Define the required keys
     required_keys = [
-        "random_state",
         "split_size",
         "stratify_label",
         "filtered_force_level",
@@ -51,10 +50,6 @@ def validate_data_config(data_config):
     for key in required_keys:
         if key not in data_config:
             raise ValueError(f"data_config is missing required key: {key}.")
-
-    # Validate random_state
-    if type(data_config["random_state"]) is not int or data_config["random_state"] < 0:
-        raise ValueError("random_state must be an integer greater than or equal to 0.")
 
     # Validate split_size
     if (
