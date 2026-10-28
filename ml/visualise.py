@@ -14,67 +14,25 @@ import plotly.express as px
 import torch
 from sklearn.manifold import TSNE
 
-# Shared typography for all plots, including colour-bar labels and annotations.
+# Shared typography for static plots, including colour-bar labels and annotations.
 PLOT_FONT = "DejaVu Sans"
 PLOT_FONT_SIZE = 11
 AXIS_LABEL_SIZE = 12
-sns.set_theme(style="darkgrid", palette="deep", font=PLOT_FONT, rc={
-    "font.size": PLOT_FONT_SIZE,
-    "axes.labelsize": AXIS_LABEL_SIZE,
-    "axes.labelweight": "normal",
-    "xtick.labelsize": PLOT_FONT_SIZE,
-    "ytick.labelsize": PLOT_FONT_SIZE,
-    "legend.fontsize": PLOT_FONT_SIZE,
-    "legend.title_fontsize": AXIS_LABEL_SIZE,
-    "savefig.bbox": "tight",
-})
-
-# Define custom display names for model types and runs in plots
-DISPLAY_NAMES = {
-    "baseline": "Baseline CNN",
-    "resnet18": "ResNet-18",
-    "resnet50": "ResNet-50",
-    "efficientnet_b0": "EfficientNet-B0",
-    "vit_b_16": "ViT-B/16",
-    "deit_tiny": "DeiT-Tiny",
-    "t3_tiny": "T3-Tiny",
-    "conditioned_resnet18": "Conditioned ResNet-18",
-    "resnet18_regressor": "ResNet-18",
-    "all_data": "All data",
-    "none": "None",
-    "color_jitter": "Colour Jitter",
-    "random_resized_crop": "Random Resized Crop",
-    "both": "Both",
-    "bg_subtraction_off": "BG Subtraction: Off",
-    "bg_subtraction_on": "BG Subtraction: On",
-    "flip": "Flip",
-    "ssvtp_settings": "SSVTP Settings",
-    "t3_settings": "T3 Settings",
-    "no_norm": "No Normalisation",
-    "dataset_norm": "Dataset Normalisation",
-    "imagenet_norm": "ImageNet Normalisation",
-    "ssvtp_all": "SSVTP Augmentations",
-    "t3_all": "T3 Augmentations",
-    "pad_none": "Pad: None",
-    "pad_jitter": "Pad: Jitter",
-    "pad_flip_jitter": "Pad: Jitter + Flip",
-    "crop_all": "Crop: All",
-}
-
-
-def get_display_name(model_type):
-    """
-    Return a readable name for plot labels. Known model types and runs use
-    DISPLAY_NAMES. Other identifiers are returned unchanged.
-
-    Args:
-        model_type (str): The model type or run name.
-
-    Returns:
-        str: A readable model or run name for plot labels and titles.
-    """
-
-    return DISPLAY_NAMES.get(model_type, model_type)
+sns.set_theme(
+    style="darkgrid",
+    palette="deep",
+    font=PLOT_FONT,
+    rc={
+        "font.size": PLOT_FONT_SIZE,
+        "axes.labelsize": AXIS_LABEL_SIZE,
+        "axes.labelweight": "normal",
+        "xtick.labelsize": PLOT_FONT_SIZE,
+        "ytick.labelsize": PLOT_FONT_SIZE,
+        "legend.fontsize": PLOT_FONT_SIZE,
+        "legend.title_fontsize": AXIS_LABEL_SIZE,
+        "savefig.bbox": "tight",
+    },
+)
 
 
 def plot_tsne_features(
@@ -217,17 +175,7 @@ def plot_tsne_features(
         labels={"x": "t-SNE Component 1", "y": "t-SNE Component 2", "color": "Label"},
         template="seaborn",
     )
-    # Plotly sizes use pixels; Matplotlib typography uses points.
-    interactive_fig.update_layout(
-        font=dict(family=PLOT_FONT, size=PLOT_FONT_SIZE * 4 / 3, color="#262626"),
-        legend=dict(font_size=PLOT_FONT_SIZE * 4 / 3,
-                    title_font_size=AXIS_LABEL_SIZE * 4 / 3),
-        margin=dict(t=20),
-    )
-    interactive_fig.update_xaxes(title_font_size=AXIS_LABEL_SIZE * 4 / 3,
-                                 tickfont_size=PLOT_FONT_SIZE * 4 / 3)
-    interactive_fig.update_yaxes(title_font_size=AXIS_LABEL_SIZE * 4 / 3,
-                                 tickfont_size=PLOT_FONT_SIZE * 4 / 3)
+    interactive_fig.update_layout(margin=dict(t=20))
     interactive_fig.update_traces(marker=dict(size=5, opacity=0.7))
     interactive_path = f"{plots_path}/tsne_{split_name}_interactive.html"
     interactive_fig.write_html(interactive_path)
@@ -285,7 +233,7 @@ def plot_model_comparison(results, model_types, plots_path, split_name):
 
     Args:
         results (list): A list of result dictionaries for each model.
-        model_types (list): A list of model type names corresponding to each result.
+        model_types (list): Run names corresponding to each result, used as axis labels.
         plots_path (str): The folder path where the plot will be saved.
         split_name (str): Evaluation split used in filenames.
     """
@@ -293,17 +241,14 @@ def plot_model_comparison(results, model_types, plots_path, split_name):
     # Create a figure with 2 subplots
     fig, axs = plt.subplots(1, 2, figsize=(14, 5))
     colors = sns.color_palette("deep", len(model_types))
-    display_names = [get_display_name(model_type) for model_type in model_types]
 
     # Plot accuracy for each model
-    axs[0].bar(display_names, [result["accuracy"] for result in results], color=colors)
+    axs[0].bar(model_types, [result["accuracy"] for result in results], color=colors)
     axs[0].set_xlabel("Run")
     axs[0].set_ylabel("Accuracy (%)")
 
     # Plot macro F1 average for each model
-    axs[1].bar(
-        display_names, [result["macro_f1_avg"] for result in results], color=colors
-    )
+    axs[1].bar(model_types, [result["macro_f1_avg"] for result in results], color=colors)
     axs[1].set_xlabel("Run")
     axs[1].set_ylabel("Macro F1")
 

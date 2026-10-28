@@ -169,9 +169,9 @@ padding-based transform with mild training-only colour jitter.
 | `batch_size`, `num_workers`, `shuffle_map` | DataLoader batch size, worker count, and per-split shuffling. |
 | `train_augmentations` | Training-only settings: `random_resized_crop` replaces `transform_name` with `RandomResizedCrop(224)` when `true`; `color_jitter` is a ColorJitter dictionary or `null` and runs before background subtraction; `horizontal_flip` is a probability from `0` to `1` or `null`, applied before normalisation. Validation and test data remain deterministic and unaugmented. |
 
-The default data config disables all augmentation. Reusable ColorJitter settings are
-available based on existing work. The T3 values are taken from its
-[dataset configuration](https://github.com/alanzjl/t3/blob/main/configs/datasets/single_tower_mae.yaml). The SSVTP values are taken from the official paper (cited below).
+The default data config disables all augmentation. Reusable ColorJitter settings in
+[`configs/ssvtp_color_jitter_settings.json`](configs/ssvtp_color_jitter_settings.json)
+use the SSVTP values from the official paper (cited below).
 
 ### Training
 
