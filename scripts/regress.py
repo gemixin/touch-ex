@@ -11,7 +11,9 @@ from ml.experiments import regress
 
 # --- Configurable parameters --- #
 
-# Pretrained backbone: resnet18, resnet50, efficientnet_b0, vit_b_16, deit_tiny, t3_tiny
+# Pretrained backbone to use
+# Choose from 'resnet18', 'resnet50', 'efficientnet_b0', 'vit_b_16', 'deit_tiny',
+# or 't3_tiny'
 MODEL_TYPE = "resnet18"
 
 # Target for regression
@@ -21,11 +23,11 @@ REGRESSION_TARGET = "fsr_voltage"
 # Experiment name for tracking results
 EXPERIMENT_NAME = f"{MODEL_TYPE}_main"
 
-# Use model_selection for configuration/model choice; final_evaluation for testing
+# Experiment purpose for preparing correct splits and saving results
 EXPERIMENT_PURPOSE = "model_selection"
 
 # Randomisation settings (dataset partitioning always uses seed 129)
-SEED = 129
+SEED = 156
 DETERMINISTIC = True
 
 # Set to True to train only the regression head

@@ -49,10 +49,10 @@ class EvaluationProtocolTests(unittest.TestCase):
 
     def test_fixed_partitions_and_separate_training_seed(self):
         set_random_seed(17)
-        first, _ = builder.get_datasets(self.config)
+        first, _ = builder.get_datasets(self.config, 'model_selection')
         weights = nn.Linear(2, 2).weight.detach().clone()
         set_random_seed(23)
-        second, _ = builder.get_datasets(self.config)
+        second, _ = builder.get_datasets(self.config, 'model_selection')
         self.assertFalse(torch.equal(weights, nn.Linear(2, 2).weight))
         self.assertEqual(set(first), {'train', 'val', 'validation_unseen_matched'})
         self.assertEqual([c.kwargs['split'] for c in self.loader.call_args_list],
@@ -80,7 +80,7 @@ class EvaluationProtocolTests(unittest.TestCase):
         datasets, labels = builder.get_datasets(self.config, 'final_evaluation')
         matched = datasets['test_unseen_matched']
         self.assertEqual(matched.label2idx, datasets['train'].label2idx)
-        self.assertEqual(matched[0]['object'].item(), labels['train']['object'].index('a'))
+        self.assertEqual(matched[0]['object'].item(), labels['object'].index('a'))
         related = datasets['test_unseen_related'][0]
         self.assertEqual(related['object'].item(), -1)
         self.assertEqual(related['object_region'].item(), -1)
@@ -125,7 +125,7 @@ class EvaluationProtocolTests(unittest.TestCase):
                     train_labels=[['a', 'b']] * 2, model_types=['baseline'] * 2,
                     train_configs=[{'model_title': name} for name in order],
                 )
-                experiments.train_classifiers(context)
+                experiments._train_classifiers(context)
                 for first, second in zip(samples['first'], samples['second']):
                     self.assertTrue(torch.equal(first, second))
                 if order[0] == 'first':
@@ -175,9 +175,9 @@ class EvaluationProtocolTests(unittest.TestCase):
             context['models'] = [ToyClassifier() for _ in context['run_names']]
             context['histories'] = [[{'epoch': 1, 'val_acc': 50.}] for _ in context['run_names']]
 
-        with tempfile.TemporaryDirectory() as directory, patch.object(experiments, 'train_classifiers', train), \
-                patch.object(experiments, 'train_conditioned_classifier', train), \
-                patch.object(experiments, 'generate_classification_plots'):
+        with tempfile.TemporaryDirectory() as directory, patch.object(experiments, '_train_classifiers', train), \
+                patch.object(experiments, '_train_conditioned_classifier', train), \
+                patch.object(experiments, '_generate_classification_plots'):
             config = Path(directory, 'data.json')
             config.write_text(json.dumps(self.config))
             common = dict(target_label='object', experiment_name='example', seed=17, deterministic=True,
@@ -232,9 +232,12 @@ class EvaluationProtocolTests(unittest.TestCase):
                     self.assertEqual(pd.read_csv(conditioned_tables / 'summary.csv').model_type.tolist(),
                                      ['resnet50'])
                     sweep = {k: v for k, v in common.items() if k not in {'data_config_overrides', 'train_config_overrides'}}
+                    # Model selection is the sweep default; other purposes are explicit.
+                    if purpose != 'model_selection':
+                        sweep['experiment_purpose'] = purpose
                     _, _, results = experiments.classify_sweep(
                         model_type='baseline', data_config_variants={'first': {}, 'second': {}},
-                        train_config_variants={'default': {}}, experiment_purpose=purpose, **sweep)
+                        train_config_variants={'default': {}}, **sweep)
                     self.assertEqual(tuple(results), splits)
                     sweep_tables = path.parent / 'tables' / '003'
                     self.assertEqual(pd.read_csv(sweep_tables / 'summary.csv').run_name.tolist(), ['first', 'second'])
@@ -257,8 +260,8 @@ class EvaluationProtocolTests(unittest.TestCase):
             context['model'] = Regressor()
             context['history'] = [{'epoch': 1, 'val_loss': 1.}]
 
-        with tempfile.TemporaryDirectory() as directory, patch.object(experiments, 'train_regression_model', train), \
-                patch.object(experiments, 'generate_regression_plots'):
+        with tempfile.TemporaryDirectory() as directory, patch.object(experiments, '_train_regression_model', train), \
+                patch.object(experiments, '_generate_regression_plots'):
             config = Path(directory, 'data.json')
             config.write_text(json.dumps(self.config))
             for purpose, splits in utils.EVALUATION_SPLITS.items():
@@ -294,17 +297,22 @@ class EvaluationProtocolTests(unittest.TestCase):
                 patch.object(experiments.mv, 'plot_confusion_matrix',
                              wraps=experiments.mv.plot_confusion_matrix) as matrices:
             for purpose, splits in utils.EVALUATION_SPLITS.items():
+                tsne.reset_mock()
                 context = dict(
                     results_path=directory, experiment_number=1, run_names=['toy'],
                     models=[ToyClassifier()], histories=[[]], train_labels=[['a', 'b']],
                     target_label='object', plot_tsne=True, seed=23, device='cpu',
                     tsne_max_samples=10, experiment_purpose=purpose,
-                    dataloaders=[{splits[0]: 'primary_loader'}],
+                    dataloaders=[{split: f'{split}_loader' for split in splits}],
                     evaluation_results={s: [related if s == 'test_unseen_related' else scored] for s in splits},
                 )
-                experiments.generate_classification_plots(context)
-                self.assertEqual(tsne.call_args.kwargs['split_name'], splits[0])
-                self.assertEqual(tsne.call_args.kwargs['dataloader'], 'primary_loader')
+                experiments._generate_classification_plots(context)
+                self.assertEqual([call.kwargs['split_name'] for call in tsne.call_args_list], list(splits))
+                for call in tsne.call_args_list:
+                    split = call.kwargs['split_name']
+                    self.assertEqual(call.kwargs['dataloader'], f'{split}_loader')
+                    self.assertEqual(call.kwargs['source_label'],
+                                     'source_object' if split == 'test_unseen_related' else None)
             plots = Path(directory, 'plots', '001', 'toy')
             self.assertTrue((plots / 'confusion_matrix_test_unseen_related.png').is_file())
             related_calls = [call.kwargs for call in matrices.call_args_list
@@ -313,6 +321,46 @@ class EvaluationProtocolTests(unittest.TestCase):
             self.assertEqual(related_calls[0]['row_labels'], ['new_a', 'new_b'])
             self.assertEqual(related_calls[0]['results']['y_true'], [0, 1])
             self.assertEqual(related['y_true'], [-1, -1])
+
+    def test_tsne_labels_and_balanced_sampling_on_related_data(self):
+        # Related object identities are unknown targets, but retain names for plotting.
+        rows = [
+            dict(image=torch.tensor([float(i), float(i % 2), 1.]),
+                 object=torch.tensor(-1), object_region=torch.tensor(-1),
+                 force_level=torch.tensor(i % 2), motion=torch.tensor(i % 2),
+                 source_object='new_a' if i < 6 else 'new_b',
+                 source_object_region='new_a_body' if i < 6 else 'new_b_body')
+            for i in range(8)
+        ]
+        loader = DataLoader(rows, batch_size=3)
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(experiments.mv, 'TSNE') as tsne, \
+                patch.object(experiments.mv.px, 'scatter', wraps=experiments.mv.px.scatter) as scatter:
+            # Keep the dimensionality reduction cheap while exercising sampling and plots.
+            tsne.return_value.fit_transform.side_effect = lambda features: features[:, :2]
+            for target in ['object', 'object_region', 'force_level', 'motion']:
+                with self.subTest(target=target):
+                    source_label = f'source_{target}' if target in {'object', 'object_region'} else None
+                    names = ['train_a', 'train_b'] if source_label else ['one', 'two']
+                    plots = Path(directory, target)
+                    experiments.mv.plot_tsne_features(
+                        model=ToyClassifier(), dataloader=loader, target_label=target,
+                        seed=23, label_names=names, model_type='toy', device='cpu',
+                        plots_path=str(plots), max_samples=4,
+                        conditioning_label='force_level' if source_label else None,
+                        split_name='test_unseen_related', source_label=source_label,
+                    )
+                    colours = scatter.call_args.kwargs['color']
+                    expected = sorted({row[source_label] for row in rows}) if source_label else names
+                    self.assertCountEqual(colours, expected * 2)
+                    self.assertEqual(set(scatter.call_args.kwargs['color_discrete_map']), set(expected))
+                    self.assertEqual(tsne.return_value.fit_transform.call_args.args[0].shape, (4, 3))
+                    self.assertTrue((plots / 'tsne_test_unseen_related.png').is_file())
+                    self.assertTrue((plots / 'tsne_test_unseen_related_interactive.html').is_file())
+
+            # Plotting identities must not change the original unknown evaluation targets.
+            self.assertTrue(all(row['object'].item() == -1 for row in rows))
+            self.assertTrue(all(row['object_region'].item() == -1 for row in rows))
 
 
 if __name__ == '__main__':

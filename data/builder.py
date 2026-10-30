@@ -14,12 +14,13 @@ from data.validate import validate_data_config
 import data.utils as utils
 
 
-def seed_worker(worker_id):
+def _seed_worker(worker_id):
     """
     Seed Python and NumPy random number generators in a DataLoader worker.
 
     Args:
-        worker_id (int): The ID of the DataLoader worker.
+        worker_id (int): The ID of the DataLoader worker, passed automatically by
+            PyTorch. Accepted for the callback signature but not used directly.
     """
 
     worker_seed = torch.initial_seed() % 2**32
@@ -27,22 +28,56 @@ def seed_worker(worker_id):
     np.random.seed(worker_seed)
 
 
-def get_datasets(data_config, experiment_purpose="model_selection"):
-    """Prepare the purpose's datasets, retaining all force levels and motions."""
+def get_datasets(data_config, experiment_purpose):
+    """
+    Load the Touch-Ex dataset and split the main train split into train/val/test sets.
+    Create a TouchExDataset for each split required by the experiment purpose, retaining
+    all force levels and motions, and return them with the training class-label lists.
+
+    Args:
+        data_config (dict): A dictionary containing configuration parameters for loading
+            and preparing the dataset.
+        experiment_purpose (str): Whether to prepare validation splits for
+            'model_selection' or test splits for 'final_evaluation'.
+
+    Returns:
+        tuple: A tuple containing the Datasets dictionary and the class-label lists
+            dictionary.
+    """
+
+    # --- Load and split the dataset --- #
+
+    # If the data config is invalid, raise an error before proceeding
     validate_data_config(data_config)
+
+    # Load the Hugging Face dataset splits needed for this experiment into DataFrames
     dataframes = utils.load_touch_ex_dataset(experiment_purpose)
 
+    # Split the main dataset by interaction_id into train, val, and test sets
     train_df, val_df, test_df = utils.split_by_interaction(
         dataframes.pop("train"),
         split_size=data_config["split_size"],
         stratify_label=data_config["stratify_label"],
     )
+
+    # Combine internal train/validation partitions with the unseen validation or test
+    # splits loaded for this experiment purpose
     split_dfs = {"train": train_df, "val": val_df, **dataframes}
+    # Include the reserved internal test partition only for final evaluation
     if experiment_purpose == "final_evaluation":
         split_dfs["test"] = test_df
 
-    label_lists = {"train": utils.get_label_lists(train_df)}
+    # --- Prepare labels and normalisation --- #
+
+    # Get the training class-label lists shared by every split
+    label_lists = utils.get_label_lists(train_df)
+
+    # Get normalisation stats (mean and std) or None if not enabled
     norm_stats = utils.get_norm_stats(train_df, data_config)
+
+    # --- Create datasets --- #
+
+    # Create a TouchExDataset for each split, passing in the appropriate parameters
     datasets = {
         split: TouchExDataset(
             dataframe=df,
@@ -55,10 +90,12 @@ def get_datasets(data_config, experiment_purpose="model_selection"):
         )
         for split, df in split_dfs.items()
     }
+
+    # Return the datasets and class-label lists
     return datasets, label_lists
 
 
-def create_dataloaders(datasets, data_config, seed=129):
+def create_dataloaders(datasets, data_config, seed=156):
     """
     Create a fresh dictionary of seeded DataLoaders from prepared datasets.
 
@@ -81,7 +118,7 @@ def create_dataloaders(datasets, data_config, seed=129):
             batch_size=data_config["batch_size"],
             shuffle=data_config["shuffle_map"].get(split, False),
             num_workers=data_config["num_workers"],
-            worker_init_fn=seed_worker,
+            worker_init_fn=_seed_worker,
             generator=torch.Generator().manual_seed(seed),
         )
         for split in datasets
@@ -90,14 +127,14 @@ def create_dataloaders(datasets, data_config, seed=129):
     return dataloaders
 
 
-def get_dataloaders(data_config, experiment_purpose="model_selection", seed=129):
+def get_dataloaders(data_config, experiment_purpose, seed=156):
     """
     Build the Touch-Ex datasets and DataLoaders from a data configuration using a single
     function call.
 
     Args:
         data_config (dict): A dictionary containing dataset and DataLoader settings.
-        experiment_purpose (str): model_selection (default) or final_evaluation.
+        experiment_purpose (str): 'model_selection' or 'final_evaluation'.
         seed (int): Experiment seed for shuffling and worker randomness.
 
     Returns:

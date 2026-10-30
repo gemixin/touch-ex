@@ -31,8 +31,8 @@ class TouchExDataset(Dataset):
         Args:
             dataframe (pd.DataFrame): The input DataFrame containing the dataset.
             split (str): The split to which the dataset belongs.
-            label_lists (dict): Training class lists under 'train', mapping label names
-                to ordered lists of class values shared across all splits.
+            label_lists (dict): A dictionary mapping label names to ordered lists of
+                training class values shared across all splits.
             transform_name (str): The name of the transform to apply to the images.
             train_augmentations (dict): Augmentations applied only when split is
                 'train'.
@@ -61,15 +61,20 @@ class TouchExDataset(Dataset):
             else None
         )
 
-        # Every split uses the training class indices.
+        # Derive label-to-index dictionaries based on the training class-label lists
+        # Every split uses the same training class indices
         self.label2idx = {
             label: {name: index for index, name in enumerate(classes)}
-            for label, classes in label_lists["train"].items()
+            for label, classes in label_lists.items()
         }
+
+        # Encode categorical string labels and store the class indices in the DataFrame
         for label, mapping in self.label2idx.items():
+            # Related objects have no object or object-region class in the training set
             if split == "test_unseen_related" and label in {"object", "object_region"}:
                 self.df[f"{label}_class"] = -1
             else:
+                # Map string labels to training indices, filling any unmapped values with -1
                 self.df[f"{label}_class"] = (
                     self.df[label].map(mapping).fillna(-1).astype("int64")
                 )
@@ -161,7 +166,7 @@ class TouchExDataset(Dataset):
         for label in self.label2idx.keys():
             features[label] = torch.tensor(row[f"{label}_class"], dtype=torch.long)
 
-        # Retain source identities for related-object diagnostic plots.
+        # Retain source identities for related-object diagnostic plots
         if self.split == "test_unseen_related":
             features["source_object"] = row["object"]
             features["source_object_region"] = row["object_region"]

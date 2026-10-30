@@ -2,42 +2,70 @@ import torch.nn as nn
 import timm
 from torchvision import models
 
-from models.t3 import T3TinyBackbone
+from models.t3 import T3_REPOSITORY, T3_REVISION, T3TinyBackbone
 
 
 # Pretrained DeiT model checkpoint path
 DEIT_TINY_CHECKPOINT = "timm/deit_tiny_patch16_224.fb_in1k"
 
+# Pretrained torchvision weights used to load each supported backbone
+TORCHVISION_WEIGHTS = {
+    "resnet18": models.ResNet18_Weights.DEFAULT,
+    "resnet50": models.ResNet50_Weights.IMAGENET1K_V2,
+    "efficientnet_b0": models.EfficientNet_B0_Weights.DEFAULT,
+    "vit_b_16": models.ViT_B_16_Weights.DEFAULT,
+}
+
+# Record resolved weight names rather than DEFAULT aliases in experiment results
+# The baseline is trained from scratch and has no pretrained checkpoint
+PRETRAINED_CHECKPOINTS = {
+    "baseline": None,
+    **{
+        model_type: f"torchvision/{type(weights).__name__}.{weights.name}"
+        for model_type, weights in TORCHVISION_WEIGHTS.items()
+    },
+    "deit_tiny": DEIT_TINY_CHECKPOINT,
+    "t3_tiny": f"{T3_REPOSITORY}@{T3_REVISION}",
+}
+
 
 def get_pretrained_backbone(model_type):
-    """Load a supported pretrained encoder and return it with its feature dimension."""
+    """
+    Load the selected pretrained model and remove its original classification head.
+    Return the feature-extraction backbone and its output feature dimension.
+
+    Args:
+        model_type (str): The type of pretrained backbone to use. Options are
+            'resnet18', 'resnet50', 'efficientnet_b0', 'vit_b_16', 'deit_tiny',
+            or 't3_tiny'.
+
+    Returns:
+        tuple: A tuple containing the pretrained backbone and its output feature dimension.
+    """
+
     # Load the selected pretrained model and remove its original classification head
     if model_type == "resnet18":
-        backbone = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        backbone = models.resnet18(weights=TORCHVISION_WEIGHTS[model_type])
         feature_dim = backbone.fc.in_features
         backbone.fc = nn.Identity()
 
     elif model_type == "resnet50":
-        backbone = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
+        backbone = models.resnet50(weights=TORCHVISION_WEIGHTS[model_type])
         feature_dim = backbone.fc.in_features
         backbone.fc = nn.Identity()
 
     elif model_type == "efficientnet_b0":
-        backbone = models.efficientnet_b0(
-            weights=models.EfficientNet_B0_Weights.DEFAULT
-        )
+        backbone = models.efficientnet_b0(weights=TORCHVISION_WEIGHTS[model_type])
         feature_dim = backbone.classifier[1].in_features
         backbone.classifier[1] = nn.Identity()
 
     elif model_type == "vit_b_16":
-        backbone = models.vit_b_16(weights=models.ViT_B_16_Weights.DEFAULT)
+        backbone = models.vit_b_16(weights=TORCHVISION_WEIGHTS[model_type])
         feature_dim = backbone.heads.head.in_features
         backbone.heads = nn.Identity()
 
     elif model_type == "deit_tiny":
-        backbone = timm.create_model(
-            DEIT_TINY_CHECKPOINT, pretrained=True, num_classes=0
-        )
+        backbone = timm.create_model(DEIT_TINY_CHECKPOINT, pretrained=True, num_classes=0)
         feature_dim = backbone.num_features
 
     elif model_type == "t3_tiny":
@@ -47,6 +75,7 @@ def get_pretrained_backbone(model_type):
     else:
         raise ValueError(f"Invalid model type: {model_type}.")
 
+    # Return the backbone and the number of features supplied to the task-specific head
     return backbone, feature_dim
 
 
@@ -74,6 +103,7 @@ class PretrainedClassifier(nn.Module):
         super().__init__()
         self.freeze_backbone = freeze_backbone
 
+        # Load the selected pretrained model without its original classification head
         self.backbone, self.feature_dim = get_pretrained_backbone(model_type)
 
         # Set the task-specific classifier

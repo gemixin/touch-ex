@@ -18,18 +18,37 @@ from data.transforms import get_random_resized_crop_224, get_transform
 # Columns in the dataset that can be used as labels for classification tasks
 LABEL_COLS = ["object", "region", "object_region", "force_level", "motion"]
 
-# Partition membership is independent of model and training randomness.
+# Seed for reproducible train/val/test splits (separate from model training seed)
 SPLIT_SEED = 129
+
+# Label used to stratify the reserved test set
 TEST_STRATIFY_LABEL = "object_region"
+
+# Specify the evaluation splits for model selection and final evaluation
 EVALUATION_SPLITS = {
     "model_selection": ("val", "validation_unseen_matched"),
     "final_evaluation": ("test", "test_unseen_matched", "test_unseen_related"),
 }
 
 
-def load_touch_ex_dataset(experiment_purpose="model_selection"):
-    """Load only the Hugging Face source splits needed for this experiment."""
+def load_touch_ex_dataset(experiment_purpose):
+    """
+    Load the Touch-Ex Hugging Face dataset splits needed for the experiment and return
+    them as pandas DataFrames. Model selection loads train and matched validation;
+    final evaluation loads train and the two unseen test splits.
+
+    Args:
+        experiment_purpose (str): Whether to load splits for 'model_selection' or
+            'final_evaluation'.
+
+    Returns:
+        dict: A dictionary containing the required dataset splits as pandas DataFrames.
+    """
+
+    # Select the main training split and the unseen splits needed for this purpose
     source_splits = ["train", *EVALUATION_SPLITS[experiment_purpose][1:]]
+
+    # Load the selected splits from Hugging Face and convert them to pandas DataFrames
     return {
         split: load_dataset("gemixin/touch-ex", split=split).to_pandas()
         for split in source_splits
@@ -56,7 +75,7 @@ def split_by_interaction(df, split_size, stratify_label):
     # Take the first frame of each interaction
     interaction_df = df.groupby("interaction_id").first().reset_index()
 
-    # Reserve half the held-out fraction for testing, identically for every target.
+    # Reserve half the held-out fraction for testing, identically for every target
     remaining_ids_df, test_ids_df = train_test_split(
         interaction_df,
         test_size=split_size / 2,
@@ -64,7 +83,7 @@ def split_by_interaction(df, split_size, stratify_label):
         random_state=SPLIT_SEED,
     )
 
-    # Take the other half for validation, stratifying by this task's label.
+    # Take the other half for validation, stratifying by this task's label
     train_ids_df, val_ids_df = train_test_split(
         remaining_ids_df,
         test_size=(split_size / 2) / (1 - split_size / 2),
@@ -86,7 +105,9 @@ def split_by_interaction(df, split_size, stratify_label):
 
 def get_label_lists(df):
     """
-    Get the unique class labels for each classification label column.
+    Get the unique class labels for each classification label column, preserving
+    their order of first appearance. When shared across splits, these lists define
+    consistent training-class indices from 0 to n-1 for each label column.
 
     Args:
         df (pd.DataFrame): The input DataFrame containing the dataset.
@@ -95,7 +116,6 @@ def get_label_lists(df):
         dict: A dictionary mapping each label column to its ordered class list.
     """
 
-    # Preserve DataFrame order so each class list corresponds to indices 0 to n-1
     return {label: df[label].unique().tolist() for label in LABEL_COLS}
 
 
@@ -140,8 +160,7 @@ def process_tactile_image(
     if bg_tensor is not None:
         img_tensor = img_tensor - bg_tensor
 
-    # Apply the configured deterministic transform, unless this is a training sample
-    # explicitly configured to use random-resized-crop spatial augmentation.
+    # Use random resized cropping if enabled, otherwise use the configured transform
     resize = (
         get_random_resized_crop_224()
         if random_resized_crop
@@ -152,7 +171,7 @@ def process_tactile_image(
     return img_tensor
 
 
-def get_imagenet_norm_stats():
+def _get_imagenet_norm_stats():
     """
     Get the mean and standard deviation for normalisation based on ImageNet stats.
 
@@ -165,7 +184,7 @@ def get_imagenet_norm_stats():
     return torch.tensor(imagenet_mean), torch.tensor(imagenet_std)
 
 
-def calculate_dataset_norm_stats(df, data_config, use_cache=True):
+def _calculate_dataset_norm_stats(df, data_config, use_cache=True):
     """
     Get the mean and standard deviation for normalisation based on the provided dataset,
     either by loading from cache or by calculating from the provided DataFrame.
@@ -291,11 +310,11 @@ def get_norm_stats(df, data_config, use_cache=True):
     # If the norm type is 'imagenet', just return the ImageNet stats
     if data_config["norm_type"] == "imagenet":
         print("Loading imagenet normalisation stats.")
-        return get_imagenet_norm_stats()
+        return _get_imagenet_norm_stats()
 
     # If the norm type is 'dataset', calculate the stats
     elif data_config["norm_type"] == "dataset":
-        return calculate_dataset_norm_stats(df, data_config, use_cache=use_cache)
+        return _calculate_dataset_norm_stats(df, data_config, use_cache=use_cache)
 
     # If the norm type is not recognised, raise an error
     else:

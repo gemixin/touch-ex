@@ -14,9 +14,8 @@ from data.builder import create_dataloaders, get_datasets
 from data.utils import EVALUATION_SPLITS, SPLIT_SEED
 from models.baseline_classifier import BaselineCNNClassifier
 from models.conditioned import ConditionedClassifier
-from models.pretrained_classifier import DEIT_TINY_CHECKPOINT, PretrainedClassifier
+from models.pretrained_classifier import PRETRAINED_CHECKPOINTS, PretrainedClassifier
 from models.regression import PretrainedRegressor
-from models.t3 import T3_REPOSITORY, T3_REVISION
 from ml.train_eval import (
     eval_classifier,
     eval_regressor,
@@ -28,6 +27,7 @@ from ml.torch_functions import get_device, set_random_seed
 import ml.visualise as mv
 
 
+# Set of valid classification targets
 CLASSIFICATION_TARGETS = {"object", "object_region", "force_level", "motion"}
 
 # Set of valid regression targets
@@ -50,7 +50,7 @@ def classify(
     baseline_train_config_path,
     results_dir,
     checkpoint_dir,
-    experiment_purpose="model_selection",
+    experiment_purpose,
 ):
     """
     Train and compare one or more models across one data configuration.
@@ -58,7 +58,7 @@ def classify(
     Args:
         model_types (list): A list of model types to be used in the experiment.
         target_label (str): The target label for classification.
-        experiment_name (str): A name for the experiment, used for saving results.
+        experiment_name (str): A descriptive name recorded with the experiment results.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
         freeze_backbone (bool): Whether to freeze pretrained model backbones. Baseline
@@ -68,7 +68,7 @@ def classify(
         train_config_overrides (dict): A dictionary containing overrides for the base
             training configuration.
         plot_tsne (bool): Whether to generate t-SNE plots.
-        tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all evaluation
+        tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all
             samples should be used.
         data_config_path (str): Path to the base data configuration JSON file.
         train_config_path (str): Path to the base training configuration JSON file.
@@ -76,7 +76,7 @@ def classify(
             used for baseline models.
         results_dir (str): Root directory for experiment results.
         checkpoint_dir (str): Root directory for model checkpoints.
-        experiment_purpose (str): model_selection (default) or final_evaluation.
+        experiment_purpose (str): 'model_selection' or 'final_evaluation'.
 
     Returns:
         tuple: A tuple containing the trained models, training histories, and evaluation
@@ -106,7 +106,7 @@ def classify(
         )
 
     # Prepare the experiment context
-    experiment = prepare_classification_experiment(
+    experiment = _prepare_classification_experiment(
         model_types=model_types,
         run_names=model_types,
         target_label=target_label,
@@ -127,16 +127,17 @@ def classify(
     )
 
     # Train, evaluate, save, and plot the experiment
-    train_classifiers(experiment)
-    evaluate_classifiers(experiment)
-    save_classification_results(experiment)
-    generate_classification_plots(experiment)
+    _train_classifiers(experiment)
+    _evaluate_classifiers(experiment)
+    _save_classification_results(experiment)
+    _generate_classification_plots(experiment)
 
     # Return the outputs as a tuple of (models, histories, evaluation_results)
     return experiment["models"], experiment["histories"], experiment["evaluation_results"]
 
 
 def classify_conditioned(
+    model_type,
     target_label,
     experiment_name,
     seed,
@@ -152,19 +153,18 @@ def classify_conditioned(
     train_config_path,
     results_dir,
     checkpoint_dir,
-    experiment_purpose="model_selection",
-    model_type="resnet18",
+    experiment_purpose,
 ):
     """
     Train and evaluate a pretrained tactile classifier conditioned on force level.
 
     Args:
+        model_type (str): The pretrained backbone selected during model selection.
         target_label (str): The object or object-region target label.
-        experiment_name (str): A name for the experiment, used for saving results.
+        experiment_name (str): A descriptive name recorded with the experiment results.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
         freeze_backbone (bool): Whether to freeze the pretrained backbone.
-        model_type (str): Pretrained backbone name, as in ordinary classification.
         fusion_hidden_dim (int): Dimension of the fused image and force representation.
         fusion_dropout (float): Dropout probability applied before classification.
         data_config_overrides (dict): A dictionary containing overrides for the base
@@ -172,13 +172,13 @@ def classify_conditioned(
         train_config_overrides (dict): A dictionary containing overrides for the base
             training configuration.
         plot_tsne (bool): Whether to generate t-SNE plots.
-        tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all evaluation
+        tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all
             samples should be used.
         data_config_path (str): Path to the base data configuration JSON file.
         train_config_path (str): Path to the base training configuration JSON file.
         results_dir (str): Root directory for experiment results.
         checkpoint_dir (str): Root directory for model checkpoints.
-        experiment_purpose (str): model_selection (default) or final_evaluation.
+        experiment_purpose (str): 'model_selection' or 'final_evaluation'.
 
     Returns:
         tuple: A tuple containing the trained model, training history, and evaluation
@@ -204,7 +204,7 @@ def classify_conditioned(
         )
 
     # Prepare the experiment context using a separate conditioned-results folder
-    experiment = prepare_classification_experiment(
+    experiment = _prepare_classification_experiment(
         model_types=[model_type],
         run_names=[f"conditioned_{model_type}"],
         target_label=target_label,
@@ -235,10 +235,10 @@ def classify_conditioned(
     experiment["fusion_dropout"] = fusion_dropout
 
     # Train, evaluate, save, and plot the experiment
-    train_conditioned_classifier(experiment)
-    evaluate_classifiers(experiment)
-    save_classification_results(experiment)
-    generate_classification_plots(experiment)
+    _train_conditioned_classifier(experiment)
+    _evaluate_classifiers(experiment)
+    _save_classification_results(experiment)
+    _generate_classification_plots(experiment)
 
     # Return the outputs as a tuple of (model, history, evaluation_results)
     return (
@@ -272,7 +272,7 @@ def classify_sweep(
     Args:
         model_type (str): The model type to use for every data configuration.
         target_label (str): The target label for classification.
-        experiment_name (str): A name for the experiment, used for saving results.
+        experiment_name (str): A descriptive name recorded with the experiment results.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
         freeze_backbone (bool): Whether to freeze pretrained model backbones. Baseline
@@ -282,7 +282,7 @@ def classify_sweep(
         train_config_variants (dict): A dictionary mapping training-variant names to
             dictionaries containing overrides for the base training configuration.
         plot_tsne (bool): Whether to generate t-SNE plots.
-        tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all evaluation
+        tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all
             samples should be used.
         data_config_path (str): Path to the base data configuration JSON file.
         train_config_path (str): Path to the base training configuration JSON file.
@@ -290,7 +290,7 @@ def classify_sweep(
             used for baseline models.
         results_dir (str): Root directory for experiment results.
         checkpoint_dir (str): Root directory for model checkpoints.
-        experiment_purpose (str): model_selection (default) or final_evaluation.
+        experiment_purpose (str): 'model_selection' (default) or 'final_evaluation'.
 
     Returns:
         tuple: A tuple containing the trained models, training histories, and evaluation
@@ -329,8 +329,8 @@ def classify_sweep(
     variant_pairs = list(
         product(data_config_variants.items(), train_config_variants.items())
     )
-    # Name only the configuration dimension that varies. This keeps one-axis sweeps
-    # concise while retaining both names for full data/training grid sweeps
+    # Name only the configuration dimension that varies (this keeps one-axis sweeps
+    # concise while retaining both names for full data/training grid sweeps)
     if len(data_config_variants) == 1 and len(train_config_variants) == 1:
         run_names = ["default"]
     elif len(train_config_variants) == 1:
@@ -352,7 +352,7 @@ def classify_sweep(
     ]
 
     # Prepare the experiment context
-    experiment = prepare_classification_experiment(
+    experiment = _prepare_classification_experiment(
         model_types=[model_type] * len(run_names),
         run_names=run_names,
         target_label=target_label,
@@ -373,16 +373,16 @@ def classify_sweep(
     )
 
     # Train, evaluate, save, and plot the experiment
-    train_classifiers(experiment)
-    evaluate_classifiers(experiment)
-    save_classification_results(experiment)
-    generate_classification_plots(experiment)
+    _train_classifiers(experiment)
+    _evaluate_classifiers(experiment)
+    _save_classification_results(experiment)
+    _generate_classification_plots(experiment)
 
     # Return the outputs as a tuple of (models, histories, evaluation_results)
     return experiment["models"], experiment["histories"], experiment["evaluation_results"]
 
 
-def prepare_classification_experiment(
+def _prepare_classification_experiment(
     model_types,
     run_names,
     target_label,
@@ -399,8 +399,8 @@ def prepare_classification_experiment(
     baseline_train_config_path,
     results_dir,
     checkpoint_dir,
+    experiment_purpose,
     folder_name=None,
-    experiment_purpose="model_selection",
 ):
     """
     Load configurations and prepare the shared experiment context.
@@ -409,7 +409,7 @@ def prepare_classification_experiment(
         model_types (list): A list of model types to be used in the experiment.
         run_names (list): Names used for checkpoints and plot labels for each run.
         target_label (str): The target label for classification.
-        experiment_name (str): A name for tracking and saving the experiment.
+        experiment_name (str): A descriptive name recorded with the experiment results.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
         freeze_backbone (bool): Whether to freeze pretrained model backbones.
@@ -417,7 +417,7 @@ def prepare_classification_experiment(
         train_config_overrides_list (list): Training configuration overrides for each
             run.
         plot_tsne (bool): Whether to generate t-SNE plots.
-        tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all evaluation
+        tsne_max_samples (int): Maximum samples per t-SNE plot. -1 indicates that all
             samples should be used.
         data_config_path (str): Path to the base data configuration JSON file.
         train_config_path (str): Path to the base training configuration JSON file.
@@ -426,7 +426,7 @@ def prepare_classification_experiment(
             included.
         results_dir (str): Root directory for experiment results.
         checkpoint_dir (str): Root directory for model checkpoints.
-        experiment_purpose (str): model_selection (default) or final_evaluation.
+        experiment_purpose (str): 'model_selection' or 'final_evaluation'.
         folder_name (str, optional): Folder used for results and checkpoints. Defaults
             to the standard target-specific classification folder.
 
@@ -479,8 +479,8 @@ def prepare_classification_experiment(
         # Start with the base data config and apply the overrides for this run
         data_config = base_data_config.copy()
         data_config.update(data_config_overrides)
-        # All classification workflows stratify by their target, overriding the config.
-        # Changing the target affects train/validation, but preserves the common test set.
+        # All classification workflows stratify by their target, overriding the config
+        # Changing the target affects train/validation but preserves the common test set
         data_config["stratify_label"] = target_label
         data_configs.append(data_config)
 
@@ -493,7 +493,7 @@ def prepare_classification_experiment(
         dataloaders.append(create_dataloaders(datasets, data_config, seed=seed))
 
         # Preserve each run's label spaces for evaluation results and plots
-        train_labels.append(label_lists["train"][target_label])
+        train_labels.append(label_lists[target_label])
 
     # --- Prepare models --- #
 
@@ -547,16 +547,7 @@ def prepare_classification_experiment(
         "model_types": model_types,
         "run_names": run_names,
         "pretrained_checkpoints": [
-            (
-                f"{T3_REPOSITORY}@{T3_REVISION}"
-                if model_type == "t3_tiny"
-                else DEIT_TINY_CHECKPOINT
-                if model_type == "deit_tiny"
-                else "torchvision/ResNet50_Weights.IMAGENET1K_V2"
-                if model_type == "resnet50"
-                else None
-            )
-            for model_type in model_types
+            PRETRAINED_CHECKPOINTS[model_type] for model_type in model_types
         ],
         "freeze_backbones": freeze_backbones,
         "plot_tsne": plot_tsne,
@@ -569,7 +560,7 @@ def prepare_classification_experiment(
     }
 
 
-def train_classifiers(experiment):
+def _train_classifiers(experiment):
     """
     Create and train the models defined by an experiment context. Modifies the experiment
     context in place to add trained models and training histories.
@@ -587,7 +578,7 @@ def train_classifiers(experiment):
 
     # Loop through each model type
     for i in range(len(experiment["dataloaders"])):
-        # Reset before initialisation/training so run order cannot change randomness.
+        # Reset before initialisation/training so run order cannot change randomness
         set_random_seed(experiment["seed"], deterministic=experiment["deterministic"])
         num_train_classes = len(experiment["train_labels"][i])
         # Create the model based on the model type
@@ -615,7 +606,7 @@ def train_classifiers(experiment):
         experiment["histories"].append(history)
 
 
-def train_conditioned_classifier(experiment):
+def _train_conditioned_classifier(experiment):
     """
     Create and train the conditioned model defined by an experiment context. Modifies
     the experiment context in place to add the trained model and training history.
@@ -631,13 +622,13 @@ def train_conditioned_classifier(experiment):
     experiment["models"] = []
     experiment["histories"] = []
 
-    num_train_classes = len(experiment["train_labels"][0])
-
+    # Reset before initialisation/training so run order cannot change randomness
     set_random_seed(experiment["seed"], deterministic=experiment["deterministic"])
-    # Fuse the selected encoder's image features with the force level.
+
+    # Fuse the selected encoder's image features with the force level
     model = ConditionedClassifier(
         model_type=experiment["model_types"][0],
-        num_classes=num_train_classes,
+        num_classes=len(experiment["train_labels"][0]),
         force_level_labels=experiment["force_level_labels"][0],
         freeze_backbone=experiment["freeze_backbones"][0],
         fusion_hidden_dim=experiment["fusion_hidden_dim"],
@@ -660,14 +651,30 @@ def train_conditioned_classifier(experiment):
     experiment["histories"].append(history)
 
 
-def evaluate_classifiers(experiment):
-    """Evaluate only the splits selected by the experiment purpose."""
+def _evaluate_classifiers(experiment):
+    """
+    Evaluate the trained models in an experiment context. Modifies the experiment context
+    in place to add results for only the splits selected by the experiment purpose.
+
+    Args:
+        experiment (dict): A dictionary containing the prepared experiment context,
+            including dataloaders, device, configurations, and paths for saving results.
+    """
+
+    # --- Evaluate using the selected splits --- #
+
+    # Create an empty dictionary to store results by split
     experiment["evaluation_results"] = {}
+
+    # Loop through the validation or test splits required for this experiment
     for split in EVALUATION_SPLITS[experiment["experiment_purpose"]]:
+        # Related object identities have no training classes, so retain predictions only
         compute_metrics = not (
             split == "test_unseen_related"
             and experiment["target_label"] in {"object", "object_region"}
         )
+
+        # Evaluate each model on the current split and store its results
         experiment["evaluation_results"][split] = [
             eval_classifier(
                 model=model,
@@ -684,22 +691,40 @@ def evaluate_classifiers(experiment):
 
 
 def _save_csv_summary(experiment, run_results, metrics):
-    """Save one compact table for this experiment, with one row per run."""
+    """
+    Save a CSV summary for an experiment, with one row per run and metric columns for
+    only the evaluated splits.
+
+    Args:
+        experiment (dict): A dictionary containing the experiment purpose, number,
+            and results path.
+        run_results (pd.DataFrame): Results for the runs in the current experiment.
+        metrics (tuple): Metric names to include when available for an evaluated split.
+
+    Returns:
+        str: The folder path where the summary table was saved.
+    """
+
+    # Create the folder for this experiment's tables
     tables_path = os.path.join(
         experiment["results_path"], "tables", str(experiment["experiment_number"]).zfill(3)
     )
     os.makedirs(tables_path, exist_ok=True)
+
+    # Select run identifiers and available metrics for the evaluated splits
     columns = ["run_name", "model_type"] + [
         f"{split}_{metric}"
         for split in EVALUATION_SPLITS[experiment["experiment_purpose"]]
         for metric in metrics
         if f"{split}_{metric}" in run_results.columns
     ]
+
+    # Save the summary and return the folder path for any additional reports
     run_results[columns].to_csv(os.path.join(tables_path, "summary.csv"), index=False)
     return tables_path
 
 
-def save_classification_results(experiment):
+def _save_classification_results(experiment):
     """
     Save full results to Parquet, plus a CSV summary and per-class reports.
 
@@ -727,6 +752,8 @@ def save_classification_results(experiment):
         "experiment_purpose": experiment["experiment_purpose"],
         "split_seed": SPLIT_SEED,
     }
+
+    # Add predictions and available metrics for each evaluated split
     for split, results in experiment["evaluation_results"].items():
         for key in results[0]:
             experiment_data[f"{split}_{key}"] = [result[key] for result in results]
@@ -762,47 +789,94 @@ def save_classification_results(experiment):
     # Save DataFrame to parquet file
     experiment_df.to_parquet(experiment["experiments_df_path"], index=False)
 
+    # --- Save CSV tables --- #
+
+    # Save a summary with one row per run
     tables_path = _save_csv_summary(experiment, run_results, ("accuracy", "macro_f1_avg"))
+
+    # Save per-class reports for each model on each scored split
     for split, results in experiment["evaluation_results"].items():
         for i, result in enumerate(results):
+            # Unknown object identities have predictions but no classification metrics
             if "accuracy" not in result:
                 continue
+
+            # Calculate precision, recall, F1, and support for ground-truth classes present
             labels = sorted(set(result["y_true"]))
             precision, recall, f1, support = precision_recall_fscore_support(
-                result["y_true"], result["y_pred"], labels=labels, average=None, zero_division=0
+                result["y_true"],
+                result["y_pred"],
+                labels=labels,
+                average=None,
+                zero_division=0,
             )
-            report = pd.DataFrame({
-                "class": [experiment["train_labels"][i][label] for label in labels],
-                "precision": precision, "recall": recall, "f1": f1, "support": support,
-            })
+            report = pd.DataFrame(
+                {
+                    "class": [experiment["train_labels"][i][label] for label in labels],
+                    "precision": precision,
+                    "recall": recall,
+                    "f1": f1,
+                    "support": support,
+                }
+            )
+
+            # Save the report in the current run's tables folder
             run_path = os.path.join(tables_path, experiment["run_names"][i])
             os.makedirs(run_path, exist_ok=True)
-            report.to_csv(os.path.join(run_path, f"classification_report_{split}.csv"), index=False)
+            report.to_csv(
+                os.path.join(run_path, f"classification_report_{split}.csv"), index=False
+            )
 
 
-def generate_classification_plots(experiment):
-    """Plot training and only the evaluations performed for this purpose."""
+def _generate_classification_plots(experiment):
+    """
+    Generate plots for an experiment context, including training curves and plots for
+    only the evaluation splits selected by the experiment purpose.
+
+    Args:
+        experiment (dict): A dictionary containing the prepared experiment context,
+            including dataloaders, device, configurations, and paths for saving results.
+    """
+
+    # --- Generate plots --- #
+
+    # Path for saving plots
     plots_path = os.path.join(
         experiment["results_path"], "plots", str(experiment["experiment_number"]).zfill(3)
     )
+
+    # Generate the training and evaluation plots for each model
     for i, run_name in enumerate(experiment["run_names"]):
+        # Keep each model's plots in its own folder
         model_path = os.path.join(plots_path, run_name)
         labels = experiment["train_labels"][i]
+
+        # --- Training plots --- #
+
+        # Plot training curves for the current model
         mv.plot_classification_training_curves(
             history=experiment["histories"][i], model_type=run_name, plots_path=model_path
         )
+
+        # --- Evaluation split plots --- #
+
+        # Plot a confusion or prediction matrix for each evaluated split
         for split, results in experiment["evaluation_results"].items():
             result = results[i]
             unknown = "source_labels" in result
             row_labels = labels
             matrix_result = result
             if unknown:
+                # Use original unseen identities for rows and training classes for columns
                 row_labels = list(dict.fromkeys(result["source_labels"]))
                 source_indices = {name: j for j, name in enumerate(row_labels)}
+                # Convert source identities to matrix row indices for plotting
                 matrix_result = {
                     **result,
                     "y_true": [source_indices[name] for name in result["source_labels"]],
                 }
+
+            # Save the matrix with row and column labels from the appropriate class spaces
             mv.plot_confusion_matrix(
                 results=matrix_result,
                 model_type=run_name,
@@ -813,23 +887,39 @@ def generate_classification_plots(experiment):
                 cross_space=unknown,
                 rotate_x_labels=experiment["target_label"] != "force_level",
             )
+
+        # --- t-SNE feature plots --- #
+
+        # If enabled, generate a separate t-SNE plot for every evaluated split
         if experiment["plot_tsne"]:
-            split = EVALUATION_SPLITS[experiment["experiment_purpose"]][0]
-            mv.plot_tsne_features(
-                model=experiment["models"][i],
-                dataloader=experiment["dataloaders"][i][split],
-                target_label=experiment["target_label"],
-                seed=experiment["seed"],
-                label_names=labels,
-                model_type=run_name,
-                device=experiment["device"],
-                plots_path=model_path,
-                max_samples=experiment["tsne_max_samples"],
-                conditioning_label=experiment.get("conditioning_label"),
-                split_name=split,
-            )
+            for split, results in experiment["evaluation_results"].items():
+                # Related identities use their original names instead of unknown targets
+                source_label = None
+                if "source_labels" in results[i]:
+                    source_label = f"source_{experiment['target_label']}"
+
+                # Extract features and save static and interactive plots for this split
+                mv.plot_tsne_features(
+                    model=experiment["models"][i],
+                    dataloader=experiment["dataloaders"][i][split],
+                    target_label=experiment["target_label"],
+                    seed=experiment["seed"],
+                    label_names=labels,
+                    model_type=run_name,
+                    device=experiment["device"],
+                    plots_path=model_path,
+                    max_samples=experiment["tsne_max_samples"],
+                    conditioning_label=experiment.get("conditioning_label"),
+                    split_name=split,
+                    source_label=source_label,
+                )
+
+    # --- Model comparison plots --- #
+
+    # If there are multiple models, compare their metrics on each scored split
     if len(experiment["models"]) > 1:
         for split, results in experiment["evaluation_results"].items():
+            # Skip related identity splits, which have no accuracy or F1 scores
             if "accuracy" in results[0]:
                 mv.plot_model_comparison(
                     results=results,
@@ -851,7 +941,7 @@ def regress(
     train_config_path,
     results_dir,
     checkpoint_dir,
-    experiment_purpose="model_selection",
+    experiment_purpose,
     model_type="resnet18",
 ):
     """
@@ -860,7 +950,7 @@ def regress(
     Args:
         regression_target (str): The continuous target for regression, either "force_n"
             or "fsr_voltage".
-        experiment_name (str): A name for the experiment, used for saving results.
+        experiment_name (str): A descriptive name recorded with the experiment results.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
         freeze_backbone (bool): Whether to freeze the pretrained backbone.
@@ -873,7 +963,7 @@ def regress(
         train_config_path (str): Path to the base training configuration JSON file.
         results_dir (str): Root directory for experiment results.
         checkpoint_dir (str): Root directory for model checkpoints.
-        experiment_purpose (str): model_selection (default) or final_evaluation.
+        experiment_purpose (str): 'model_selection' or 'final_evaluation'.
 
     Returns:
         tuple: A tuple containing the trained model, training history, and evaluation
@@ -893,7 +983,7 @@ def regress(
         )
 
     # Prepare the experiment context
-    experiment = prepare_regression_experiment(
+    experiment = _prepare_regression_experiment(
         model_type=model_type,
         regression_target=regression_target,
         experiment_name=experiment_name,
@@ -910,16 +1000,16 @@ def regress(
     )
 
     # Train, evaluate, save, and plot the experiment
-    train_regression_model(experiment)
-    evaluate_regression_model(experiment)
-    save_regression_results(experiment)
-    generate_regression_plots(experiment)
+    _train_regression_model(experiment)
+    _evaluate_regression_model(experiment)
+    _save_regression_results(experiment)
+    _generate_regression_plots(experiment)
 
     # Return the outputs as a tuple of (model, history, evaluation_results)
     return experiment["model"], experiment["history"], experiment["evaluation_results"]
 
 
-def prepare_regression_experiment(
+def _prepare_regression_experiment(
     regression_target,
     experiment_name,
     seed,
@@ -931,7 +1021,7 @@ def prepare_regression_experiment(
     train_config_path,
     results_dir,
     checkpoint_dir,
-    experiment_purpose="model_selection",
+    experiment_purpose,
     model_type="resnet18",
 ):
     """
@@ -940,7 +1030,7 @@ def prepare_regression_experiment(
     Args:
         regression_target (str): The continuous target for regression, either "force_n"
             or "fsr_voltage".
-        experiment_name (str): A name for tracking and saving the experiment.
+        experiment_name (str): A descriptive name recorded with the experiment results.
         seed (int): Random seed for reproducibility.
         deterministic (bool): Whether to require deterministic PyTorch algorithms.
         freeze_backbone (bool): Whether to freeze the pretrained backbone.
@@ -953,7 +1043,7 @@ def prepare_regression_experiment(
         train_config_path (str): Path to the base training configuration JSON file.
         results_dir (str): Root directory for experiment results.
         checkpoint_dir (str): Root directory for model checkpoints.
-        experiment_purpose (str): model_selection (default) or final_evaluation.
+        experiment_purpose (str): 'model_selection' or 'final_evaluation'.
 
     Returns:
         dict: A dictionary containing the prepared experiment context, including
@@ -998,7 +1088,7 @@ def prepare_regression_experiment(
     # Start with the base data config and apply the overrides for this run
     data_config = base_data_config.copy()
     data_config.update(data_config_overrides)
-    # Regression retains the configured stratify_label (object_region by default).
+    # Regression retains the stratify_label from the data config
     datasets, _ = get_datasets(data_config, experiment_purpose)
     dataloaders = create_dataloaders(datasets, data_config, seed=seed)
     target_normalizer = get_target_normalizer(datasets["train"], regression_target)
@@ -1041,7 +1131,7 @@ def prepare_regression_experiment(
     }
 
 
-def train_regression_model(experiment):
+def _train_regression_model(experiment):
     """
     Create and train the model defined by a regression experiment context. Modifies the
     experiment context in place to add a trained model and training history.
@@ -1074,8 +1164,20 @@ def train_regression_model(experiment):
     experiment["history"] = history
 
 
-def evaluate_regression_model(experiment):
-    """Evaluate the regressor on the purpose's selected splits."""
+def _evaluate_regression_model(experiment):
+    """
+    Evaluate the trained model in a regression experiment context. Modifies the
+    experiment context in place to add results for only the splits selected by the
+    experiment purpose.
+
+    Args:
+        experiment (dict): A dictionary containing the prepared experiment context,
+            including dataloaders, device, configurations, and paths for saving results.
+    """
+
+    # --- Evaluate using the selected splits --- #
+
+    # Evaluate the model on each required split and store the results by split name
     experiment["evaluation_results"] = {
         split: eval_regressor(
             model=experiment["model"],
@@ -1090,7 +1192,7 @@ def evaluate_regression_model(experiment):
     }
 
 
-def save_regression_results(experiment):
+def _save_regression_results(experiment):
     """
     Save full regression results to Parquet and a compact CSV summary.
 
@@ -1106,6 +1208,7 @@ def save_regression_results(experiment):
         "experiment_number": experiment["experiment_number"],
         "experiment_name": experiment["experiment_name"],
         "model_type": experiment["model_type"],
+        "pretrained_checkpoint": PRETRAINED_CHECKPOINTS[experiment["model_type"]],
         "regression_target": experiment["regression_target"],
         "seed": experiment["seed"],
         "deterministic": experiment["deterministic"],
@@ -1117,8 +1220,12 @@ def save_regression_results(experiment):
         "experiment_purpose": experiment["experiment_purpose"],
         "split_seed": SPLIT_SEED,
     }
+
+    # Add predictions and metrics for each evaluated split
     for split, result in experiment["evaluation_results"].items():
         row.update({f"{split}_{key}": value for key, value in result.items()})
+
+    # Create a new DataFrame with relevant information for this experiment
     run_results = pd.DataFrame([row])
     experiment_df = run_results
     result_columns = list(experiment_df.columns)
@@ -1138,6 +1245,9 @@ def save_regression_results(experiment):
     # Save DataFrame to parquet file
     experiment_df.to_parquet(experiment["experiments_df_path"], index=False)
 
+    # --- Save CSV tables --- #
+
+    # Save a summary of MAE, RMSE, and R2 for each evaluated split
     _save_csv_summary(
         experiment,
         run_results.assign(run_name=experiment["train_config"]["model_title"]),
@@ -1145,7 +1255,7 @@ def save_regression_results(experiment):
     )
 
 
-def generate_regression_plots(experiment):
+def _generate_regression_plots(experiment):
     """
     Generate plots for a regression experiment context.
 
@@ -1172,6 +1282,9 @@ def generate_regression_plots(experiment):
         model_type=experiment["train_config"]["model_title"],
     )
 
+    # --- Evaluation split plots --- #
+
+    # Plot predictions and residuals for each evaluated split
     for split, result in experiment["evaluation_results"].items():
         mv.plot_regression_predictions(
             results=result,

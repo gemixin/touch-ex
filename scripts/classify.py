@@ -14,20 +14,20 @@ from ml.experiments import classify
 # Model types to compare
 # Choose from 'baseline', 'resnet18', 'resnet50', 'efficientnet_b0', 'vit_b_16',
 # 'deit_tiny', or 't3_tiny'
-MODEL_TYPES = ["resnet18"]
+MODEL_TYPES = ["resnet18", "resnet50"]
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', or 'motion'
-TARGET_LABEL = "object"
+TARGET_LABEL = "object_region"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_main"
+EXPERIMENT_NAME = "resnet_comparison"
 
-# Use model_selection for configuration/model choice; final_evaluation for testing
+# Experiment purpose for preparing correct splits and saving results
 EXPERIMENT_PURPOSE = "model_selection"
 
 # Randomisation settings (dataset partitioning always uses seed 129)
-SEED = 129
+SEED = 156
 DETERMINISTIC = True
 
 # Set to True to train only the classifier of pretrained models
@@ -38,7 +38,7 @@ FREEZE_BACKBONE = False
 DATA_CONFIG_OVERRIDES = {}
 TRAIN_CONFIG_OVERRIDES = {}
 
-# t-SNE features use internal val for model_selection, test for final_evaluation
+# t-SNE plot settings
 PLOT_TSNE = True
 TSNE_MAX_SAMPLES = -1
 

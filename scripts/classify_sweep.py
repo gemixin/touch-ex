@@ -23,32 +23,32 @@ TARGET_LABEL = "object_region"
 # Experiment name for tracking results
 EXPERIMENT_NAME = "resnet18_config_sweep"
 
-# Use model_selection for configuration/model choice; final_evaluation for testing
+# Experiment purpose for preparing correct splits and saving results
+# Configuration sweeps are used for model and configuration selection
 EXPERIMENT_PURPOSE = "model_selection"
 
 # Randomisation settings (dataset partitioning always uses seed 129)
-SEED = 129
+SEED = 156
 DETERMINISTIC = True
-
 
 # Set to True to train only the classifier of pretrained models
 # Baseline models are always trained end-to-end
 FREEZE_BACKBONE = False
 
 # Each data variant is combined with every training variant below
-# Values override keys in the chosen data config file
-# Add named preprocessing variants here to compare data configurations.
+# Values here override keys in the provided data_config file
+# Add named preprocessing variants here to compare data configurations
 DATA_CONFIG_VARIANTS = {
     "default": {},
 }
 
 # Each training variant is combined with every data variant above
-# Values override keys in the chosen training config file
+# Values here override keys in the provided train_config file
 TRAIN_CONFIG_VARIANTS = {
     "default": {},
 }
 
-# t-SNE features use internal val for model_selection, test for final_evaluation
+# t-SNE plot settings
 PLOT_TSNE = False
 TSNE_MAX_SAMPLES = -1
 

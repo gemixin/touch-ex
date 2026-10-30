@@ -54,8 +54,8 @@ def train_classifier(
     # Move model to the specified device
     model = model.to(device)
     # Get the optimizer and criterion from the config
-    optimizer = get_optimizer(model, train_config)
-    scheduler = get_lr_scheduler(optimizer, train_config, len(train_loader))
+    optimizer = _get_optimizer(model, train_config)
+    scheduler = _get_lr_scheduler(optimizer, train_config, len(train_loader))
     # Criterion is cross-entropy loss for classification
     criterion = nn.CrossEntropyLoss().to(device)
 
@@ -216,7 +216,7 @@ def train_classifier(
     return model, history
 
 
-def get_optimizer(model, train_config):
+def _get_optimizer(model, train_config):
     """
     Get the Torch optimizer based on the configuration.
 
@@ -241,6 +241,7 @@ def get_optimizer(model, train_config):
         parameter for parameter in model.parameters() if parameter.requires_grad
     )
 
+    # Return the optimizer with the appropriate parameters based on the config
     return optimizer(
         trainable_parameters,
         lr=train_config["learning_rate"],
@@ -248,7 +249,7 @@ def get_optimizer(model, train_config):
     )
 
 
-def get_lr_scheduler(optimizer, train_config, steps_per_epoch):
+def _get_lr_scheduler(optimizer, train_config, steps_per_epoch):
     """
     Create a batch-level linear warmup and cosine learning-rate decay scheduler.
 
@@ -303,34 +304,76 @@ def eval_classifier(
     conditioning_label=None,
     compute_metrics=True,
 ):
-    """Evaluate a labelled split, or collect predictions for unknown identities."""
+    """
+    Evaluate the given classifier model on an evaluation split. For unknown object
+    identities, collect predictions and source labels without calculating loss or metrics.
+
+    Args:
+        model (nn.Module): The model to evaluate.
+        model_title (str): The title of the model for logging purposes.
+        device (torch.device): The device to use for evaluation.
+        data_loader (DataLoader): The evaluation data loader.
+        target_label (str): The label key used to calculate loss and metrics.
+        evaluation_name (str): Name used in evaluation progress output.
+        conditioning_label (str, optional): An additional label key supplied to a
+            conditioned classifier. Defaults to None.
+        compute_metrics (bool): Whether to calculate loss, accuracy, and macro F1.
+            Set to False for related object and object-region identities without
+            corresponding training classes. Defaults to True.
+
+    Returns:
+        dict: A dictionary containing true and predicted labels, with loss, accuracy,
+            and macro F1 when metrics are enabled, or source labels otherwise.
+    """
+
+    # Move the model to the specified device and set it to evaluation mode
     model = model.to(device)
     model.eval()
+
+    # Use cross-entropy loss only when the targets belong to the training class space
     criterion = nn.CrossEntropyLoss().to(device) if compute_metrics else None
+
+    # -- Evaluation Phase -- #
+
+    # Track overall loss, correct predictions, and labels for later analysis
     total_loss, correct, total = 0.0, 0, 0
     y_true, y_pred, source_labels = [], [], []
 
     print(f"Starting {evaluation_name} evaluation of {model_title} on device: {device}")
+
+    # Iterate over evaluation batches without computing gradients
     with torch.no_grad():
         for features in tqdm(data_loader, desc=evaluation_name, total=len(data_loader)):
+            # Get images and labels from features and move to device
             imgs = features["image"].to(device)
             labels = features[target_label].to(device)
+
+            # Perform the forward pass, supplying force level for conditioned models
             if conditioning_label is None:
                 outputs = model(imgs)
             else:
                 outputs = model(imgs, features[conditioning_label].to(device))
+
+            # Get predicted classes and update loss and accuracy for known targets
             predicted = outputs.argmax(dim=1)
             if compute_metrics:
                 total_loss += criterion(outputs, labels).item()
                 correct += (predicted == labels).sum().item()
             else:
+                # Keep original unseen identities for the prediction-matrix rows
                 source_labels.extend(features[f"source_{target_label}"])
+
+            # Append true and predicted labels to lists for later analysis
             total += labels.size(0)
             y_true.extend(labels.cpu().tolist())
             y_pred.extend(predicted.cpu().tolist())
 
+    # -- Metrics and Results -- #
+
+    # Collect predictions for every split, including those with unknown targets
     results = {"y_true": y_true, "y_pred": y_pred}
     if compute_metrics:
+        # Compute average loss, accuracy, and macro F1 over ground-truth classes present
         results.update(
             loss=total_loss / len(data_loader),
             accuracy=100 * correct / total,
@@ -343,7 +386,10 @@ def eval_classifier(
             f"Macro F1: {results['macro_f1_avg']:.4f}"
         )
     else:
+        # Include source identities instead of metrics for unknown object targets
         results["source_labels"] = source_labels
+
+    # Return a dictionary containing the results
     return results
 
 
@@ -373,19 +419,47 @@ def get_target_normalizer(dataset, regression_target):
 
 
 def _normalise_targets(targets, target_normalizer):
-    """Normalise target tensors using training-split statistics."""
+    """
+    Normalise target tensors using training-split statistics.
+
+    Args:
+        targets (torch.Tensor): The target tensor to normalise.
+        target_normalizer (dict): The training-split target mean and standard deviation.
+
+    Returns:
+        torch.Tensor: The normalised target tensor.
+    """
 
     return (targets - target_normalizer["mean"]) / target_normalizer["std"]
 
 
 def _denormalise_targets(targets, target_normalizer):
-    """Convert normalised target tensors back to their original units."""
+    """
+    Convert normalised target tensors back to their original units.
+
+    Args:
+        targets (torch.Tensor): The normalised target tensor.
+        target_normalizer (dict): The training-split target mean and standard deviation.
+
+    Returns:
+        torch.Tensor: The denormalised target tensor.
+    """
 
     return targets * target_normalizer["std"] + target_normalizer["mean"]
 
 
 def _regression_metrics(y_true, y_pred):
-    """Calculate regression metrics in the original target units."""
+    """
+    Calculate regression metrics in the original target units.
+
+    Args:
+        y_true (list): The true target values.
+        y_pred (list): The predicted target values.
+
+    Returns:
+        dict: A dictionary containing mean absolute error (MAE), root mean squared error
+        (RMSE), and R-squared (R2) score.
+    """
 
     return {
         "mae": float(mean_absolute_error(y_true, y_pred)),
@@ -431,8 +505,8 @@ def train_regressor(
     # Move model to the specified device
     model = model.to(device)
     # Get the optimizer and criterion from the config
-    optimizer = get_optimizer(model, train_config)
-    scheduler = get_lr_scheduler(optimizer, train_config, len(train_loader))
+    optimizer = _get_optimizer(model, train_config)
+    scheduler = _get_lr_scheduler(optimizer, train_config, len(train_loader))
     # Criterion is Huber loss for regression
     criterion = nn.HuberLoss().to(device)
 

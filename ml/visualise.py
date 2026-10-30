@@ -14,10 +14,12 @@ import plotly.express as px
 import torch
 from sklearn.manifold import TSNE
 
-# Shared typography for static plots, including colour-bar labels and annotations.
+# Shared typography for static plots, including colour-bar labels and annotations
 PLOT_FONT = "DejaVu Sans"
 PLOT_FONT_SIZE = 11
 AXIS_LABEL_SIZE = 12
+
+# Set a consistent theme for all static plots
 sns.set_theme(
     style="darkgrid",
     palette="deep",
@@ -47,6 +49,7 @@ def plot_tsne_features(
     max_samples=-1,
     conditioning_label=None,
     split_name="test",
+    source_label=None,
 ):
     """
     Extract model features from the evaluation split and save a labelled 2-D t-SNE plot.
@@ -60,14 +63,17 @@ def plot_tsne_features(
         model_type (str): The model/run name used in progress output.
         device (torch.device): The device on which to run feature extraction.
         plots_path (str): The folder path where the t-SNE plot will be saved.
-        max_samples (int): Maximum number of class-balanced samples used for t-SNE.
-            Defaults to -1 (use all test samples).
+        max_samples (int): Maximum number of class-balanced samples used for this split's
+            t-SNE plot. Defaults to -1 (use all samples in the split).
         conditioning_label (str, optional): An additional label key supplied during
             conditioned feature extraction. Defaults to None.
         split_name (str): Split used in the filenames.
+        source_label (str, optional): Original identity key used to colour points when
+            the target has no training class, such as 'source_object' or
+            'source_object_region'. Defaults to None, using encoded target labels.
     """
 
-    print(f"Starting t-SNE features for {model_type}...")
+    print(f"Starting t-SNE features for {model_type} on {split_name}...")
 
     # Create lists to collect feature vectors and labels from every batch
     all_features = []
@@ -87,16 +93,26 @@ def plot_tsne_features(
                     return_features=True,
                 )
             all_features.append(features.cpu().numpy())
-            all_labels.append(batch[target_label].numpy())
+            # Use original identities for related objects, or the encoded target labels
+            if source_label is not None:
+                all_labels.append(np.asarray(batch[source_label]))
+            else:
+                all_labels.append(batch[target_label].numpy())
 
-    # Combine the feature vectors and labels collected from every test batch
+    # Combine the feature vectors and labels collected from every evaluation batch
     features = np.concatenate(all_features)
     labels = np.concatenate(all_labels)
 
-    # Use every test sample when the split is within the configured t-SNE sample limit
+    # Derive temporary plotting indices and names from the original unseen identities
+    # This preserves the evaluation targets while allowing sampling and colouring by class
+    if source_label is not None:
+        label_names, labels = np.unique(labels, return_inverse=True)
+        label_names = label_names.tolist()
+
+    # Use every sample when the split is within the configured t-SNE sample limit
     # or if max_samples is set to -1
     if len(features) > max_samples and max_samples > 0:
-        # Use a fixed random generator so the sampled test frames are reproducible
+        # Use a fixed random generator so the sampled evaluation frames are reproducible
         rng = np.random.default_rng(seed)
         unique_labels = np.unique(labels)
         # Allocate an equal initial number of samples to every class
@@ -150,7 +166,7 @@ def plot_tsne_features(
             label=label_names[label_index],
         )
 
-    # Set axis labels and legend; captions supply the plot context.
+    # Set axis labels and legend; captions supply the plot context
     ax.set_xlabel("t-SNE Component 1")
     ax.set_ylabel("t-SNE Component 2")
     ax.legend(title="Label", bbox_to_anchor=(1.02, 1), loc="upper left")
@@ -229,7 +245,7 @@ def plot_classification_training_curves(history, model_type, plots_path):
 
 def plot_model_comparison(results, model_types, plots_path, split_name):
     """
-    Plot a comparison of accuracy and macro F1 average for each model.
+    Plot a comparison of accuracy and macro F1-score across classification models.
 
     Args:
         results (list): A list of result dictionaries for each model.
@@ -272,7 +288,7 @@ def plot_confusion_matrix(
     rotate_x_labels=True,
 ):
     """
-    Plot a confusion matrix for one model.
+    Plot a confusion or prediction matrix for one classification model.
 
     Args:
         results (dict): Evaluation results for the model.

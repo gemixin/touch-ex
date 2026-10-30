@@ -15,10 +15,10 @@ class ConditionedClassifier(nn.Module):
         self,
         num_classes,
         force_level_labels,
+        model_type,
         freeze_backbone=False,
         fusion_hidden_dim=256,
         fusion_dropout=0.2,
-        model_type="resnet18",
     ):
         """
         Initialise the conditioned classifier.
@@ -26,7 +26,7 @@ class ConditionedClassifier(nn.Module):
         Args:
             num_classes (int): The number of object or object-region classes.
             force_level_labels (list): Force-level labels in their encoded class order.
-            model_type (str): Backbone name supported by PretrainedClassifier.
+            model_type (str): The selected backbone name supported by PretrainedClassifier.
             freeze_backbone (bool, optional): Whether to train only the fusion and
                 classification layers. Defaults to False.
             fusion_hidden_dim (int, optional): Dimension of the fused representation.
@@ -40,6 +40,7 @@ class ConditionedClassifier(nn.Module):
         self.fusion_hidden_dim = fusion_hidden_dim
         self.fusion_dropout = fusion_dropout
 
+        # Load the selected pretrained model without its original classification head
         self.backbone, self.feature_dim = get_pretrained_backbone(model_type)
 
         # Freeze pretrained backbone parameters when training only the fusion and head

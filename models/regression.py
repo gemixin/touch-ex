@@ -23,6 +23,7 @@ class PretrainedRegressor(nn.Module):
         super().__init__()
         self.freeze_backbone = freeze_backbone
 
+        # Load the selected pretrained model without its original classification head
         self.backbone, self.feature_dim = get_pretrained_backbone(model_type)
 
         # Set the regressor
