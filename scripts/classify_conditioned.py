@@ -13,7 +13,7 @@ from ml.experiments import classify_conditioned
 # --- Configurable parameters --- #
 
 # Pretrained backbone to use
-# Choose from 'resnet18', 'resnet50', 'efficientnet_b0', 'vit_b_16', 'deit_tiny',
+# Choose from 'resnet18', 'resnet50', 'efficientnet_b0', 'vit_s_16', 'deit_tiny',
 # or 't3_tiny'
 MODEL_TYPE = None
 
@@ -25,6 +25,7 @@ TARGET_LABEL = "object_region"
 EXPERIMENT_NAME = "main"
 
 # Experiment purpose for preparing correct splits and saving results
+# Choose from 'model_selection' or 'final_evaluation'
 EXPERIMENT_PURPOSE = "final_evaluation"
 
 # Randomisation settings (dataset partitioning always uses seed 129)
@@ -43,7 +44,8 @@ DATA_CONFIG_OVERRIDES = {}
 TRAIN_CONFIG_OVERRIDES = {}
 
 # t-SNE plot settings
-PLOT_TSNE = True
+# Only plot t-SNE for final evaluation experiments
+PLOT_TSNE = EXPERIMENT_PURPOSE == "final_evaluation"
 TSNE_MAX_SAMPLES = -1
 
 # Paths for files and directories

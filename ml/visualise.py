@@ -243,7 +243,7 @@ def plot_classification_training_curves(history, model_type, plots_path):
     print(f"Saved training curves for {model_type} at {save_path}")
 
 
-def plot_model_comparison(results, model_types, plots_path, split_name):
+def plot_model_comparison(results, model_types, plots_path, split_name, x_label="Model"):
     """
     Plot a comparison of accuracy and macro F1-score across classification models.
 
@@ -252,6 +252,7 @@ def plot_model_comparison(results, model_types, plots_path, split_name):
         model_types (list): Run names corresponding to each result, used as axis labels.
         plots_path (str): The folder path where the plot will be saved.
         split_name (str): Evaluation split used in filenames.
+        x_label (str, optional): Label for both x-axes. Defaults to 'Model'.
     """
 
     # Create a figure with 2 subplots
@@ -260,12 +261,12 @@ def plot_model_comparison(results, model_types, plots_path, split_name):
 
     # Plot accuracy for each model
     axs[0].bar(model_types, [result["accuracy"] for result in results], color=colors)
-    axs[0].set_xlabel("Run")
+    axs[0].set_xlabel(x_label)
     axs[0].set_ylabel("Accuracy (%)")
 
     # Plot macro F1 average for each model
     axs[1].bar(model_types, [result["macro_f1_avg"] for result in results], color=colors)
-    axs[1].set_xlabel("Run")
+    axs[1].set_xlabel(x_label)
     axs[1].set_ylabel("Macro F1")
 
     # Save plot

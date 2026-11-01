@@ -6,7 +6,7 @@
 	"min_learning_rate": 0.000001,
 	"weight_decay": 0.02,
 	"num_epochs": 25,
-	"early_stopping_patience": 3,
+	"early_stopping_patience": 5,
 	"early_stopping_min_delta": 0.1,
 	"checkpoint_dir": "checkpoints"
 }

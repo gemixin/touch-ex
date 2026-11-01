@@ -1,1 +1,20 @@
-{}
+{
+  "norm_config": {
+    "split_seed": 129,
+    "test_stratify_label": "object_region",
+    "split_size": 0.3,
+    "stratify_label": "object_region",
+    "transform_name": "pad_224",
+    "bg_path": "data/baseline.jpg"
+  },
+  "mean": [
+    0.002350115915760398,
+    -0.006132224574685097,
+    0.002518684836104512
+  ],
+  "std": [
+    0.03441983461380005,
+    0.026857366785407066,
+    0.02818363718688488
+  ]
+}

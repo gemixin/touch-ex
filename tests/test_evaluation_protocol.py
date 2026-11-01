@@ -65,6 +65,8 @@ class EvaluationProtocolTests(unittest.TestCase):
         self.assertEqual(orders[0], orders[1])
         self.assertNotEqual(orders[0], orders[2])
         final, _ = builder.get_datasets(self.config, 'final_evaluation')
+        self.assertEqual(set(final), {'train', 'val', 'test', 'test_unseen_matched',
+                                      'test_unseen_related', 'validation_unseen_matched'})
         ids = [set(final[s].df.interaction_id) for s in ['train', 'val', 'test']]
         self.assertFalse(ids[0] & ids[1] or ids[0] & ids[2] or ids[1] & ids[2])
         self.assertEqual(set.union(*ids), set(self.frames['train'].interaction_id))
@@ -73,7 +75,7 @@ class EvaluationProtocolTests(unittest.TestCase):
         for label in ['force_level', 'motion']:
             self.assertEqual(combined[label].value_counts().to_dict(),
                              self.frames['train'][label].value_counts().to_dict())
-        for split in ['test_unseen_matched', 'test_unseen_related']:
+        for split in ['test_unseen_matched', 'test_unseen_related', 'validation_unseen_matched']:
             self.assertEqual(len(final[split]), len(self.frames[split]))
 
     def test_shared_matched_encoding_and_unknown_related_identities(self):
@@ -211,6 +213,11 @@ class EvaluationProtocolTests(unittest.TestCase):
                     matched = pd.read_csv(tables / 'baseline' / f'classification_report_{splits[1]}.csv')
                     self.assertEqual(matched['class'].tolist(), ['a'])
                     self.assertEqual(matched.f1.tolist(), [0.])
+                    diagnostic = pd.read_csv(
+                        tables / 'baseline' / 'classification_report_validation_unseen_matched.csv')
+                    self.assertEqual(diagnostic.support.sum(),
+                                     len(results['validation_unseen_matched'][0]['y_true']))
+                    self.assertIn('validation_unseen_matched_accuracy', summary)
                     if purpose == 'model_selection':
                         self.assertFalse(any(c.startswith('test_') for c in saved.columns))
                     else:
@@ -231,6 +238,8 @@ class EvaluationProtocolTests(unittest.TestCase):
                                      ['conditioned_resnet50'])
                     self.assertEqual(pd.read_csv(conditioned_tables / 'summary.csv').model_type.tolist(),
                                      ['resnet50'])
+                    self.assertTrue((conditioned_tables / 'conditioned_resnet50' /
+                                     'classification_report_validation_unseen_matched.csv').is_file())
                     sweep = {k: v for k, v in common.items() if k not in {'data_config_overrides', 'train_config_overrides'}}
                     # Model selection is the sweep default; other purposes are explicit.
                     if purpose != 'model_selection':
@@ -243,6 +252,8 @@ class EvaluationProtocolTests(unittest.TestCase):
                     self.assertEqual(pd.read_csv(sweep_tables / 'summary.csv').run_name.tolist(), ['first', 'second'])
                     for run in ['first', 'second']:
                         self.assertTrue((sweep_tables / run / f'classification_report_{splits[0]}.csv').is_file())
+                        self.assertTrue((sweep_tables / run /
+                                         'classification_report_validation_unseen_matched.csv').is_file())
                     if purpose == 'final_evaluation':
                         experiments.classify(model_types=['baseline'], experiment_purpose=purpose,
                                              **{**common, 'target_label': 'motion'})
@@ -280,6 +291,7 @@ class EvaluationProtocolTests(unittest.TestCase):
                 summary = pd.read_csv(Path(directory, 'force_n_regress', purpose, 'tables', '001', 'summary.csv'))
                 self.assertEqual(summary.run_name.tolist(), ['t3_tiny_regressor'])
                 self.assertEqual(summary.model_type.tolist(), ['t3_tiny'])
+                self.assertIn('validation_unseen_matched_mae', summary)
                 self.assertEqual(summary.columns.tolist(), ['run_name', 'model_type'] + [
                     f'{split}_{metric}' for split in splits for metric in ['mae', 'rmse', 'r2']
                 ])
@@ -289,7 +301,7 @@ class EvaluationProtocolTests(unittest.TestCase):
                     self.assertFalse(any(c.startswith('test_') for c in saved.columns))
 
     def test_plots_use_selected_splits_and_related_source_rows(self):
-        scored = dict(y_true=[0, 1], y_pred=[0, 0], accuracy=50., macro_f1_avg=1/3)
+        scored = dict(y_true=[1, 3, 1], y_pred=[0, 2, 3], accuracy=0., macro_f1_avg=0.)
         related = dict(y_true=[-1, -1], y_pred=[0, 1], source_labels=['new_a', 'new_b'])
         with tempfile.TemporaryDirectory() as directory, \
                 patch.object(experiments.mv, 'plot_classification_training_curves'), \
@@ -300,7 +312,7 @@ class EvaluationProtocolTests(unittest.TestCase):
                 tsne.reset_mock()
                 context = dict(
                     results_path=directory, experiment_number=1, run_names=['toy'],
-                    models=[ToyClassifier()], histories=[[]], train_labels=[['a', 'b']],
+                    models=[ToyClassifier()], histories=[[]], train_labels=[['a', 'b', 'c', 'd']],
                     target_label='object', plot_tsne=True, seed=23, device='cpu',
                     tsne_max_samples=10, experiment_purpose=purpose,
                     dataloaders=[{split: f'{split}_loader' for split in splits}],
@@ -315,10 +327,21 @@ class EvaluationProtocolTests(unittest.TestCase):
                                      'source_object' if split == 'test_unseen_related' else None)
             plots = Path(directory, 'plots', '001', 'toy')
             self.assertTrue((plots / 'confusion_matrix_test_unseen_related.png').is_file())
+            scored_calls = [call.kwargs for call in matrices.call_args_list
+                            if call.kwargs['split_name'] != 'test_unseen_related']
+            for call in scored_calls:
+                self.assertEqual(call['row_labels'], ['a', 'b', 'c', 'd'])
+                self.assertEqual(call['column_labels'], ['a', 'b', 'c', 'd'])
+                self.assertEqual(call['results']['y_true'], [1, 3, 1])
+                self.assertEqual(call['results']['y_pred'], [0, 2, 3])
+                self.assertFalse(call['cross_space'])
+            self.assertEqual(scored['y_true'], [1, 3, 1])
             related_calls = [call.kwargs for call in matrices.call_args_list
                              if call.kwargs['split_name'] == 'test_unseen_related']
             self.assertEqual(len(related_calls), 1)
             self.assertEqual(related_calls[0]['row_labels'], ['new_a', 'new_b'])
+            self.assertEqual(related_calls[0]['column_labels'], ['a', 'b', 'c', 'd'])
+            self.assertTrue(related_calls[0]['cross_space'])
             self.assertEqual(related_calls[0]['results']['y_true'], [0, 1])
             self.assertEqual(related['y_true'], [-1, -1])
 

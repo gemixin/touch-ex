@@ -376,7 +376,7 @@ def classify_sweep(
     _train_classifiers(experiment)
     _evaluate_classifiers(experiment)
     _save_classification_results(experiment)
-    _generate_classification_plots(experiment)
+    _generate_classification_plots(experiment, comparison_label="Configuration")
 
     # Return the outputs as a tuple of (models, histories, evaluation_results)
     return experiment["models"], experiment["histories"], experiment["evaluation_results"]
@@ -828,7 +828,7 @@ def _save_classification_results(experiment):
             )
 
 
-def _generate_classification_plots(experiment):
+def _generate_classification_plots(experiment, comparison_label="Model"):
     """
     Generate plots for an experiment context, including training curves and plots for
     only the evaluation splits selected by the experiment purpose.
@@ -836,6 +836,8 @@ def _generate_classification_plots(experiment):
     Args:
         experiment (dict): A dictionary containing the prepared experiment context,
             including dataloaders, device, configurations, and paths for saving results.
+        comparison_label (str, optional): Label for comparison plot x-axes.
+            Defaults to 'Model'.
     """
 
     # --- Generate plots --- #
@@ -864,6 +866,7 @@ def _generate_classification_plots(experiment):
         for split, results in experiment["evaluation_results"].items():
             result = results[i]
             unknown = "source_labels" in result
+            # Keep the full training class order on both axes for known-class splits
             row_labels = labels
             matrix_result = result
             if unknown:
@@ -926,6 +929,7 @@ def _generate_classification_plots(experiment):
                     model_types=experiment["run_names"],
                     plots_path=plots_path,
                     split_name=split,
+                    x_label=comparison_label,
                 )
 
 

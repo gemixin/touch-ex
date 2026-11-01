@@ -12,18 +12,26 @@ from ml.experiments import classify
 # --- Configurable parameters --- #
 
 # Model types to compare
-# Choose from 'baseline', 'resnet18', 'resnet50', 'efficientnet_b0', 'vit_b_16',
+# Choose from 'baseline', 'resnet18', 'resnet50', 'efficientnet_b0', 'vit_s_16',
 # 'deit_tiny', or 't3_tiny'
-MODEL_TYPES = ["resnet18", "resnet50"]
+MODEL_TYPES = [
+    "resnet18",
+    "resnet50",
+    "efficientnet_b0",
+    "vit_s_16",
+    "deit_tiny",
+    "t3_tiny",
+]
 
 # Target label for classification
 # Choose from 'object', 'object_region', 'force_level', or 'motion'
 TARGET_LABEL = "object_region"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet_comparison"
+EXPERIMENT_NAME = "frozen_model_comparison"
 
 # Experiment purpose for preparing correct splits and saving results
+# Choose from 'model_selection' or 'final_evaluation'
 EXPERIMENT_PURPOSE = "model_selection"
 
 # Randomisation settings (dataset partitioning always uses seed 129)
@@ -32,25 +40,26 @@ DETERMINISTIC = True
 
 # Set to True to train only the classifier of pretrained models
 # Baseline models are always trained end-to-end
-FREEZE_BACKBONE = False
+FREEZE_BACKBONE = True
 
 # Values here override keys in provided data_config and train_config files
 DATA_CONFIG_OVERRIDES = {}
 TRAIN_CONFIG_OVERRIDES = {}
 
 # t-SNE plot settings
-PLOT_TSNE = True
+# Only plot t-SNE for final evaluation experiments
+PLOT_TSNE = EXPERIMENT_PURPOSE == "final_evaluation"
 TSNE_MAX_SAMPLES = -1
 
 # Paths for files and directories
-DATA_CONFIG_PATH = "configs/chosen_data_config.json"
+DATA_CONFIG_PATH = "configs/default_data_config.json"
 TRAIN_CONFIG_PATH = (
     "configs/frozen_train_config.json"
     if FREEZE_BACKBONE
     else "configs/finetuned_train_config.json"
 )
 BASELINE_TRAIN_CONFIG_PATH = "configs/baseline_train_config.json"
-RESULTS_DIR = "/home/gemma/development/python/touch-ex-results/results"
+RESULTS_DIR = "home/gemma/development/python/touch-ex-results/results"
 CHECKPOINT_DIR = "checkpoints"
 
 # --- Train and evaluate models --- #

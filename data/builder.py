@@ -38,7 +38,7 @@ def get_datasets(data_config, experiment_purpose):
         data_config (dict): A dictionary containing configuration parameters for loading
             and preparing the dataset.
         experiment_purpose (str): Whether to prepare validation splits for
-            'model_selection' or test splits for 'final_evaluation'.
+            'model_selection' or test and diagnostic splits for 'final_evaluation'.
 
     Returns:
         tuple: A tuple containing the Datasets dictionary and the class-label lists

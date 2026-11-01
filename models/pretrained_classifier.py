@@ -5,7 +5,8 @@ from torchvision import models
 from models.t3 import T3_REPOSITORY, T3_REVISION, T3TinyBackbone
 
 
-# Pretrained DeiT model checkpoint path
+# Pretrained timm model checkpoint paths
+VIT_SMALL_CHECKPOINT = "timm/vit_small_patch16_224.augreg_in1k"
 DEIT_TINY_CHECKPOINT = "timm/deit_tiny_patch16_224.fb_in1k"
 
 # Pretrained torchvision weights used to load each supported backbone
@@ -13,7 +14,6 @@ TORCHVISION_WEIGHTS = {
     "resnet18": models.ResNet18_Weights.DEFAULT,
     "resnet50": models.ResNet50_Weights.IMAGENET1K_V2,
     "efficientnet_b0": models.EfficientNet_B0_Weights.DEFAULT,
-    "vit_b_16": models.ViT_B_16_Weights.DEFAULT,
 }
 
 # Record resolved weight names rather than DEFAULT aliases in experiment results
@@ -24,6 +24,7 @@ PRETRAINED_CHECKPOINTS = {
         model_type: f"torchvision/{type(weights).__name__}.{weights.name}"
         for model_type, weights in TORCHVISION_WEIGHTS.items()
     },
+    "vit_s_16": VIT_SMALL_CHECKPOINT,
     "deit_tiny": DEIT_TINY_CHECKPOINT,
     "t3_tiny": f"{T3_REPOSITORY}@{T3_REVISION}",
 }
@@ -36,7 +37,7 @@ def get_pretrained_backbone(model_type):
 
     Args:
         model_type (str): The type of pretrained backbone to use. Options are
-            'resnet18', 'resnet50', 'efficientnet_b0', 'vit_b_16', 'deit_tiny',
+            'resnet18', 'resnet50', 'efficientnet_b0', 'vit_s_16', 'deit_tiny',
             or 't3_tiny'.
 
     Returns:
@@ -59,10 +60,9 @@ def get_pretrained_backbone(model_type):
         feature_dim = backbone.classifier[1].in_features
         backbone.classifier[1] = nn.Identity()
 
-    elif model_type == "vit_b_16":
-        backbone = models.vit_b_16(weights=TORCHVISION_WEIGHTS[model_type])
-        feature_dim = backbone.heads.head.in_features
-        backbone.heads = nn.Identity()
+    elif model_type == "vit_s_16":
+        backbone = timm.create_model(VIT_SMALL_CHECKPOINT, pretrained=True, num_classes=0)
+        feature_dim = backbone.num_features
 
     elif model_type == "deit_tiny":
         backbone = timm.create_model(DEIT_TINY_CHECKPOINT, pretrained=True, num_classes=0)
@@ -93,7 +93,7 @@ class PretrainedClassifier(nn.Module):
 
         Args:
             model_type (str): The type of pretrained backbone to use. Options are
-                'resnet18', 'resnet50', 'efficientnet_b0', 'vit_b_16', 'deit_tiny',
+                'resnet18', 'resnet50', 'efficientnet_b0', 'vit_s_16', 'deit_tiny',
                 or 't3_tiny'.
             num_classes (int): The number of classes to classify.
             freeze_backbone (bool, optional): Whether to train only the classifier.

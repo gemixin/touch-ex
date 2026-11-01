@@ -12,7 +12,7 @@ from ml.experiments import classify_sweep
 # --- Configurable parameters --- #
 
 # Chosen model type for sweep experiments
-# Choose from 'baseline', 'resnet18', 'resnet50', 'efficientnet_b0', 'vit_b_16',
+# Choose from 'baseline', 'resnet18', 'resnet50', 'efficientnet_b0', 'vit_s_16',
 # 'deit_tiny', or 't3_tiny'
 MODEL_TYPE = "resnet18"
 
@@ -25,6 +25,7 @@ EXPERIMENT_NAME = "resnet18_config_sweep"
 
 # Experiment purpose for preparing correct splits and saving results
 # Configuration sweeps are used for model and configuration selection
+# Choose from 'model_selection' or 'final_evaluation'
 EXPERIMENT_PURPOSE = "model_selection"
 
 # Randomisation settings (dataset partitioning always uses seed 129)
@@ -39,21 +40,23 @@ FREEZE_BACKBONE = False
 # Values here override keys in the provided data_config file
 # Add named preprocessing variants here to compare data configurations
 DATA_CONFIG_VARIANTS = {
-    "default": {},
+    "dataset_norm": {"norm_type": "dataset"},
+    "no norm": {"norm_type": None},
 }
 
 # Each training variant is combined with every data variant above
 # Values here override keys in the provided train_config file
 TRAIN_CONFIG_VARIANTS = {
-    "default": {},
+    "default": {"num_epochs": 2},
 }
 
 # t-SNE plot settings
-PLOT_TSNE = False
+# Only plot t-SNE for final evaluation experiments
+PLOT_TSNE = EXPERIMENT_PURPOSE == "final_evaluation"
 TSNE_MAX_SAMPLES = -1
 
 # Paths for files and directories
-DATA_CONFIG_PATH = "configs/chosen_data_config.json"
+DATA_CONFIG_PATH = "configs/default_data_config.json"
 TRAIN_CONFIG_PATH = (
     "configs/frozen_train_config.json"
     if FREEZE_BACKBONE

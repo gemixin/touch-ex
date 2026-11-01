@@ -27,15 +27,20 @@ TEST_STRATIFY_LABEL = "object_region"
 # Specify the evaluation splits for model selection and final evaluation
 EVALUATION_SPLITS = {
     "model_selection": ("val", "validation_unseen_matched"),
-    "final_evaluation": ("test", "test_unseen_matched", "test_unseen_related"),
+    "final_evaluation": (
+        "test",
+        "test_unseen_matched",
+        "test_unseen_related",
+        "validation_unseen_matched",
+    ),
 }
 
 
 def load_touch_ex_dataset(experiment_purpose):
     """
     Load the Touch-Ex Hugging Face dataset splits needed for the experiment and return
-    them as pandas DataFrames. Model selection loads train and matched validation;
-    final evaluation loads train and the two unseen test splits.
+    them as pandas DataFrames. Both purposes load train and matched validation;
+    final evaluation also loads the two unseen test splits.
 
     Args:
         experiment_purpose (str): Whether to load splits for 'model_selection' or
