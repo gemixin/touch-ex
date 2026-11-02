@@ -222,7 +222,7 @@ def classify_conditioned(
         results_dir=results_dir,
         checkpoint_dir=checkpoint_dir,
         experiment_purpose=experiment_purpose,
-        folder_name=f"{target_label}_conditioned_classify",
+        folder_name=f"{target_label}_conditioned_classification",
     )
 
     # Add the force-conditioning configuration to the experiment context
@@ -441,11 +441,11 @@ def _prepare_classification_experiment(
 
     # Use the standard target-specific folder unless the experiment provides one
     if folder_name is None:
-        folder_name = f"{target_label}_classify"
+        folder_name = f"{target_label}_classification"
 
     # Paths for checkpoints, results, and configuration files
-    checkpoints_path = os.path.join(checkpoint_dir, folder_name, experiment_purpose)
-    results_path = os.path.join(results_dir, folder_name, experiment_purpose)
+    checkpoints_path = os.path.join(checkpoint_dir, experiment_purpose, folder_name)
+    results_path = os.path.join(results_dir, experiment_purpose, folder_name)
 
     # --- Get experiment number --- #
 
@@ -1060,11 +1060,11 @@ def _prepare_regression_experiment(
 
     # Folder name for saving results and checkpoints
     # Use a new folder for each regression target
-    folder_name = f"{regression_target}_regress"
+    folder_name = f"{regression_target}_regression"
 
     # Paths for checkpoints, results, and configuration files
-    checkpoints_path = os.path.join(checkpoint_dir, folder_name, experiment_purpose)
-    results_path = os.path.join(results_dir, folder_name, experiment_purpose)
+    checkpoints_path = os.path.join(checkpoint_dir, experiment_purpose, folder_name)
+    results_path = os.path.join(results_dir, experiment_purpose, folder_name)
 
     # --- Get experiment number --- #
 

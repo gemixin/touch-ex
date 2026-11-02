@@ -6,4 +6,5 @@ __pycache__/
 temp/
 checkpoints/
 results/
+tests/
 requirements_gem_linux.txt

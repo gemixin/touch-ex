@@ -13,9 +13,9 @@ Results from my own experiments using these pipelines are available in the
 
 - `configs/` contains data, training, and normalisation-cache configurations
 - `data/` contains dataset loading, preprocessing, splitting, and validation code
-- `ml/` contains experiment orchestration, training, evaluation, visualisation, and utilities
+- `ml/` contains experiment management, training, evaluation, visualisation, and utilities
 - `models/` contains model architecture definitions
-- `notebooks/` contains dataset exploration notebooks
+- `notebooks/` contains exploratory notebooks
 - `scripts/` contains runnable experiment entry points
 
 ## Installation
@@ -80,17 +80,22 @@ For pretrained models, `FREEZE_BACKBONE=True` retains the pretrained backbone an
 
 ### Running Classification Configuration Sweeps
 
-[`scripts/classify_sweep.py`](scripts/classify_sweep.py) runs one selected model over every combination of named data and training configuration variants. Each result row keeps the same `model_type` and records its complete `data_config` and `train_config`.
+Configure the constants at the top of
+[`scripts/classify_sweep.py`](scripts/classify_sweep.py), then run:
+
+```bash
+python3 -m scripts.classify_sweep
+```
+
+The script runs one selected model over every combination of named data and training
+configuration variants. Each result row keeps the same `model_type` and records its
+complete `data_config` and `train_config`.
 
 Add variants to `DATA_CONFIG_VARIANTS` and `TRAIN_CONFIG_VARIANTS` at the top of the
 script. For example, two data variants and two training variants produce four runs,
 named `<data_variant>__<train_variant>`. Each run applies the corresponding pair of
 variant dictionaries over the base JSON configuration files. Sweeps default to
 `model_selection`.
-
-```bash
-python3 -m scripts.classify_sweep
-```
 
 ### Running Conditioned Classification
 
@@ -194,8 +199,7 @@ minimum improvement required to reset patience: validation-accuracy improvement 
 percentage points) for classification, or validation-loss reduction for regression.
 When a baseline is part of a multi-model classification experiment, it automatically
 uses the baseline config while pretrained models use the selected frozen or fine-tuned
-config. Regression uses the frozen or fine-tuned config according to
-`FREEZE_BACKBONE`.
+config.
 
 ## Evaluation Purposes
 
@@ -227,14 +231,14 @@ or F1. Force-level, motion, and regression targets receive the usual metrics.
 
 | Workflow | Task folder | Run name |
 | --- | --- | --- |
-| Classification and sweeps | `<target>_classify` | Model type or sweep variant name |
-| Conditioned classification | `<target>_conditioned_classify` | `conditioned_<MODEL_TYPE>` |
-| Regression | `<target>_regress` | `<MODEL_TYPE>_regressor` |
+| Classification and sweeps | `<target>_classification` | Model type or sweep variant name |
+| Conditioned classification | `<target>_conditioned_classification` | `conditioned_<MODEL_TYPE>` |
+| Regression | `<target>_regression` | `<MODEL_TYPE>_regressor` |
 
 Results use this layout:
 
 ```text
-<RESULTS_DIR>/<task>/<experiment_purpose>/
+<RESULTS_DIR>/<experiment_purpose>/<task>/
 ├── experiments.parquet
 ├── plots/<NNN>/
 └── tables/<NNN>/
@@ -250,15 +254,17 @@ run; per-class reports are saved only for scored classification splits.
 Checkpoints are saved separately:
 
 ```text
-<CHECKPOINT_DIR>/<task>/<experiment_purpose>/<NNN>/<run_name>.pth
+<CHECKPOINT_DIR>/<experiment_purpose>/<task>/<NNN>/<run_name>.pth
 ```
 
 Classification plots include training curves, confusion/prediction matrices, and
-comparisons for multiple runs. `PLOT_TSNE` enables PNG and interactive HTML t-SNE plots
-for every evaluated split; `TSNE_MAX_SAMPLES` limits samples per split (`-1` uses all).
-Related object and object-region plots use original source labels. Each split has its own
-embedding. Per-run classification plots have run subfolders; regression saves training curves,
-predicted-versus-true plots, and residual plots in the numbered plot folder.
+comparisons for multiple runs. Per-run plots have run subfolders within the numbered
+plot folder. `PLOT_TSNE` enables PNG and interactive HTML t-SNE plots for every evaluated
+split; `TSNE_MAX_SAMPLES` limits samples per split (`-1` uses all). Each split has its own
+embedding, and related object and object-region plots use original source labels.
+
+Regression plots include training curves, predicted-versus-true plots, and residual
+plots for the evaluated splits. These are saved directly in the numbered plot folder.
 
 ## Citations
 
