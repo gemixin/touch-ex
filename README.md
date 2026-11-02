@@ -40,11 +40,6 @@ conda env create -f environment.yml
 conda activate touch-ex
 ```
 
-The pipeline downloads the Touch-Ex dataset from Hugging Face when it is first used. A
-CUDA-enabled PyTorch installation is recommended for training. Run the commands below
-from the repository root so the relative configuration and data paths resolve correctly.
-Set `RESULTS_DIR` and `CHECKPOINT_DIR` in the scripts for your machine.
-
 ## Running a Classification Experiment
 
 Configure the constants at the top of [`scripts/classify.py`](scripts/classify.py), then run:
