@@ -15,6 +15,7 @@ from ml.experiments import classify
 # Choose from 'baseline', 'resnet18', 'resnet50', 'efficientnet_b0', 'vit_s_16',
 # 'deit_tiny', or 't3_tiny'
 MODEL_TYPES = [
+    "baseline",
     "resnet18",
     "resnet50",
     "efficientnet_b0",
@@ -28,7 +29,7 @@ MODEL_TYPES = [
 TARGET_LABEL = "object_region"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "frozen_model_comparison"
+EXPERIMENT_NAME = "fine_tuned_model_comparison"
 
 # Experiment purpose for preparing correct splits and saving results
 # Choose from 'model_selection' or 'final_evaluation'
@@ -40,7 +41,7 @@ DETERMINISTIC = True
 
 # Set to True to train only the classifier of pretrained models
 # Baseline models are always trained end-to-end
-FREEZE_BACKBONE = True
+FREEZE_BACKBONE = False
 
 # Values here override keys in provided data_config and train_config files
 DATA_CONFIG_OVERRIDES = {}

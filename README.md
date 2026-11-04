@@ -203,10 +203,9 @@ Set `EXPERIMENT_PURPOSE` to choose which splits are evaluated:
 | Purpose | Evaluation splits |
 | --- | --- |
 | `model_selection` | Internal `val` and `validation_unseen_matched` |
-| `final_evaluation` | Internal `test`, `test_unseen_matched`, `test_unseen_related`, and `validation_unseen_matched` |
+| `final_evaluation` | Internal `test`, `test_unseen_matched`, `test_unseen_related`, and `validation_unseen_matched*` |
 
-During final evaluation, `validation_unseen_matched` is included as an additional
-diagnostic tool, not an independent generalisation evaluation.
+*During final evaluation, `validation_unseen_matched` is  evaluated to provide additional insight into performance on the validation instances, but the results are not considered independent test results. 
 
 Use validation results for model and configuration choices, then run final evaluation.
 Internal validation selects checkpoints and controls early stopping in both modes,
