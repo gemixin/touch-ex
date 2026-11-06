@@ -269,6 +269,10 @@ def plot_model_comparison(results, model_types, plots_path, split_name, x_label=
     axs[1].set_xlabel(x_label)
     axs[1].set_ylabel("Macro F1")
 
+    # Rotate x-axis labels for better readability in all subplots
+    for ax in axs:
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+
     # Save plot
     fig.tight_layout()
     save_path = f"{plots_path}/comparison_{split_name}.png"

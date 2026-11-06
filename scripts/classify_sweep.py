@@ -21,7 +21,7 @@ MODEL_TYPE = "resnet18"
 TARGET_LABEL = "object_region"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_config_sweep"
+EXPERIMENT_NAME = "resnet18_weight_decay_sweep"
 
 # Experiment purpose for preparing correct splits and saving results
 # Configuration sweeps are used for model and configuration selection
@@ -39,15 +39,15 @@ FREEZE_BACKBONE = False
 # Each data variant is combined with every training variant below
 # Values here override keys in the provided data_config file
 # Add named preprocessing variants here to compare data configurations
-DATA_CONFIG_VARIANTS = {
-    "dataset_norm": {"norm_type": "dataset"},
-    "no norm": {"norm_type": None},
-}
+DATA_CONFIG_VARIANTS = {"default": {}}
 
 # Each training variant is combined with every data variant above
 # Values here override keys in the provided train_config file
 TRAIN_CONFIG_VARIANTS = {
-    "default": {"num_epochs": 2},
+    "wd_0.0": {"learning_rate": 3e-5, "weight_decay": 0.0},
+    "wd_0.002": {"learning_rate": 3e-5, "weight_decay": 0.002},
+    "wd_0.02": {"learning_rate": 3e-5, "weight_decay": 0.02},
+    "wd_0.1": {"learning_rate": 3e-5, "weight_decay": 0.1},
 }
 
 # t-SNE plot settings
