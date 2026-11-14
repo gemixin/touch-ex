@@ -21,11 +21,11 @@ MODEL_TYPE = "resnet18"
 REGRESSION_TARGET = "fsr_voltage"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = f"{MODEL_TYPE}_main"
+EXPERIMENT_NAME = "resnet18_final_156"
 
 # Experiment purpose for preparing correct splits and saving results
 # Choose from 'model_selection' or 'final_evaluation'
-EXPERIMENT_PURPOSE = "model_selection"
+EXPERIMENT_PURPOSE = "final_evaluation"
 
 # Randomisation settings (dataset partitioning always uses seed 129)
 SEED = 156
@@ -39,11 +39,19 @@ DATA_CONFIG_OVERRIDES = {}
 TRAIN_CONFIG_OVERRIDES = {"early_stopping_min_delta": 0.001}
 
 # Paths for files and directories
-DATA_CONFIG_PATH = "configs/chosen_data_config.json"
+DATA_CONFIG_PATH = (
+    "configs/chosen_data_config.json"
+    if EXPERIMENT_PURPOSE == "final_evaluation"
+    else "configs/default_data_config.json"
+)
 TRAIN_CONFIG_PATH = (
-    "configs/frozen_train_config.json"
-    if FREEZE_BACKBONE
-    else "configs/finetuned_train_config.json"
+    "configs/chosen_train_config.json"
+    if EXPERIMENT_PURPOSE == "final_evaluation"
+    else (
+        "configs/frozen_train_config.json"
+        if FREEZE_BACKBONE
+        else "configs/finetuned_train_config.json"
+    )
 )
 RESULTS_DIR = "/home/gemma/development/python/touch-ex-results/results"
 CHECKPOINT_DIR = "checkpoints"

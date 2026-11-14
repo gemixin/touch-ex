@@ -21,7 +21,7 @@ MODEL_TYPE = "resnet18"
 TARGET_LABEL = "object_region"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "resnet18_weight_decay_sweep"
+EXPERIMENT_NAME = "resnet18_config_sweep"
 
 # Experiment purpose for preparing correct splits and saving results
 # Configuration sweeps are used for model and configuration selection
@@ -38,17 +38,11 @@ FREEZE_BACKBONE = False
 
 # Each data variant is combined with every training variant below
 # Values here override keys in the provided data_config file
-# Add named preprocessing variants here to compare data configurations
 DATA_CONFIG_VARIANTS = {"default": {}}
 
 # Each training variant is combined with every data variant above
 # Values here override keys in the provided train_config file
-TRAIN_CONFIG_VARIANTS = {
-    "wd_0.0": {"learning_rate": 3e-5, "weight_decay": 0.0},
-    "wd_0.002": {"learning_rate": 3e-5, "weight_decay": 0.002},
-    "wd_0.02": {"learning_rate": 3e-5, "weight_decay": 0.02},
-    "wd_0.1": {"learning_rate": 3e-5, "weight_decay": 0.1},
-}
+TRAIN_CONFIG_VARIANTS = {"default": {}}
 
 # t-SNE plot settings
 # Only plot t-SNE for final evaluation experiments
@@ -56,11 +50,19 @@ PLOT_TSNE = EXPERIMENT_PURPOSE == "final_evaluation"
 TSNE_MAX_SAMPLES = -1
 
 # Paths for files and directories
-DATA_CONFIG_PATH = "configs/default_data_config.json"
+DATA_CONFIG_PATH = (
+    "configs/chosen_data_config.json"
+    if EXPERIMENT_PURPOSE == "final_evaluation"
+    else "configs/default_data_config.json"
+)
 TRAIN_CONFIG_PATH = (
-    "configs/frozen_train_config.json"
-    if FREEZE_BACKBONE
-    else "configs/finetuned_train_config.json"
+    "configs/chosen_train_config.json"
+    if EXPERIMENT_PURPOSE == "final_evaluation"
+    else (
+        "configs/frozen_train_config.json"
+        if FREEZE_BACKBONE
+        else "configs/finetuned_train_config.json"
+    )
 )
 BASELINE_TRAIN_CONFIG_PATH = "configs/baseline_train_config.json"
 RESULTS_DIR = "/home/gemma/development/python/touch-ex-results/results"

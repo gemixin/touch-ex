@@ -1,0 +1,12 @@
+{
+	"optimizer": "adamw",
+	"learning_rate": 0.00003,
+	"warmup_epochs": 1,
+	"warmup_start_factor": 0.1,
+	"min_learning_rate": 0.000001,
+	"weight_decay": 0.1,
+	"num_epochs": 25,
+	"early_stopping_patience": 5,
+	"early_stopping_min_delta": 0.1,
+	"checkpoint_dir": "checkpoints"
+}

@@ -144,10 +144,11 @@ experiments retain the `stratify_label` selected in their data configuration.
 
 ### Data
 
-[`configs/default_data_config.json`](configs/default_data_config.json) is the standard
-starting point. Store the configuration selected from validation experiments in
-[`configs/chosen_data_config.json`](configs/chosen_data_config.json) and set
-`DATA_CONFIG_PATH` in the script to the file you want to use.
+Scripts automatically use
+[`configs/chosen_data_config.json`](configs/chosen_data_config.json) for
+`final_evaluation` and
+[`configs/default_data_config.json`](configs/default_data_config.json) otherwise.
+Store the configuration selected from validation experiments in the chosen config.
 
 | Setting | Purpose and accepted values |
 | --- | --- |
@@ -177,12 +178,13 @@ shuffle, and augmentation independently of dataset partitioning. It resets befor
 
 ### Training
 
-Choose the base training file that matches the model mode:
+Scripts select the base training file by experiment purpose and model mode:
 
 | File | Use for |
 | --- | --- |
-| [`finetuned_train_config.json`](configs/finetuned_train_config.json) | Pretrained models trained end-to-end. |
-| [`frozen_train_config.json`](configs/frozen_train_config.json) | Pretrained models with frozen backbones. |
+| [`chosen_train_config.json`](configs/chosen_train_config.json) | Pretrained models during `final_evaluation`, regardless of backbone freezing. |
+| [`finetuned_train_config.json`](configs/finetuned_train_config.json) | Pretrained models trained end-to-end during `model_selection`. |
+| [`frozen_train_config.json`](configs/frozen_train_config.json) | Pretrained models with frozen backbones during `model_selection`. |
 | [`baseline_train_config.json`](configs/baseline_train_config.json) | The baseline CNN, which is always trained end-to-end. |
 
 All training configs set `optimizer` (`adam` or `adamw`), learning-rate
@@ -193,8 +195,8 @@ epochs; leave it as `null` to train for every epoch. `early_stopping_min_delta` 
 minimum improvement required to reset patience: validation-accuracy improvement (in
 percentage points) for classification, or validation-loss reduction for regression.
 When a baseline is part of a multi-model classification experiment, it automatically
-uses the baseline config while pretrained models use the selected frozen or fine-tuned
-config.
+uses the baseline config while pretrained models use the chosen, frozen, or fine-tuned
+config selected above. Script overrides are applied after loading the base config.
 
 ## Evaluation Purposes
 

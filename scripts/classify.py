@@ -29,7 +29,7 @@ MODEL_TYPES = [
 TARGET_LABEL = "object_region"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "fine_tuned_model_comparison"
+EXPERIMENT_NAME = "model_comparison"
 
 # Experiment purpose for preparing correct splits and saving results
 # Choose from 'model_selection' or 'final_evaluation'
@@ -53,11 +53,19 @@ PLOT_TSNE = EXPERIMENT_PURPOSE == "final_evaluation"
 TSNE_MAX_SAMPLES = -1
 
 # Paths for files and directories
-DATA_CONFIG_PATH = "configs/default_data_config.json"
+DATA_CONFIG_PATH = (
+    "configs/chosen_data_config.json"
+    if EXPERIMENT_PURPOSE == "final_evaluation"
+    else "configs/default_data_config.json"
+)
 TRAIN_CONFIG_PATH = (
-    "configs/frozen_train_config.json"
-    if FREEZE_BACKBONE
-    else "configs/finetuned_train_config.json"
+    "configs/chosen_train_config.json"
+    if EXPERIMENT_PURPOSE == "final_evaluation"
+    else (
+        "configs/frozen_train_config.json"
+        if FREEZE_BACKBONE
+        else "configs/finetuned_train_config.json"
+    )
 )
 BASELINE_TRAIN_CONFIG_PATH = "configs/baseline_train_config.json"
 RESULTS_DIR = "/home/gemma/development/python/touch-ex-results/results"
