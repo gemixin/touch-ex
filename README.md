@@ -135,6 +135,14 @@ training-split-normalised targets, and reports MAE, RMSE, and R² in the origina
 units. With `FREEZE_BACKBONE=True`, the pretrained backbone remains frozen and
 only the regression head is trained; with `False`, the entire model is fine-tuned.
 
+The default and chosen training configurations assume classification, where early
+stopping monitors validation accuracy in percentage points. Regression instead
+monitors normalised validation Huber loss, so it needs a smaller minimum improvement (see suggested override below).
+
+```python
+TRAIN_CONFIG_OVERRIDES = {"early_stopping_min_delta": 0.001}
+```
+
 ## Configurations
 
 The scripts start with base JSON files and apply the overrides defined in the script.
