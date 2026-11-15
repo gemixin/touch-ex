@@ -154,6 +154,7 @@ def classify_conditioned(
     results_dir,
     checkpoint_dir,
     experiment_purpose,
+    zero_force=False,
 ):
     """
     Train and evaluate a pretrained tactile classifier conditioned on force level.
@@ -179,6 +180,7 @@ def classify_conditioned(
         results_dir (str): Root directory for experiment results.
         checkpoint_dir (str): Root directory for model checkpoints.
         experiment_purpose (str): 'model_selection' or 'final_evaluation'.
+        zero_force (bool, optional): Use constant zero instead of force level.
 
     Returns:
         tuple: A tuple containing the trained model, training history, and evaluation
@@ -222,7 +224,11 @@ def classify_conditioned(
         results_dir=results_dir,
         checkpoint_dir=checkpoint_dir,
         experiment_purpose=experiment_purpose,
-        folder_name=f"{target_label}_conditioned_classification",
+        folder_name=(
+            f"{target_label}_zero_force_classification"
+            if zero_force
+            else f"{target_label}_conditioned_classification"
+        ),
     )
 
     # Add the force-conditioning configuration to the experiment context
@@ -233,6 +239,7 @@ def classify_conditioned(
     ]
     experiment["fusion_hidden_dim"] = fusion_hidden_dim
     experiment["fusion_dropout"] = fusion_dropout
+    experiment["zero_force"] = zero_force
 
     # Train, evaluate, save, and plot the experiment
     _train_conditioned_classifier(experiment)
@@ -633,6 +640,7 @@ def _train_conditioned_classifier(experiment):
         freeze_backbone=experiment["freeze_backbones"][0],
         fusion_hidden_dim=experiment["fusion_hidden_dim"],
         fusion_dropout=experiment["fusion_dropout"],
+        zero_force=experiment["zero_force"],
     )
 
     # Train the model and save the history
@@ -766,6 +774,7 @@ def _save_classification_results(experiment):
                 "force_level_labels": experiment["force_level_labels"],
                 "fusion_hidden_dim": experiment["fusion_hidden_dim"],
                 "fusion_dropout": experiment["fusion_dropout"],
+                "zero_force": experiment["zero_force"],
             }
         )
 

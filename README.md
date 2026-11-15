@@ -110,6 +110,10 @@ lightweight fusion layer and classification head.
 data, training, backbone-freezing, and t-SNE settings follow the standard
 classification pipeline.
 
+Set `ZERO_FORCE = True` to supply a constant zero while retaining the fusion
+architecture. These runs save results and checkpoints under
+`<target>_zero_force_classification`, with separate experiment numbering.
+
 ## Running a Regression Experiment
 
 Configure `REGRESSION_TARGET` in [`scripts/regress.py`](scripts/regress.py) as either
@@ -237,6 +241,7 @@ or F1. Force-level, motion, and regression targets receive the usual metrics.
 | --- | --- | --- |
 | Classification and sweeps | `<target>_classification` | Model type or sweep variant name |
 | Conditioned classification | `<target>_conditioned_classification` | `conditioned_<MODEL_TYPE>` |
+| Conditioned classification with zero force | `<target>_zero_force_classification` | `conditioned_<MODEL_TYPE>` |
 | Regression | `<target>_regression` | `<MODEL_TYPE>_regressor` |
 
 Results use this layout:

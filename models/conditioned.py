@@ -19,6 +19,7 @@ class ConditionedClassifier(nn.Module):
         freeze_backbone=False,
         fusion_hidden_dim=256,
         fusion_dropout=0.2,
+        zero_force=False,
     ):
         """
         Initialise the conditioned classifier.
@@ -33,12 +34,14 @@ class ConditionedClassifier(nn.Module):
                 Defaults to 256.
             fusion_dropout (float, optional): Dropout probability applied before the
                 classification layer. Defaults to 0.2.
+            zero_force (bool, optional): Use constant zero instead of force level.
         """
 
         super().__init__()
         self.freeze_backbone = freeze_backbone
         self.fusion_hidden_dim = fusion_hidden_dim
         self.fusion_dropout = fusion_dropout
+        self.zero_force = zero_force
 
         # Load the selected pretrained model without its original classification head
         self.backbone, self.feature_dim = get_pretrained_backbone(model_type)
@@ -117,6 +120,8 @@ class ConditionedClassifier(nn.Module):
 
         # Look up each encoded force level's normalised scalar value
         normalised_force = self.normalised_force_levels[force_levels].unsqueeze(1)
+        if self.zero_force:
+            normalised_force = torch.zeros_like(normalised_force)
 
         # Concatenate and fuse the image and force representations
         combined_features = torch.cat((image_features, normalised_force), dim=1)

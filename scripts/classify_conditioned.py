@@ -15,14 +15,14 @@ from ml.experiments import classify_conditioned
 # Pretrained backbone to use
 # Choose from 'resnet18', 'resnet50', 'efficientnet_b0', 'vit_s_16', 'deit_tiny',
 # or 't3_tiny'
-MODEL_TYPE = None
+MODEL_TYPE = "resnet18"
 
 # Target label for classification
 # Choose from 'object' or 'object_region'
 TARGET_LABEL = "object_region"
 
 # Experiment name for tracking results
-EXPERIMENT_NAME = "main"
+EXPERIMENT_NAME = "resnet18_final_156"
 
 # Experiment purpose for preparing correct splits and saving results
 # Choose from 'model_selection' or 'final_evaluation'
@@ -38,6 +38,9 @@ FREEZE_BACKBONE = False
 # Fusion multilayer perceptron settings
 FUSION_HIDDEN_DIM = 256
 FUSION_DROPOUT = 0.2
+
+# Set to True to test the fusion architecture with a constant zero force input
+ZERO_FORCE = False
 
 # Values here override keys in provided data_config and train_config files
 DATA_CONFIG_OVERRIDES = {}
@@ -78,6 +81,7 @@ classify_conditioned(
     freeze_backbone=FREEZE_BACKBONE,
     fusion_hidden_dim=FUSION_HIDDEN_DIM,
     fusion_dropout=FUSION_DROPOUT,
+    zero_force=ZERO_FORCE,
     data_config_overrides=DATA_CONFIG_OVERRIDES,
     train_config_overrides=TRAIN_CONFIG_OVERRIDES,
     plot_tsne=PLOT_TSNE,
