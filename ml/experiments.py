@@ -225,7 +225,7 @@ def classify_conditioned(
         checkpoint_dir=checkpoint_dir,
         experiment_purpose=experiment_purpose,
         folder_name=(
-            f"{target_label}_zero_force_classification"
+            f"{target_label}_conditioned_zero_classification"
             if zero_force
             else f"{target_label}_conditioned_classification"
         ),
@@ -336,6 +336,7 @@ def classify_sweep(
     variant_pairs = list(
         product(data_config_variants.items(), train_config_variants.items())
     )
+
     # Name only the configuration dimension that varies (this keeps one-axis sweeps
     # concise while retaining both names for full data/training grid sweeps)
     if len(data_config_variants) == 1 and len(train_config_variants) == 1:
